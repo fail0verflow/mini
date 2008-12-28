@@ -18,7 +18,7 @@ typedef struct {
 	u32 argument;
 } ioshdr;
 
-int dogecko;
+int dogecko = 1;
 
 void boot2_loadelf(u8 *elf) {
 	if(dogecko)
@@ -129,6 +129,29 @@ void regs_setup(void)
 	//write32(HW_ALARM,0);
 }
 
+void load_boot2(void *base)
+{
+
+	ioshdr *hdr = (ioshdr*)base;
+	ioshdr *parhdr = (ioshdr*)hdr->argument;
+	u8 *elf;
+
+	gecko_puts("Loading BOOT2 for leet hax\n");
+	gecko_printf("Parent BOOT2 header (@%p):\n",parhdr);
+	gecko_printf(" Header size: %08x\n", parhdr->hdrsize);
+	gecko_printf(" Loader size: %08x\n", parhdr->loadersize);
+	gecko_printf(" ELF size: %08x\n", parhdr->elfsize);
+	gecko_printf(" Argument: %08x\n", parhdr->argument);
+	
+	elf = (u8*) parhdr;
+	elf += parhdr->hdrsize + parhdr->loadersize;
+	gecko_printf("ELF at %p\n",elf);
+	
+	boot2_loadelf(elf);
+}
+
+void (*boot2_setup_memory)(void) = (void*)0xFFFF1EAD;
+
 void *_main(void *base)
 {
 	FRESULT fres;
@@ -148,6 +171,43 @@ void *_main(void *base)
 	debug_output(0xF9);
 
 	gecko_puts("MiniIOS v0.1 loading\n");
+	
+	load_boot2(base);
+	
+	write32(0xFFFF1F60,0);	
+	
+	gecko_puts("Setting up hardware\n");
+	
+	boot2_setup_memory();
+	
+	gecko_puts("Done hardware setup\n");
+
+	write32(0xFFFF1F60,0xF002FB74);	
+
+	gecko_printf("GPIO1OUT %08x\n",read32(HW_GPIO1OUT));
+	gecko_printf("GPIO1DIR %08x\n",read32(HW_GPIO1DIR));
+	gecko_printf("GPIO1IN  %08x\n",read32(HW_GPIO1IN));
+	gecko_printf("GPIO1OWN %08x\n",read32(HW_GPIO1OWNER));
+
+/*
+// Starlet side of GPIO1
+// Output state
+#define		HW_GPIO1OUT			(HW_REG_BASE + 0x0e0)
+// Direction (1=output)
+#define		HW_GPIO1DIR			(HW_REG_BASE + 0x0e4)
+// Input state
+#define		HW_GPIO1IN			(HW_REG_BASE + 0x0e8)
+// Interrupt level
+#define		HW_GPIO1INTLVL		(HW_REG_BASE + 0x0ec)
+// Interrupt flags (write 1 to clear)
+#define		HW_GPIO1INTFLAG		(HW_REG_BASE + 0x0f0)
+// Interrupt propagation enable (interrupts go to main interrupt 0x800)
+#define		HW_GPIO1INTENABLE	(HW_REG_BASE + 0x0f4)
+//??? seems to be a mirror of inputs at some point... power-up state?
+#define		HW_GPIO1INMIR		(HW_REG_BASE + 0x0f8)
+// Owner of each GPIO bit. If 1, GPIO1B registers assume control. If 0, GPIO1 registers assume control.
+#define		HW_GPIO1OWNER		(HW_REG_BASE + 0x0fc)
+*/
 
 	fres = f_mount(0, &fatfs);
 	
@@ -158,11 +218,41 @@ void *_main(void *base)
 	
 	gecko_puts("Trying to boot:" PPC_BOOT_FILE "\n");
 	
+	write32(HW_IPC_PPCMSG, 0);
+	write32(HW_IPC_ARMMSG, 0);
+	write32(HW_IPC_PPCCTRL, IPC_CTRL_SENT|IPC_CTRL_RECV);
+	write32(HW_IPC_ARMCTRL, IPC_CTRL_SENT|IPC_CTRL_RECV);
+	
 	res = powerpc_load_file(PPC_BOOT_FILE);
 	if(res < 0) {
 		gecko_printf("Failed to boot PPC: %d\n", res);
 		gecko_puts("Continuing anyway\n");
 	}
 
-	while(1);
+	while(1) {
+		u32 tidh, tidl;
+		if(read32(HW_IPC_ARMCTRL) & IPC_CTRL_RECV) {
+			gecko_puts("STARLET ping1\n");
+			tidh = read32(HW_IPC_PPCMSG);
+			gecko_printf("TIDH = %08x\n",tidh);
+			//load_boot2(base);
+			write32(0x135c0d20, tidh);
+			gecko_puts("TIDH written\n");
+			write32(HW_IPC_ARMCTRL, read32(HW_IPC_ARMCTRL) | IPC_CTRL_RECV);
+			gecko_puts("STARLET ping1 end\n");
+		}
+		if(read32(HW_IPC_ARMCTRL) & IPC_CTRL_SENT) {
+			gecko_puts("STARLET ping2\n");
+			tidl = read32(HW_IPC_PPCMSG);
+			gecko_printf("TIDL = %08x\n",tidl);
+			//load_boot2(base);
+			write32(0x135c0d24, tidl);
+			gecko_puts("TIDL written\n");
+			write32(HW_IPC_ARMCTRL, read32(HW_IPC_ARMCTRL) | IPC_CTRL_SENT);
+			gecko_puts("STARLET ping2 end\n");
+			break;
+		}
+	}
+
+	return (void *) 0xFFFF0000;
 }
