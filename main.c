@@ -153,7 +153,7 @@ void setup_gpios()
 {
         //do this later
 }
-
+void (*boot2_setup_audio)(u32) = (void*)0xFFFF5E29;
 void regs_setup(void)
 {
         u8 hwood_ver, hwood_hi, hwood_lo;
@@ -175,7 +175,8 @@ void regs_setup(void)
 
         //double check this to see if we can fix buzzing
 	//reset_audio(0);
-        boot2_init1();
+        boot2_setup_audio(0);
+	boot2_init1();
         boot2_init2(hwood_hi);
         setup_gpios();
 
@@ -212,12 +213,13 @@ void load_boot2(void *base)
 }
 
 void (*boot2_setup_memory)(void) = (void*)0xFFFF1EAD;
-
 void *_main(void *base)
 {
 	FRESULT fres;
 	int res;
 	
+	gecko_init();
+	printf("In bootmii arm\n");	
 	mem_setswap(1);
 	
 	write32(HW_IRQENABLE, 0);
@@ -227,7 +229,7 @@ void *_main(void *base)
 	//debug_output(0x51);
 	debug_output(0xF8);
 	
-	gecko_init();
+	//gecko_init();
 	
 	debug_output(0xF9);
 
@@ -239,8 +241,8 @@ void *_main(void *base)
 	
 	gecko_puts("Setting up hardware\n");
 	
-	boot2_setup_memory();
-	regs_setup();	
+	//boot2_setup_memory();
+	//regs_setup();	
 	gecko_puts("Done hardware setup\n");
 
 	write32(0xFFFF1F60,0xF002FB74);	
