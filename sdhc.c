@@ -24,7 +24,7 @@
 #	include "gecko.h"
 #	define	sdhc_debug(reg, f, arg...) do { gecko_printf("sdhc%d: " f "\n", ((reg - SD_REG_BASE) / 0x100), ##arg); } while(0)
 #else
-#	define	sdhc_debug(reg, f, arg...) 
+#	define	sdhc_debug(reg, f, arg...) udelay(100);
 #endif
 
 #ifdef SDHC_PRINT_ERROR

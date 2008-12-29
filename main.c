@@ -94,39 +94,100 @@ void reset_audio(u8 flag)
 	udelay(2);
 }
 
+void boot2_init1() { //func_ffff5d08
+        u32 reg = 0xd8001c8;
+
+        if((s32) read32(reg) < 0)
+                return;
+        clear32(reg, 0x80000000);
+        udelay( 2);
+        clear32(reg, 0x40000000);
+        udelay(10);
+        set32(reg,   0x40000000);
+        udelay(50);
+        set32(reg,   0x80000000);
+        udelay( 2);
+}
+
+void boot2_init2(u32 hlywdVerHi) { //func_ffff5c40
+        u32 reg = 0xD800088;
+        write32(reg, 0xFE);
+        udelay(2);
+        clear32(0xD80001D8, 0x80000000);
+        udelay(2);
+        clear32(0xD80001D8, 0x40000000);
+        udelay(10);
+        set32(0xD80001D8, 0x40000000);
+        udelay(50);
+        set32(0xD80001DB, 0x80000000);
+        udelay(2);
+        write32(reg, 0xF6);
+        udelay(50);
+        write32(reg, 0xF4);
+        udelay(1);
+        write32(reg, 0xF0);
+        udelay(1);
+        write32(reg, 0x70);
+        udelay(1);
+        write32(reg, 0x60);
+        udelay(1);
+        write32(reg, 0x40);
+        udelay(1);
+        write32(reg, 0);
+        udelay(1);
+        write32(0xD0400B4, 0x2214);
+        if (hlywdVerHi)
+                write32(0xD0400B0, 0x20600);
+        else
+                write32(0xD0400B0, 0x20400);
+        write32(0xD0400A4, 0x26);
+        udelay(1);
+        write32(0xD0400A4, 0x2026);
+        udelay(1);
+        write32(0xD0400A4, 0x4026);
+        udelay(20);
+        write32(0xD0400CC, 0x111);
+}
+
+void setup_gpios()
+{
+        //do this later
+}
+
 void regs_setup(void)
 {
-	u8 hwood_ver, hwood_hi, hwood_lo;
-	hwood_ver = read32(0xd800214);
-	hwood_hi = hwood_ver >> 4; //R0
-	hwood_lo = hwood_ver & 0xF; //R1
-	
-	*(u32*)0xFFFF897C = *(u32*)0xFFFF86D0;
-	set32(HW_EXICTRL, EXICTRL_ENABLE_EXI);
-	mem_protect(1, (void*)0x13420000, (void*)0x1fffffff);
-	clear32(HW_EXICTRL, 0x10);
-	if(hwood_hi == 0)
-		write32(0xd8b0010, 0);
-	write32(0xd8b0010, 0);
-	if(hwood_hi == 1 && hwood_lo == 0)
-		mask32(0xd800140, 0x0000FFF0, 1);
-	set32(0xd80018C, 0x400);
-	set32(0xd80018C, 0x800);
-	
-	reset_audio(0);
-	//boot2_sub_FFFF5D08(0);
-	//boot2_sub_FFFF5C40(hwood_hi);
-	//boot2_sub_FFFF6AA8();
-	
-	turn_stuff_on();
-	// what do these two pokes do? no clue. Not needed but I'm leaving them in anyway.
-	write32(0xd8001e0, 0x65244A); //?
-	write32(0xd8001e4, 0x46A024); //?
-	
-	clear32(HW_GPIO1OWNER, 0x10);
-	set32(HW_GPIO1DIR, 0x10);
-	//write32(HW_ALARM,0);
-	//write32(HW_ALARM,0);
+        u8 hwood_ver, hwood_hi, hwood_lo;
+        hwood_ver = read32(0xd800214)  & 0xFF;
+        hwood_hi = hwood_ver >> 4; //R0
+        hwood_lo = hwood_ver & 0xF; //R1
+
+        write32(0xFFFF897C, read32(0xFFFF86D0));
+        set32(HW_EXICTRL, EXICTRL_ENABLE_EXI);
+        mem_protect(1, (void*)0x13420000, (void*)0x1fffffff);
+        clear32(HW_EXICTRL, 0x10);
+        if(hwood_hi == 0)
+                write32(0xd8b0010, 0);
+        write32(0xd8b0010, 0);
+        if(hwood_hi == 1 && hwood_lo == 0)
+                mask32(0xd800140, 0x0000FFF0, 1);
+        set32(0xd80018C, 0x400);
+        set32(0xd80018C, 0x800);
+
+        //double check this to see if we can fix buzzing
+	//reset_audio(0);
+        boot2_init1();
+        boot2_init2(hwood_hi);
+        setup_gpios();
+
+        turn_stuff_on();
+        // what do these two pokes do? no clue. Not needed but I'm leaving them in anyway.
+        write32(0xd8001e0, 0x65244A); //?
+        write32(0xd8001e4, 0x46A024); //?
+
+        clear32(HW_GPIO1OWNER, 0x10);
+        set32(HW_GPIO1DIR, 0x10);
+        //write32(HW_ALARM,0);
+        //write32(HW_ALARM,0);
 }
 
 void load_boot2(void *base)
@@ -179,7 +240,7 @@ void *_main(void *base)
 	gecko_puts("Setting up hardware\n");
 	
 	boot2_setup_memory();
-	
+	regs_setup();	
 	gecko_puts("Done hardware setup\n");
 
 	write32(0xFFFF1F60,0xF002FB74);	
