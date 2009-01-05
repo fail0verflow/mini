@@ -3,42 +3,22 @@ OUTPUT_ARCH(arm)
 EXTERN(_start)
 ENTRY(_start)
 
-__base_addr	=	0;
+__base_addr	=	0xffff0000;
+
+__data_addr =   0x11000000;
+
+__stack_area =  0xfffe0000;
 
 SECTIONS
 {
 	. = __base_addr;
-	.header :
-	{
-		__header = .;
-		/* Entry point (offset) */
-		LONG(__code_start);
-		/* Loader size */
-		LONG(__loader_size);
-		/* ELF size */
-		LONG(0);
-		/* Boot argument? */
-		LONG(0);
-		. = ALIGN(64);
-	}
-	
-	__code_start = .;
-	
+
 	.init :
 	{
 		*(.init)
 		. = ALIGN(4);
 	}
-	
-	.got :
-	{
-		__got_start = .;
-		*(.got.*)
-		*(.got)
-		. = ALIGN(4);
-		__got_end = . ;
-	}
-	
+
 	.text :
 	{
 		*(.text.*)
@@ -50,6 +30,8 @@ SECTIONS
 	}
 
 	__text_end = . ;
+	
+	. = __data_addr;
 
 	.rodata :
 	{
@@ -81,7 +63,7 @@ SECTIONS
 		__bss_end = . ;
 	}
 
-	. = ALIGN(64);
+	. = __stack_area;
 	.stack :
 	{
 		__stack_end = .;
@@ -94,11 +76,8 @@ SECTIONS
 	__end = .;
 	
 }
-__loader_size = __end - __code_start;
 
 PROVIDE (__stack_end = __stack_end);
 PROVIDE (__stack_addr = __stack_addr);
-PROVIDE (__got_start = __got_start);
-PROVIDE (__got_end = __got_end);
 PROVIDE (__bss_start = __bss_start);
 PROVIDE (__bss_end = __bss_end);

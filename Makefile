@@ -2,21 +2,23 @@ CC = arm-eabi-gcc
 AS = arm-eabi-as
 LD = arm-eabi-gcc
 OBJCOPY = arm-eabi-objcopy
-CFLAGS = -mbig-endian -fomit-frame-pointer -Os -fpic -Wall -I.
+CFLAGS = -mbig-endian -fomit-frame-pointer -Os -Wall -I.
 ASFLAGS = -mbig-endian
-LDFLAGS = -nostartfiles -mbig-endian -Wl,-T,stub.ld
+LDFLAGS = -nostartfiles -mbig-endian -Wl,-T,miniios.ld -n
 
-TARGET = iosboot.bin
-ELF = iosboot.elf
+ELFLOADER = ../elfloader/elfloader.bin
+MAKEBIN = python ../makebin.py
+
+TARGET = miniios.bin
+ELF = miniios.elf
 OBJECTS = start.o main.o vsprintf.o string.o gecko.o memory.o memory_asm.o \
 	utils_asm.o utils.o ff.o diskio.o sdhc.o powerpc_elf.o powerpc.o panic.o
 
+$(TARGET) : $(ELF) $(ELFLOADER) 
+	@echo  "MAKEBIN	$@"
+	@$(MAKEBIN) $(ELFLOADER) $< $@
 
-$(TARGET) : $(ELF)
-	@echo  "OBJCPY	$@"
-	@$(OBJCOPY) -O binary $< $@
-
-$(ELF) : stub.ld $(OBJECTS)
+$(ELF) : miniios.ld $(OBJECTS)
 	@echo  "LD	$@"
 	@$(LD) $(LDFLAGS) $(OBJECTS) -o $@
 

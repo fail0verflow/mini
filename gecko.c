@@ -183,7 +183,7 @@ int gecko_getchar(void)
 
 int gecko_puts(const char *s)
 {
-	udelay(10000);
+	//udelay(10000);
 	return gecko_sendbuffer(s, strlen(s));
 }
 
