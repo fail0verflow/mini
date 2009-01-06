@@ -83,7 +83,7 @@ int powerpc_load_file(const char *path)
 	gecko_puts("ELF load done, booting PPC...\n");
 	powerpc_upload_stub(NULL,0);
 	powerpc_reset();
-	gecko_puts("PPC booted!\n");
+	gecko_puts("PPC booted!\n\n");
 
 	return 0;
 }

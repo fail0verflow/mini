@@ -180,5 +180,7 @@ void *_main(void *base)
 		}
 	}
 
+	gecko_puts("Returning to BootMii...\n");
+
 	return patch_boot2(base, (((u64)tidh)<<32) | tidl);
 }
