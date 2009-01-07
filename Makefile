@@ -1,10 +1,9 @@
-CC = arm-eabi-gcc
-AS = arm-eabi-as
-LD = arm-eabi-gcc
-OBJCOPY = arm-eabi-objcopy
+include ../toolchain.rules
+
 CFLAGS = -mbig-endian -fomit-frame-pointer -Os -Wall -I.
 ASFLAGS = -mbig-endian
-LDFLAGS = -nostartfiles -mbig-endian -Wl,-T,miniios.ld,-Map,miniios.map -n
+LDFLAGS = -nostartfiles -nodefaultlibs -mbig-endian -Wl,-T,miniios.ld,-Map,miniios.map -n
+LIBS = -lgcc
 
 ELFLOADER = ../elfloader/elfloader.bin
 MAKEBIN = python ../makebin.py
@@ -20,7 +19,7 @@ $(TARGET) : $(ELF) $(ELFLOADER)
 
 $(ELF) : miniios.ld $(OBJECTS)
 	@echo  "LD	$@"
-	@$(LD) $(LDFLAGS) $(OBJECTS) -o $@
+	@$(LD) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
 
 %.o : %.S
 	@echo  "AS	$@"
