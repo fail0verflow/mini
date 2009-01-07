@@ -4,7 +4,7 @@ LD = arm-eabi-gcc
 OBJCOPY = arm-eabi-objcopy
 CFLAGS = -mbig-endian -fomit-frame-pointer -Os -Wall -I.
 ASFLAGS = -mbig-endian
-LDFLAGS = -nostartfiles -mbig-endian -Wl,-T,miniios.ld -n
+LDFLAGS = -nostartfiles -mbig-endian -Wl,-T,miniios.ld,-Map,miniios.map -n
 
 ELFLOADER = ../elfloader/elfloader.bin
 MAKEBIN = python ../makebin.py
@@ -43,5 +43,5 @@ $(ELF) : miniios.ld $(OBJECTS)
 -include $(OBJECTS:.o=.d)
 
 clean:
-	-rm -f *.elf *.o *.bin *.d
+	-rm -f *.elf *.o *.bin *.d *.map
 

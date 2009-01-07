@@ -1,4 +1,4 @@
 *.d
 *.bin
 *.elf
-
+*.map
