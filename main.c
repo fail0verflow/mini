@@ -10,6 +10,7 @@
 #include "ff.h"
 #include "panic.h"
 #include "powerpc_elf.h"
+#include "irq.h"
 
 typedef struct {
 	u32 hdrsize;
@@ -152,6 +153,15 @@ void *_main(void *base)
 		gecko_printf("Error %d while trying to mount SD\n", fres);
 		panic2(0, PANIC_MOUNT);
 	}
+	
+	irq_initialize();
+	irq_enable(IRQ_TIMER);
+	irq_enable(IRQ_NAND);
+	irq_enable(IRQ_GPIO1B);
+	irq_enable(IRQ_GPIO1);
+	irq_enable(IRQ_RESET);
+	irq_enable(IRQ_IPC);
+	gecko_puts("Interrupts initialized\n");
 
 	gecko_puts("Trying to boot:" PPC_BOOT_FILE "\n");
 
@@ -180,7 +190,11 @@ void *_main(void *base)
 		}
 	}
 
+	void *bootmii = patch_boot2(base, (((u64)tidh)<<32) | tidl);
+	
+	gecko_puts("Shutting down interrupts\n");
+	irq_shutdown();
+	
 	gecko_puts("Returning to BootMii...\n");
-
-	return patch_boot2(base, (((u64)tidh)<<32) | tidl);
+	return bootmii;
 }

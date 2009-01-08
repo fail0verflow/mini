@@ -1,6 +1,6 @@
 include ../toolchain.rules
 
-CFLAGS = -mbig-endian -fomit-frame-pointer -Os -Wall -I.
+CFLAGS = -mbig-endian -fomit-frame-pointer -Os -Wall -I.	
 ASFLAGS = -mbig-endian
 LDFLAGS = -nostartfiles -nodefaultlibs -mbig-endian -Wl,-T,miniios.ld,-Map,miniios.map -n
 LIBS = -lgcc
@@ -10,8 +10,8 @@ MAKEBIN = python ../makebin.py
 
 TARGET = miniios.bin
 ELF = miniios.elf
-OBJECTS = start.o main.o vsprintf.o string.o gecko.o memory.o memory_asm.o \
-	utils_asm.o utils.o ff.o diskio.o sdhc.o powerpc_elf.o powerpc.o panic.o
+OBJECTS = start.o ipcstruct.o main.o ipc.o vsprintf.o string.o gecko.o memory.o memory_asm.o \
+	utils_asm.o utils.o ff.o diskio.o sdhc.o powerpc_elf.o powerpc.o panic.o irq.o irq_asm.o
 
 $(TARGET) : $(ELF) $(ELFLOADER) 
 	@echo  "MAKEBIN	$@"
@@ -23,7 +23,7 @@ $(ELF) : miniios.ld $(OBJECTS)
 
 %.o : %.S
 	@echo  "AS	$@"
-	@$(AS) $(ASFLAGS) -o $@ $<
+	@$(CC) $(CFLAGS) -D_LANGUAGE_ASSEMBLY -c -x assembler-with-cpp -o $@ $<
 
 %.o : %.c
 	@echo  "CC	$@"

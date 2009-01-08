@@ -160,16 +160,6 @@ static inline u8 mask8(u32 addr, u8 clear, u8 set)
 	return data;
 }
 
-#define STACK_ALIGN(type, name, cnt, alignment)         \
-u8 _al__##name[((sizeof(type)*(cnt)) + (alignment) + \
-(((sizeof(type)*(cnt))%(alignment)) > 0 ? ((alignment) - \
-((sizeof(type)*(cnt))%(alignment))) : 0))]; \
-type *name = (type*)(((u32)(_al__##name)) + ((alignment) - (( \
-(u32)(_al__##name))&((alignment)-1))))
-
-#define ATTRIBUTE_ALIGN(v)				__attribute__((aligned(v)))
-
-
 /*
  * These functions are guaranteed to copy by reading from src and writing to dst in <n>-bit units
  * If size is not aligned, the remaining bytes are not copied
@@ -183,5 +173,7 @@ void memcpy8(void *dst, void *src, u32 size);
 
 void hexdump(void *d, int len);
 int sprintf(char *str, const char *fmt, ...);
+void udelay(u32 d);
+void panic(u8 v);
 
 #endif

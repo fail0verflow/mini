@@ -2,6 +2,8 @@
 #include "utils.h"
 #include "gecko.h"
 #include "vsprintf.h"
+#include "start.h"
+#include "hollywood.h"
 
 static char ascii(char s) {
   if(s < 0x20) return '.';
@@ -36,5 +38,37 @@ int sprintf(char *str, const char *fmt, ...)
 	i = vsprintf(str, fmt, args);
 	va_end(args);
 	return i;
+}
+
+void udelay(u32 d)
+{
+	// should be good to max .2% error
+	u32 ticks = d * 19 / 10;
+
+	if(ticks < 2)
+		ticks = 2;
+
+	u32 now = read32(HW_TIMER);
+
+	u32 then = now  + ticks;
+
+	if(then < now) {
+		while(read32(HW_TIMER) >= now);
+		now = read32(HW_TIMER);
+	}
+
+	while(now < then) {
+		now = read32(HW_TIMER);
+	}
+}
+
+void panic(u8 v)
+{
+	while(1) {
+		debug_output(v);
+		udelay(500000);
+		debug_output(0);
+		udelay(500000);
+	}
 }
 

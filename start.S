@@ -5,11 +5,13 @@
 .extern __got_end
 .extern __bss_start
 .extern __bss_end
+.extern __bss2_start
+.extern __bss2_end
 .extern __stack_addr
 .globl _start
 .globl debug_output
-.globl panic
-.globl delay
+
+.extern v_irq
 
 .section .init
 
@@ -54,6 +56,22 @@ bss_loop:
 	b	bss_loop
 
 done_bss:
+	@ clear BSS2
+	ldr	r1, =__bss2_start
+	add	r1, r4
+	ldr	r2, =__bss2_end
+	add	r2, r4
+	mov	r3, #0
+bss2_loop:
+	@ check for the end
+	cmp	r1, r2
+	beq	done_bss2
+	@ clear the word and move on
+	str	r3, [r1]
+	add	r1, r1, #4
+	b	bss2_loop
+
+done_bss2:
 	mov	r0, #0x84
 	bl	debug_output
 	@ take the plunge
@@ -79,8 +97,8 @@ v_data_abrt:
 v_reserved:
 	b v_reserved
 
-v_irq:
-	b v_irq
+#v_irq:
+#	b v_irq
 
 v_fiq:
 	b v_fiq
@@ -97,30 +115,6 @@ debug_output:
 	orr	r2, r2, r0, LSL #16
 	@ store back
 	str	r2, [r3, #0xe0]
-	mov	pc, lr
-
-panic:
-	mov	r4, r0
-_panic:
-	mov	r0, r4
-	bl	debug_output
-	ldr	r0, =6175000
-	bl	delay
-	mov	r0, #0x00
-	bl	debug_output
-	ldr	r0, =6175000
-	bl	delay
-	b	_panic
-
-@ the speed of this seems to decrease wildly with certain (non-)alignments
-@ probably some prefetch buffer / cache / DRAM junk
-	.balign 64
-delay:
-	cmp	r0, #0
-	moveq	pc, lr
-1:
-	subs	r0, r0, #1
-	bne	1b
-	mov	pc, lr
+	bx	lr
 
 .pool

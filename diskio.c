@@ -10,7 +10,7 @@
 #include <string.h>
 
 static sdhci_t sdhci;
-static u8 *buffer[512] __attribute__((aligned(32)));
+static u8 buffer[512] MEM2_BSS ALIGNED(32);
 
 /*-----------------------------------------------------------------------*/
 /* Inidialize a Drive                                                    */

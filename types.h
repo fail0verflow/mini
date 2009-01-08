@@ -23,6 +23,20 @@ typedef volatile signed long long vs64;
 
 typedef s32 size_t;
 
-#define	NULL	((void *)0)
+#define NULL ((void *)0)
+
+#define MEM2_BSS __attribute__ ((section (".bss.mem2")))
+#define MEM2_DATA __attribute__ ((section (".data.mem2")))
+#define MEM2_RODATA __attribute__ ((section (".rodata.mem2")))
+#define ALIGNED(x) __attribute__((aligned(x)))
+
+#define STACK_ALIGN(type, name, cnt, alignment)         \
+	u8 _al__##name[((sizeof(type)*(cnt)) + (alignment) + \
+	(((sizeof(type)*(cnt))%(alignment)) > 0 ? ((alignment) - \
+	((sizeof(type)*(cnt))%(alignment))) : 0))]; \
+	type *name = (type*)(((u32)(_al__##name)) + ((alignment) - (( \
+	(u32)(_al__##name))&((alignment)-1))))
+
+
 
 #endif

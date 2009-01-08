@@ -131,6 +131,8 @@
 // maybe a GPIO???
 #define		HW_RESETS			(HW_REG_BASE + 0x194)
 
+#define		HW_CLOCKS			(HW_REG_BASE + 0x1b4)
+
 #define		HW_GPIO2OUT			(HW_REG_BASE + 0x1c8)
 #define		HW_GPIO2DIR			(HW_REG_BASE + 0x1cc)
 #define		HW_GPIO2IN			(HW_REG_BASE + 0x1d0)
