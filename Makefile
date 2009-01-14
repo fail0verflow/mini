@@ -1,7 +1,7 @@
 include ../toolchain.rules
 
-CFLAGS = -mbig-endian -fomit-frame-pointer -Os -Wall -I.	
-ASFLAGS = -mbig-endian
+CFLAGS = -mbig-endian -fomit-frame-pointer -Os -Wall -I. -mcpu=arm926ej-s
+ASFLAGS = -mbig-endian -mcpu=arm926ej-s
 LDFLAGS = -nostartfiles -nodefaultlibs -mbig-endian -Wl,-T,miniios.ld,-Map,miniios.map -n
 LIBS = -lgcc
 
