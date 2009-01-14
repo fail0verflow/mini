@@ -35,6 +35,12 @@ void irq_disable(u32 irq);
 u32 irq_kill(void);
 void irq_restore(u32 cookie);
 
+static inline void irq_wait(void)
+{
+	u32 data = 0;
+	__asm__ volatile ( "mcr\tp15, 0, %0, c7, c0, 4" : : "r" (data) );
+}
+
 #endif
 
 #endif
