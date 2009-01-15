@@ -150,7 +150,7 @@ void ahb_memflush(enum AHBDEV dev)
 			break;
 	}
 	
-	write32(MEM_FLUSHREQ, req);
+	write16(MEM_FLUSHREQ, req);
 	
 	for(i=0;i<1000000;i++) {
 		ack = read16(MEM_FLUSHACK);
@@ -158,7 +158,7 @@ void ahb_memflush(enum AHBDEV dev)
 		if(ack == req)
 			break;
 	}
-	write32(MEM_FLUSHREQ, 0);
+	write16(MEM_FLUSHREQ, 0);
 	if(i>=1000000) {
 		gecko_printf("ahb_memflush(%d): Flush (0x%x) did not ack!\n", dev, req);
 	}
