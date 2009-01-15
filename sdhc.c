@@ -343,7 +343,6 @@ static void __sd_dumpregs(sdhci_t *sdhci)
 
 static int __sd_reset(sdhci_t *sdhci, int all)
 {
-	u32 caps;
 	int retval;
 	u32 mask;
 
@@ -362,10 +361,7 @@ static int __sd_reset(sdhci_t *sdhci, int all)
 		mask = SDHC_SOFTWARE_RESET_CMD | SDHC_SOFTWARE_RESET_DAT;
 
 	sdhc_error(sdhci->reg_base, "resetting card (mask = %x)", mask);
-	sdhc_debug(sdhci->reg_base, "software reset register: %02x", __sd_read8(sdhci->reg_base + SDHC_SOFTWARE_RESET));
 	__sd_write8(sdhci->reg_base + SDHC_SOFTWARE_RESET, mask);
-	sdhc_debug(sdhci->reg_base, "software reset register: %02x", __sd_read8(sdhci->reg_base + SDHC_SOFTWARE_RESET));
-	sdhc_debug(sdhci->reg_base, "waiting for reset bit to be unset");
 
 	retval = __sd_wait8_r(sdhci->reg_base + SDHC_SOFTWARE_RESET, mask);
 	if(retval < 0)
@@ -379,9 +375,6 @@ static int __sd_reset(sdhci_t *sdhci, int all)
 	
 	__sd_dumpregs(sdhci);
 	__sd_write8(sdhci->reg_base + SDHC_TIMEOUT_CONTROL, SDHC_TIMEOUT_MAX);
-
-	caps = __sd_read32(sdhci->reg_base + SDHC_CAPABILITIES);
-	sdhc_debug(sdhci->reg_base, "capabilites: %X", caps);
 
 	return 0;
 }
@@ -408,15 +401,11 @@ static int __sd_clock(sdhci_t *sdhci, u8 enable, u32 freq)
 		return 0;
 
 	caps = read32(sdhci->reg_base + SDHC_CAPABILITIES);
-	sdhc_debug(sdhci->reg_base, "capabilites: %X", caps);
 
 	if(SDHC_BFREQ_KHZ(caps) != 0)
 		d = __sd_clock_div(SDHC_BFREQ_KHZ(caps), freq);
 	else
 		d = 256 / 2;
-
-	sdhc_debug(sdhci->reg_base, "using a clock divisor of %d to archieve a speed of %d kHz (base = %d)", 2*d, SDHC_BFREQ_KHZ(caps) / (2 * d), SDHC_BFREQ_KHZ(caps));
-	sdhc_debug(sdhci->reg_base, " -> clock_control = %X", (d << 8) | SDHC_CLOCK_INTERNAL_ENABLE);
 
 	__sd_write16(sdhci->reg_base + SDHC_CLOCK_CONTROL, (d << 8) | SDHC_CLOCK_INTERNAL_ENABLE);
 
@@ -460,7 +449,7 @@ static int __sd_power(sdhci_t *sdhci, int vdd)
 
 	if(!(caps & vdd))
 	{
-		sdhc_debug(sdhci->reg_base, "voltage %x not supported by the hc");
+		sdhc_error(sdhci->reg_base, "voltage %x not supported by the hc");
 		return SDHC_EINVAL;
 	}
 
@@ -478,14 +467,12 @@ static int __sd_power(sdhci_t *sdhci, int vdd)
 			pwr |= SDHC_PCTRL_VOLTAGE_18;
 			break;
 		default:
-			sdhc_debug(sdhci->reg_base, "invalid vdd: %x", vdd);
+			sdhc_error(sdhci->reg_base, "invalid vdd: %x", vdd);
 			return SDHC_EINVAL;
 	}
 
-	sdhc_debug(sdhci->reg_base, "writing %02x to power control", pwr);
 	__sd_write8(sdhci->reg_base + SDHC_POWER_CONTROL, pwr);
 	pwr |= SDHC_PCTRL_ENABLE;
-	sdhc_debug(sdhci->reg_base, "writing %02x to power control", pwr);
 	__sd_write8(sdhci->reg_base + SDHC_POWER_CONTROL, pwr);
 
 	__sd_dumpregs(sdhci);
@@ -510,16 +497,11 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 	int retval;
 	int i, imax;
 	u32 caps;
-#if 0			/* only needed for PIO which is currently broken */
-	u8 *ptr;
-	int len;
-#endif
 
 	if(cmd & SD_CMD_ACMD)
 	{
 		sdhc_debug(sdhci->reg_base, " cmd %X is ACMD%d, sending CMD55 first", cmd, cmd - SD_CMD_ACMD);
 		retval = __sd_cmd(sdhci, SD_CMD_APP, SD_R1, sdhci->rca << 16, 0, NULL, NULL, 0);
-		sdhc_debug(sdhci->reg_base, " CMD55: retval = %d", retval);
 		// TODO: also check the response here?
 		if(retval < 0)
 			return retval;
@@ -533,7 +515,7 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 
 	if(blk_cnt > SDHC_BLOCKS_MAX)
 	{
-		sdhc_debug(sdhci->reg_base, "%d blocks are too much...", blk_cnt);
+		sdhc_error(sdhci->reg_base, "%d blocks are too much...", blk_cnt);
 		return SDHC_EOVERFLOW;
 	}
 
@@ -549,7 +531,6 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 	command = (cmd & SDHC_CMD_MASK) << SDHC_CMD_SHIFT;
 	if(blk_cnt > 0)
 	{
-		sdhc_debug(sdhci->reg_base, "block count is > 0; setting up mode register");
 		if(use_dma == 1)
 			mode |= SDHC_CMDMODE_DMA_ENABLE;
 		mode |= SDHC_CMDMODE_MULTIBLOCK;
@@ -557,13 +538,11 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 		mode |= SDHC_CMDMODE_BLOCKCNT_ENABLE;
 		if(type & SD_READ)
 		{
-			sdhc_debug(sdhci->reg_base, "read operation");
 			mask = SDHC_BFR_READ_ENABLE;
 			mode |= SDHC_CMDMODE_READ;
 		}
 		else
 		{
-			sdhc_debug(sdhci->reg_base, "write operation");
 			mask = SDHC_BFR_WRITE_ENABLE;
 			mode |= SDHC_CMDMODE_WRITE;
 		}
@@ -587,7 +566,6 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 		command |= SDHC_CMD_IDXCHECK;
 	
 
-	sdhc_debug(sdhci->reg_base, "command = %X, mode = %X", command, mode);
 	sdhc_debug(sdhci->reg_base, "waiting for command inhibit bits to be cleared..");
 
 	retval = __sd_wait32_r(sdhci->reg_base + SDHC_PRESENT_STATE, SDHC_PRESENT_CMD_INHIBIT_BOTH);
@@ -620,7 +598,6 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 
 	if(blk_cnt > 0)
 	{
-		sdhc_debug(sdhci->reg_base, "writing bsize = %x, bcount = %x", BLOCK_SIZE, blk_cnt);
 		__sd_write16(sdhci->reg_base + SDHC_BLOCK_SIZE, (BLOCK_SIZE_512K << 12) | BLOCK_SIZE);
 		__sd_write16(sdhci->reg_base + SDHC_BLOCK_COUNT, blk_cnt);
 	}
@@ -628,11 +605,7 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 	sdhc_debug(sdhci->reg_base, "writing mode = %x, arg = %x, cmd = %x", mode, arg, command);
 	__sd_write32(sdhci->reg_base + SDHC_CMD_ARG, arg);
 
-	// just don't ask....
 	__sd_write32(sdhci->reg_base + SDHC_CMD_TRANSFER_MODE, ((u32)command << 16) | mode);
-
-	sdhc_debug(sdhci->reg_base, "writing %08x to %x", ((u32)command << 16) | mode, SDHC_CMD_TRANSFER_MODE);
-	sdhc_debug(sdhci->reg_base, "mode = %x", __sd_read16(sdhci->reg_base + SDHC_CMD_TRANSFER_MODE));
 
 	__sd_dumpregs(sdhci);
 	sdhc_debug(sdhci->reg_base, "waiting until command phase is done");
@@ -673,7 +646,6 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 			response[0] = __sd_read32(sdhci->reg_base + SDHC_RESPONSE);
 			sdhc_debug(sdhci->reg_base, "response = %08X", response[0]);
 		}
-		sdhc_debug(sdhci->reg_base, "copied response to buffer");
 	}
 
 	// FIXME: check response and abort on errors?
@@ -686,52 +658,12 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 			gecko_printf("sdhci: PIO mode is broken, align your buffer and use DMA.\n");
 			__sd_reset(sdhci, 0);
 			return SDHC_EIO;
-#if 0
-
-			sdhc_debug(sdhci->reg_base, "using data port buffer to read/write data");
-			len = blk_cnt * BLOCK_SIZE; // as long as BLOCK_SIZE % 4 == 0 len % 4 is (obviously) also 0; this will crash and burn otherwise!!
-			ptr = (u8 *)buffer;
-
-			while(len > 0)
-			{
-				if(len % BLOCK_SIZE == 0)
-				{
-					sdhc_debug(sdhci->reg_base, "starting to work on the next block; bytes left = %d", len);
-					sdhc_debug(sdhci->reg_base, "waiting for data read/write enable bits to be set");
-					retval = __sd_wait32(sdhci->reg_base + SDHC_PRESENT_STATE, mask);
-					if(retval < 0)
-					{
-						// FIXME: error handling!!
-						sdhc_debug(sdhci->reg_base, "timed out");
-						sdhc_debug(sdhci->reg_base, "present state = %08x", __sd_read32(sdhci->reg_base + SDHC_PRESENT_STATE));
-						__sd_dumpregs(sdhci);
-						return retval;
-					}
-					sdhc_debug(sdhci->reg_base, "data read/write enable bits are set");
-				}
-				if(mask == SDHC_BFR_READ_ENABLE)
-					*(u32 *)ptr = __sd_read32(sdhci->reg_base + SDHC_DATA);
-				else
-					__sd_write32(sdhci->reg_base + SDHC_DATA, *(u32 *)ptr);
-				ptr += 4;
-				len -= 4;
-			}
-			sdhc_debug(sdhci->reg_base, "all data transferred");
-
-			sdhc_debug(sdhci->reg_base, "waiting.."); // FIXME: interrupts should be used here, don't even know if this works
-			//if(mask == SDHC_BFR_READ_ENABLE)
-			//	while(__sd_read32(sdhci->reg_base + SDHC_PRESENT_STATE) & (1 << 9));
-			//else
-			//	while(__sd_read32(sdhci->reg_base + SDHC_PRESENT_STATE) & (1 << 2));
-			sdhc_debug(sdhci->reg_base, "done");
-#endif
 		}
 		else	/* SDMA; transfer data in 512 KB blocks (i.e. 1024 512 byte blocks */
 		{
 			u8 *ptr = (u8 *)buffer;
 			sdhc_debug(sdhci->reg_base, "using SDMA to transfer data");
 
-			// poor man's interrupts
 			while(1)
 			{
 				sdhc_debug(sdhci->reg_base, "waiting for interrupts...");
@@ -783,7 +715,6 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 
 void __sd_print_status(sdhci_t *sdhci)
 {
-	return;
 #ifdef SDHC_DEBUG
 	u32 status;
 	u32 state;
@@ -846,6 +777,7 @@ void __sd_print_status(sdhci_t *sdhci)
 	}
 
 #endif
+	return;
 }
 
 int sd_mount(sdhci_t *sdhci)
@@ -873,7 +805,6 @@ int sd_mount(sdhci_t *sdhci)
 	if(retval < 0)
 		return retval;
 
-	sdhc_debug(sdhci->reg_base, "resetting card");
 	retval = __sd_cmd(sdhci, SD_CMD_RESET_CARD, SD_R0, 0x0, 0, NULL, NULL, 0);
 	if(retval < 0)
 		return retval;
@@ -904,7 +835,7 @@ int sd_mount(sdhci_t *sdhci)
 	else
 	{
 		// SDHC card deteced
-		sdhc_debug(sdhci->reg_base, "SDv2 card detected.");
+		sdhc_error(sdhci->reg_base, "SDv2 card detected.");
 		sdhci->is_sdhc = 1;
 		sdhci->ocr = OCR_HCS;
 	}
@@ -922,9 +853,7 @@ int sd_mount(sdhci_t *sdhci)
 	resp[0] = 0;
 	while(tries++ <= SDHC_WAIT_TIMEOUT_OUTER_MULTIPLY)
 	{
-		sdhc_debug(sdhci->reg_base, "attemp %d", tries);
 		retval = __sd_cmd(sdhci, SD_CMD_APP_SEND_OP_COND, SD_R3, sdhci->ocr, 0, NULL, resp, 6);
-		sdhc_debug(sdhci->reg_base, " retval = %d, response = %08X", retval, resp[0]);
 		if(resp[0] & OCR_POWERUP_STATUS)
 		{
 			sdhc_debug(sdhci->reg_base, "card power up is done.");
