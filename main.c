@@ -150,6 +150,9 @@ void *_main(void *base)
 	gecko_init();
 	gecko_puts("MiniIOS v0.1 loading\n");
 
+	gecko_puts("Configuring caches and MMU...\n");
+	mem_initialize();
+
 
 
 	irq_initialize();
@@ -186,6 +189,8 @@ void *_main(void *base)
 	ipc_shutdown();
 	gecko_puts("Shutting down interrupts...\n");
 	irq_shutdown();
+	gecko_puts("Shutting down caches and MMU...\n");
+	mem_shutdown();
 
 	//vector = patch_boot2(base, (((u64)tidh)<<32) | tidl);
 

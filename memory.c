@@ -4,12 +4,17 @@
 #include "utils.h"
 #include "gecko.h"
 #include "hollywood.h"
+#include "irq.h"
 
 void _dc_inval_entries(void *start, int count);
 void _dc_flush_entries(void *start, int count);
 void _dc_flush(void);
+void _dc_inval(void);
 void _ic_inval(void);
 void _drain_write_buffer(void);
+void _tlb_inval(void);
+
+extern u32 __page_table[4096];
 
 #define LINESIZE 0x20
 #define CACHESIZE 0x4000
@@ -51,7 +56,7 @@ u32 _mc_read32(u32 addr)
 	}
 	data = read32(addr);
 	read32(HW_214); //???
-	
+
 	if(!(read32(HW_214) & 0xF0))
 		write32(HW_130, tmp130);
 
@@ -133,7 +138,7 @@ void ahb_memflush(enum AHBDEV dev)
 	u16 req = 0;
 	u16 ack;
 	int i;
-	
+
 	switch(dev)
 	{
 		case MEMORY:
@@ -149,9 +154,9 @@ void ahb_memflush(enum AHBDEV dev)
 			}
 			break;
 	}
-	
+
 	write16(MEM_FLUSHREQ, req);
-	
+
 	for(i=0;i<1000000;i++) {
 		ack = read16(MEM_FLUSHACK);
 		_magic_bullshit(0);
@@ -166,6 +171,7 @@ void ahb_memflush(enum AHBDEV dev)
 
 void dc_flushrange(void *start, u32 size)
 {
+	u32 cookie = irq_kill();
 	if(size > 0x4000) {
 		_dc_flush();
 	} else {
@@ -175,27 +181,34 @@ void dc_flushrange(void *start, u32 size)
 	}
 	_drain_write_buffer();
 	//ahb_memflush(MEMORY);
+	irq_restore(cookie);
 }
 
 void dc_invalidaterange(void *start, u32 size)
 {
+	u32 cookie = irq_kill();
 	void *end = ALIGN_FORWARD(((u8*)start) + size, LINESIZE);
 	start = ALIGN_BACKWARD(start, LINESIZE);
 	_dc_inval_entries(start, (end - start) / LINESIZE);
 	//_magic_bullshit(0);
+	irq_restore(cookie);
 }
 
 void dc_flushall(void)
 {
+	u32 cookie = irq_kill();
 	_dc_flush();
 	_drain_write_buffer();
 	//ahb_memflush(MEMORY);
+	irq_restore(cookie);
 }
 
 void ic_invalidateall(void)
 {
+	u32 cookie = irq_kill();
 	_ic_inval();
 	//_magic_bullshit(0);
+	irq_restore(cookie);
 }
 
 void mem_protect(int enable, void *start, void *end)
@@ -209,10 +222,87 @@ void mem_protect(int enable, void *start, void *end)
 void mem_setswap(int enable)
 {
 	u32 d = read32(HW_MEMMIRR);
-	
+
 	if((d & 0x20) && !enable)
 		write32(HW_MEMMIRR, d & ~0x20);
 	if((!(d & 0x20)) && enable)
 		write32(HW_MEMMIRR, d | 0x20);
 
+}
+
+#define SECTION				0x012
+
+#define	NONBUFFERABLE		0x000
+#define	BUFFERABLE			0x004
+#define	WRITETHROUGH_CACHE	0x008
+#define	WRITEBACK_CACHE		0x00C
+
+#define DOMAIN(x)			((x)<<5)
+
+#define AP_ROM				0x000
+#define AP_NOUSER			0x400
+#define AP_ROUSER			0x800
+#define AP_RWUSER			0xC00
+
+// from, to, size: units of 1MB
+void map_section(u16 from, u16 to, u16 size, u32 attributes)
+{
+	attributes |= SECTION;
+	while(size--) {
+		__page_table[from++] = (to++<<20) | attributes;
+	}
+}
+
+void mem_initialize(void)
+{
+	u32 cookie = irq_kill();
+
+	gecko_printf("MEM: cleaning up\n");
+
+	_ic_inval();
+	_dc_inval();
+	_tlb_inval();
+
+	gecko_printf("MEM: mapping sections\n");
+
+	memset32(__page_table, 0, 16384);
+
+	map_section(0x000, 0x000, 0x018, WRITEBACK_CACHE | DOMAIN(0) | AP_RWUSER);
+	map_section(0x100, 0x100, 0x040, WRITEBACK_CACHE | DOMAIN(0) | AP_RWUSER);
+	map_section(0x0d0, 0x0d0, 0x001, NONBUFFERABLE | DOMAIN(0) | AP_RWUSER);
+	map_section(0x0d8, 0x0d8, 0x001, NONBUFFERABLE | DOMAIN(0) | AP_RWUSER);
+	map_section(0xfff, 0xfff, 0x001, WRITEBACK_CACHE | DOMAIN(0) | AP_RWUSER);
+
+	set_dacr(0xFFFFFFFF); //manager access for all domains, ignore AP
+
+	_drain_write_buffer();
+
+	gecko_printf("MEM: enabling caches\n");
+
+	u32 cr = get_cr();
+	cr |= 0x1004; //ICACHE/DCACHE and MMU enable
+	set_cr(cr);
+
+	gecko_printf("MEM: enabling MMU\n");
+
+	cr |= 0x0001; //ICACHE/DCACHE and MMU enable
+	set_cr(cr);
+
+	gecko_printf("MEM: init done\n");
+
+	irq_restore(cookie);
+}
+
+void mem_shutdown(void)
+{
+	u32 cookie = irq_kill();
+	_dc_flush();
+	_drain_write_buffer();
+	u32 cr = get_cr();
+	cr &= ~0x1005; //disable ICACHE, DCACHE, MMU
+	set_cr(cr);
+	_ic_inval();
+	_dc_inval();
+	_tlb_inval();
+	irq_restore(cookie);
 }
