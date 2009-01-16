@@ -176,4 +176,11 @@ int sprintf(char *str, const char *fmt, ...);
 void udelay(u32 d);
 void panic(u8 v);
 
+static inline u32 get_cpsr(void)
+{
+	u32 data;
+	__asm__ volatile ( "mrs\t%0, cpsr" : "=r" (data) );
+	return data;
+}
+
 #endif
