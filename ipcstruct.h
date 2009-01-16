@@ -6,6 +6,11 @@
 
 #ifndef _LANGUAGE_ASSEMBLY
 
+#include "ipc.h"
+
+extern volatile ipc_request ipc_in[IPC_IN_SIZE];
+extern volatile ipc_request ipc_out[IPC_OUT_SIZE];
+
 #endif
 
 #endif

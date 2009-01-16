@@ -11,6 +11,9 @@
 #include "panic.h"
 #include "powerpc_elf.h"
 #include "irq.h"
+#include "ipc.h"
+
+void *vector;
 
 typedef struct {
 	u32 hdrsize;
@@ -30,7 +33,7 @@ static inline void mem1_poke(u8 *dst, u8 bv)
 {
 	u32 *p = (u32*)(((u32)dst) & ~3);
 	u32 val = *p;
-	
+
 	switch(((u32)dst) & 3) {
 		case 0:
 			val = (val & 0x00FFFFFF) | bv << 24;
@@ -45,7 +48,7 @@ static inline void mem1_poke(u8 *dst, u8 bv)
 			val = (val & 0xFFFFFF00) | bv;
 			break;
 	}
-	
+
 	*p = val;
 }
 
@@ -133,7 +136,7 @@ void *patch_boot2(void *base, u64 titleID)
 	boot2_patchelf(elf, titleID);
 
 	parhdr->argument = 0x42;
-	
+
 	gecko_printf("Vector: %p\n", (void*)(((u32)parhdr) + parhdr->hdrsize));
 
 	return (void*)(((u32)parhdr) + parhdr->hdrsize);
@@ -147,28 +150,28 @@ void *_main(void *base)
 	gecko_init();
 	gecko_puts("MiniIOS v0.1 loading\n");
 
-	fres = f_mount(0, &fatfs);
 
-	if(fres != FR_OK) {
-		gecko_printf("Error %d while trying to mount SD\n", fres);
-		panic2(0, PANIC_MOUNT);
-	}
-	
+
 	irq_initialize();
 	irq_enable(IRQ_TIMER);
 	irq_enable(IRQ_NAND);
 	irq_enable(IRQ_GPIO1B);
 	irq_enable(IRQ_GPIO1);
 	irq_enable(IRQ_RESET);
-	irq_enable(IRQ_IPC);
 	gecko_puts("Interrupts initialized\n");
 
-	gecko_puts("Trying to boot:" PPC_BOOT_FILE "\n");
+	gecko_puts("Initializing IPC...\n");
+	ipc_initialize();
 
-	write32(HW_IPC_PPCMSG, 0);
-	write32(HW_IPC_ARMMSG, 0);
-	write32(HW_IPC_PPCCTRL, IPC_CTRL_SENT|IPC_CTRL_RECV);
-	write32(HW_IPC_ARMCTRL, IPC_CTRL_SENT|IPC_CTRL_RECV);
+	gecko_puts("Mounting SD...\n");
+	fres = f_mount(0, &fatfs);
+
+	if(fres != FR_OK) {
+		gecko_printf("Error %d while trying to mount SD\n", fres);
+		panic2(0, PANIC_MOUNT);
+	}
+
+	gecko_puts("Trying to boot:" PPC_BOOT_FILE "\n");
 
 	res = powerpc_load_file(PPC_BOOT_FILE);
 	if(res < 0) {
@@ -176,25 +179,16 @@ void *_main(void *base)
 		gecko_puts("Continuing anyway\n");
 	}
 
-	u32 tidh=0, tidl;
-
-	while(1) {
-		if(read32(HW_IPC_ARMCTRL) & IPC_CTRL_RECV) {
-			tidh = read32(HW_IPC_PPCMSG);
-			write32(HW_IPC_ARMCTRL, read32(HW_IPC_ARMCTRL) | IPC_CTRL_RECV);
-		}
-		if(read32(HW_IPC_ARMCTRL) & IPC_CTRL_SENT) {
-			tidl = read32(HW_IPC_PPCMSG);
-			write32(HW_IPC_ARMCTRL, read32(HW_IPC_ARMCTRL) | IPC_CTRL_SENT);
-			break;
-		}
-	}
-
-	void *bootmii = patch_boot2(base, (((u64)tidh)<<32) | tidl);
-	
-	gecko_puts("Shutting down interrupts\n");
+	gecko_puts("Going into IPC mainloop...\n");
+	ipc_process_slow();
+	gecko_puts("IPC mainloop done!\n");
+	gecko_puts("Shutting down IPC...\n");
+	ipc_shutdown();
+	gecko_puts("Shutting down interrupts...\n");
 	irq_shutdown();
-	
-	gecko_puts("Returning to BootMii...\n");
-	return bootmii;
+
+	//vector = patch_boot2(base, (((u64)tidh)<<32) | tidl);
+
+	gecko_printf("Vectoring to %p...\n",vector);
+	return vector;
 }

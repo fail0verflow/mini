@@ -2,6 +2,7 @@
 #include "hollywood.h"
 #include "gecko.h"
 #include "utils.h"
+#include "ipc.h"
 
 void irq_setup_stack(void);
 
@@ -60,12 +61,13 @@ void irq_handler(void)
 		write32(HW_IRQFLAG, IRQF_RESET);
 	}
 	if(flags & IRQF_IPC) {
-		gecko_printf("IRQ: IPC\n");
+		//gecko_printf("IRQ: IPC\n");
+		ipc_irq();
 		write32(HW_IRQFLAG, IRQF_IPC);
 	}
 	flags &= ~IRQF_ALL;
 	if(flags) {
-		gecko_printf("IRQ: unknown 0x%08x\n");
+		gecko_printf("IRQ: unknown 0x%08x\n", flags);
 		write32(HW_IRQFLAG, flags);
 	}
 }
