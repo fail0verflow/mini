@@ -11,7 +11,13 @@
 .globl _start
 .globl debug_output
 
+.extern v_undf
+.extern v_swi
+.extern v_instr_abrt
+.extern v_data_abrt
+.extern v_reserved
 .extern v_irq
+.extern v_fiq
 
 .section .init
 
@@ -79,27 +85,6 @@ done_bss2:
 	mov	pc, r0
 
 .pool
-
-v_undf:
-	b v_undf
-
-v_swi:
-	b v_swi
-
-v_instr_abrt:
-	b v_instr_abrt
-
-v_data_abrt:
-	b v_data_abrt
-
-v_reserved:
-	b v_reserved
-
-#v_irq:
-#	b v_irq
-
-v_fiq:
-	b v_fiq
 
 debug_output:
 	@ load address of port

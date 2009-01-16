@@ -12,6 +12,7 @@
 #include "powerpc_elf.h"
 #include "irq.h"
 #include "ipc.h"
+#include "exception.h"
 
 void *vector;
 
@@ -150,10 +151,10 @@ void *_main(void *base)
 	gecko_init();
 	gecko_puts("MiniIOS v0.1 loading\n");
 
+	gecko_puts("Initializing exceptions...\n");
+	exception_initialize();
 	gecko_puts("Configuring caches and MMU...\n");
 	mem_initialize();
-
-
 
 	irq_initialize();
 	irq_enable(IRQ_TIMER);
