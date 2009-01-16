@@ -15,7 +15,7 @@ enum AHBDEV {
 	RAWF = 0x10F,
 };
 
-void dc_flushrange(void *start, u32 size);
+void dc_flushrange(const void *start, u32 size);
 void dc_invalidaterange(void *start, u32 size);
 void dc_flushall(void);
 void ic_invalidateall(void);

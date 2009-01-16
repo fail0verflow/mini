@@ -7,7 +7,7 @@
 #include "irq.h"
 
 void _dc_inval_entries(void *start, int count);
-void _dc_flush_entries(void *start, int count);
+void _dc_flush_entries(const void *start, int count);
 void _dc_flush(void);
 void _dc_inval(void);
 void _ic_inval(void);
@@ -169,7 +169,7 @@ void ahb_memflush(enum AHBDEV dev)
 	}
 }
 
-void dc_flushrange(void *start, u32 size)
+void dc_flushrange(const void *start, u32 size)
 {
 	u32 cookie = irq_kill();
 	if(size > 0x4000) {
@@ -180,7 +180,7 @@ void dc_flushrange(void *start, u32 size)
 		_dc_flush_entries(start, (end - start) / LINESIZE);
 	}
 	_drain_write_buffer();
-	//ahb_memflush(MEMORY);
+	ahb_memflush(MEMORY);
 	irq_restore(cookie);
 }
 
@@ -190,7 +190,7 @@ void dc_invalidaterange(void *start, u32 size)
 	void *end = ALIGN_FORWARD(((u8*)start) + size, LINESIZE);
 	start = ALIGN_BACKWARD(start, LINESIZE);
 	_dc_inval_entries(start, (end - start) / LINESIZE);
-	//_magic_bullshit(0);
+	_magic_bullshit(0);
 	irq_restore(cookie);
 }
 
@@ -199,7 +199,7 @@ void dc_flushall(void)
 	u32 cookie = irq_kill();
 	_dc_flush();
 	_drain_write_buffer();
-	//ahb_memflush(MEMORY);
+	ahb_memflush(MEMORY);
 	irq_restore(cookie);
 }
 
@@ -207,7 +207,7 @@ void ic_invalidateall(void)
 {
 	u32 cookie = irq_kill();
 	_ic_inval();
-	//_magic_bullshit(0);
+	_magic_bullshit(0);
 	irq_restore(cookie);
 }
 
@@ -274,6 +274,7 @@ void mem_initialize(void)
 	map_section(0xfff, 0xfff, 0x001, WRITEBACK_CACHE | DOMAIN(0) | AP_RWUSER);
 
 	set_dacr(0xFFFFFFFF); //manager access for all domains, ignore AP
+	set_ttbr((u32)__page_table); //configure translation table
 
 	_drain_write_buffer();
 

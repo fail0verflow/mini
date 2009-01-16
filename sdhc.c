@@ -1076,11 +1076,13 @@ int sd_read(sdhci_t *sdhci, u32 start_block, u32 blk_cnt, void *buffer)
 	if(sdhci->is_sdhc == 0)
 		start_block *= 512;
 
+	dc_invalidaterange(buffer, blk_cnt * 512);
 	retval = __sd_cmd(sdhci, SD_CMD_READ_MULTIPLE_BLOCK, SD_R1 | SD_READ, start_block, blk_cnt, buffer, &response, sizeof(response));
 
 	if(retval < 0)
 		sdhc_debug(sdhci->reg_base, "reading blocks failed with %d.", retval);
 	__sd_print_status(sdhci);
+
 
 	return retval;
 }
@@ -1104,6 +1106,7 @@ int sd_write(sdhci_t *sdhci, u32 start_block, u32 blk_cnt, const void *buffer)
 	if(sdhci->is_sdhc == 0)
 		start_block *= 512;
 
+	dc_flushrange(buffer, blk_cnt * 512);
 	retval = __sd_cmd(sdhci, SD_CMD_WRITE_MULTIPLE_BLOCK, SD_R1, start_block, blk_cnt, (void *)buffer, &response, sizeof(response));
 
 	if(retval < 0)
