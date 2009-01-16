@@ -29,6 +29,9 @@ _start:
 .pool
 
 v_reset:
+	@ Switch to System mode
+	msr cpsr_c, #0xdf
+
 	@ Get loader base from ELF loader
 	mov	r4, r0
 
@@ -38,13 +41,10 @@ v_reset:
 	
 	@ Set up a stack
 	ldr	sp, =__stack_addr
-	add	sp, r4
 
 	@ clear BSS
 	ldr	r1, =__bss_start
-	add	r1, r4
 	ldr	r2, =__bss_end
-	add	r2, r4
 	mov	r3, #0
 bss_loop:
 	@ check for the end
@@ -58,9 +58,7 @@ bss_loop:
 done_bss:
 	@ clear BSS2
 	ldr	r1, =__bss2_start
-	add	r1, r4
 	ldr	r2, =__bss2_end
-	add	r2, r4
 	mov	r3, #0
 bss2_loop:
 	@ check for the end

@@ -11,16 +11,13 @@
 irq_setup_stack:
 	@ Switch to IRQ mode
 	mrs	r0, cpsr
-	bic	r1, r0, #0x1f
-	orr	r1, #0x12
-	msr cpsr, r1
+	msr cpsr_c, #0xd2
 	
 	@ Setup interrupt stack
-	ldr	sp, =__stack_addr
-	add	sp, r4
+	ldr	sp, =__irqstack_addr
 
 	@ Restore mode
-	msr cpsr, r0
+	msr cpsr_c, r0
 	bx	lr
 
 v_irq:
@@ -35,12 +32,12 @@ irq_kill:
 	mrs		r1, cpsr
 	and		r0, r1, #(CPSR_IRQDIS|CPSR_FIQDIS)
 	orr		r1, r1, #(CPSR_IRQDIS|CPSR_FIQDIS)
-	msr		cpsr, r1
+	msr		cpsr_c, r1
 	bx		lr
 
 irq_restore:
 	mrs		r1, cpsr
 	bic		r1, r1, #(CPSR_IRQDIS|CPSR_FIQDIS)
 	orr		r1, r1, r0
-	msr		cpsr, r1
+	msr		cpsr_c, r1
 	bx		lr
