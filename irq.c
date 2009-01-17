@@ -3,6 +3,7 @@
 #include "gecko.h"
 #include "utils.h"
 #include "ipc.h"
+#include "crypto.h"
 
 void irq_setup_stack(void);
 
@@ -45,6 +46,7 @@ void irq_handler(void)
 		gecko_printf("IRQ: NAND\n");
 		write32(NAND_CMD, 0x7fffffff); // shut it up
 		write32(HW_IRQFLAG, IRQF_NAND);
+		nand_irq();
 	}
 	if(flags & IRQF_GPIO1B) {
 		gecko_printf("IRQ: GPIO1B\n");
@@ -64,6 +66,10 @@ void irq_handler(void)
 		//gecko_printf("IRQ: IPC\n");
 		ipc_irq();
 		write32(HW_IRQFLAG, IRQF_IPC);
+	}
+	if(flags & IRQF_AES) {
+		gecko_printf("IRQ: AES\n");
+		write32(HW_IRQFLAG, IRQF_AES);
 	}
 	flags &= ~IRQF_ALL;
 	if(flags) {

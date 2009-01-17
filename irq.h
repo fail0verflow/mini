@@ -3,6 +3,7 @@
 
 #define IRQ_TIMER	0
 #define IRQ_NAND	1
+#define	IRQ_AES		2	// not sure on this one
 #define IRQ_GPIO1B	10
 #define IRQ_GPIO1	11
 #define IRQ_RESET	17
@@ -10,6 +11,7 @@
 
 #define IRQF_TIMER	(1<<IRQ_TIMER)
 #define IRQF_NAND	(1<<IRQ_NAND)
+#define	IRQF_AES	(1<<IRQ_AES)
 #define IRQF_GPIO1B	(1<<IRQ_GPIO1B)
 #define IRQF_GPIO1	(1<<IRQ_GPIO1)
 #define IRQF_RESET	(1<<IRQ_RESET)
@@ -17,7 +19,7 @@
 
 #define IRQF_ALL	( \
 	IRQF_TIMER|IRQF_NAND|IRQF_GPIO1B|IRQF_GPIO1| \
-	IRQF_RESET|IRQF_IPC \
+	IRQF_RESET|IRQF_IPC|IRQF_AES \
 	)
 
 #define CPSR_IRQDIS 0x80

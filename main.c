@@ -13,6 +13,11 @@
 #include "irq.h"
 #include "ipc.h"
 #include "exception.h"
+#include "crypto.h"
+#include "nand.h"
+
+// TODO: move to powerpc
+#include "nandfs.h"
 
 void *vector;
 
@@ -158,11 +163,20 @@ void *_main(void *base)
 
 	irq_initialize();
 	irq_enable(IRQ_TIMER);
-	irq_enable(IRQ_NAND);
 	irq_enable(IRQ_GPIO1B);
 	irq_enable(IRQ_GPIO1);
 	irq_enable(IRQ_RESET);
 	gecko_puts("Interrupts initialized\n");
+
+	crypto_initialize();
+	gecko_puts("crypto support initialized\n");
+
+	nand_initialize();
+	gecko_puts("NAND initialized.\n");
+
+	// TODO: move to powerpc
+	nandfs_initialize();
+	gecko_puts("NAND FS initialized.\n");
 
 	gecko_puts("Initializing IPC...\n");
 	ipc_initialize();

@@ -58,6 +58,18 @@ int strcmp(const char *p, const char *q)
 	}
 }
 
+int strncmp(const char *p, const char *q, size_t n)
+{
+	while (n-- != 0) {
+		unsigned char a, b;
+		a = *p++;
+		b = *q++;
+		if (a == 0 || a != b)
+			return a - b;
+	}
+	return 0;
+}
+
 void *memset(void *dst, int x, size_t n)
 {
 	unsigned char *p;
@@ -92,3 +104,11 @@ int memcmp(const void *s1, const void *s2, size_t n)
 	return 0;
 }
 
+char *strchr(const char *s, int c)
+{
+	do {
+		if(*s == c)
+			return (char *)s;
+	} while(*s++ != 0);
+	return NULL;
+}
