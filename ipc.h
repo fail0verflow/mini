@@ -8,7 +8,8 @@
 
 #define IPC_DEV_SYS		0x00
 
-#define IPC_SYS_JUMP	0x0000
+#define IPC_SYS_PING	0x0000
+#define IPC_SYS_JUMP	0x0001
 #define IPC_SYS_WRITE32	0x0100
 #define IPC_SYS_WRITE16	0x0101
 #define IPC_SYS_WRITE8	0x0102
@@ -25,8 +26,11 @@
 #define IPC_SYS_MASK16	0x010d
 #define IPC_SYS_MASK8	0x010e
 
-
 #define IPC_CODE (f,d,r) (((f)<<24)|((d)<<16)|(r))
+
+#define IPC_IN_SIZE		32
+#define IPC_OUT_SIZE	32
+#define IPC_SLOW_SIZE	128
 
 typedef struct {
 	union {
@@ -40,6 +44,16 @@ typedef struct {
 	u32 tag;
 	u32 args[6];
 } ipc_request;
+
+typedef const struct {
+	char magic[3];
+	char version;
+	void *mem2_boundary;
+	volatile ipc_request *ipc_in;
+	u32 ipc_in_size;
+	volatile ipc_request *ipc_out;
+	u32 ipc_out_size;
+} ipc_infohdr;
 
 void ipc_irq(void);
 

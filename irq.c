@@ -31,7 +31,7 @@ void irq_handler(void)
 	u32 enabled = read32(HW_IRQENABLE);
 	u32 flags = read32(HW_IRQFLAG);
 	
-	gecko_printf("In IRQ handler: 0x%08x 0x%08x 0x%08x\n", enabled, flags, flags & enabled);
+	//gecko_printf("In IRQ handler: 0x%08x 0x%08x 0x%08x\n", enabled, flags, flags & enabled);
 
 	flags = flags & enabled;
 

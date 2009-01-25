@@ -1,6 +1,7 @@
 OUTPUT_FORMAT("elf32-bigarm")
 OUTPUT_ARCH(arm)
 EXTERN(_start)
+EXTERN(__ipc_info)
 ENTRY(_start)
 
 __stack_size = 0x800;
@@ -8,31 +9,26 @@ __irqstack_size = 0x100;
 __excstack_size = 0x100;
 
 MEMORY {
-	sram	: ORIGIN = 0xffff0000, LENGTH = 64K
-	sram2	: ORIGIN = 0xfffe0000, LENGTH = 32K
-	mem2	: ORIGIN = 0x13f00000, LENGTH = 1M
+	sram		: ORIGIN = 0xffff0000, LENGTH = 64K
+	sram2		: ORIGIN = 0xfffe0000, LENGTH = 16K
+	pagetable	: ORIGIN = 0xfffe4000, LENGTH = 16K
+	mem2		: ORIGIN = 0x13f00000, LENGTH = 1M
 }
+
+__mem2_area_start = ORIGIN(mem2);
+__mem2_area_size = LENGTH(mem2);
+__mem2_area_end = ORIGIN(mem2) + LENGTH(mem2);
+
+__page_table = ORIGIN(pagetable);
 
 SECTIONS
 {
-	.rodata.ipc :
-	{
-		*(.rodata.ipc)
-		. = ALIGN(4);
-	} >mem2
-
-	.bss.ipc :
-	{
-		*(.bss.ipc)
-		. = ALIGN(4);
-	} >mem2
-	
 	.rodata.mem2 :
 	{
 		*(.rodata.mem2)
 		. = ALIGN(4);
 	} >mem2
-	
+
 	.data.mem2 :
 	{
 		*(.data.mem2)
@@ -47,6 +43,11 @@ SECTIONS
 		__bss2_end = . ;
 	} >mem2
 	
+	.ipcinfo __mem2_area_end - 4 :
+	{
+		LONG(__ipc_info);
+	} >mem2	
+
 	.init :
 	{
 		*(.init)
@@ -73,7 +74,7 @@ SECTIONS
 		*(.gnu.linkonce.r*)
 		. = ALIGN(4);
 	} >sram2
-	
+
 	.data :
 	{
 		*(.data)
@@ -81,14 +82,13 @@ SECTIONS
 		*(.gnu.linkonce.d*)
 		. = ALIGN(4);
 	} >sram2
-	
+
 	.bss :
 	{
 		__bss_start = . ;
 		*(.dynbss)
 		*(.gnu.linkonce.b*)
 		*(.bss*)
-		*(.sbss*)
 		*(COMMON)
 		. = ALIGN(4);
 		__bss_end = . ;
@@ -110,23 +110,5 @@ SECTIONS
 		__excstack_addr = .;
 	} >sram2
 
-	.pagetable :
-	{
-		. = ALIGN(16384);
-		__page_table = .;
-		. = . + 16384;
-	} >sram2
-
 }
 
-PROVIDE (__page_table = __page_table);
-PROVIDE (__stack_end = __stack_end);
-PROVIDE (__stack_addr = __stack_addr);
-PROVIDE (__irqstack_end = __irqstack_end);
-PROVIDE (__irqstack_addr = __irqstack_addr);
-PROVIDE (__excstack_end = __excstack_end);
-PROVIDE (__excstack_addr = __excstack_addr);
-PROVIDE (__bss_start = __bss_start);
-PROVIDE (__bss_end = __bss_end);
-PROVIDE (__bss2_start = __bss2_start);
-PROVIDE (__bss2_end = __bss2_end);
