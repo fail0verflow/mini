@@ -61,9 +61,9 @@ static void _lcdnybble(char rs, char n)
 		mask32(LCD_PORT, LCD_MASK, ((n&0xF) << LCD_DSHIFT));
 	
 	udelay(4);
-	set32(HW_GPIO1OUT, LCD_E);
+	set32(LCD_PORT, LCD_E);
 	udelay(4);
-	clear32(HW_GPIO1OUT, LCD_E);
+	clear32(LCD_PORT, LCD_E);
 	udelay(4);
 }
 
