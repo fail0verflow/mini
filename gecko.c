@@ -184,7 +184,7 @@ int gecko_getchar(void)
 int gecko_puts(const char *s)
 {
 	//udelay(10000);
-	return gecko_sendbuffer(s, strlen(s));
+	return gecko_sendbuffer_safe(s, strlen(s));
 }
 
 int gecko_printf( const char *fmt, ...)
