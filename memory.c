@@ -245,7 +245,7 @@ void mem_setswap(int enable)
 #define AP_RWUSER			0xC00
 
 // from, to, size: units of 1MB
-void map_section(u16 from, u16 to, u16 size, u32 attributes)
+void map_section(u32 from, u32 to, u32 size, u32 attributes)
 {
 	attributes |= SECTION;
 	while(size--) {
@@ -262,6 +262,10 @@ void mem_initialize(void)
 	_ic_inval();
 	_dc_inval();
 	_tlb_inval();
+
+	gecko_printf("MEM: unprotecting memory\n");
+
+	mem_protect(0,NULL,NULL);
 
 	gecko_printf("MEM: mapping sections\n");
 
