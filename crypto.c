@@ -8,7 +8,7 @@
 #define		AES_CMD_RESET	0
 #define		AES_CMD_DECRYPT	0x9800
 
-otp_t otp __attribute__((aligned(4))); // FIXME/WTF: why does this crash without the align?!
+otp_t otp;
 
 void crypto_read_otp(void)
 {
