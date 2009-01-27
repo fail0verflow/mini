@@ -2,6 +2,7 @@
 #define __NAND_H__
 
 #include "types.h"
+#include "ipc.h"
 
 void nand_irq(void);
 
@@ -14,8 +15,9 @@ void nand_write_page(u32 pageno, void *data, void *ecc);
 void nand_erase_block(u32 pageno);
 
 void nand_read_cluster(u32 clusterno, void *data);
-void nand_read_decrypted_cluster(u32 clusterno, void *data);
 
 void nand_initialize();
+
+void nand_ipc(volatile ipc_request *req);
 
 #endif

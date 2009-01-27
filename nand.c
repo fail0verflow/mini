@@ -6,6 +6,8 @@
 #include "memory.h"
 #include "crypto.h"
 #include "irq.h"
+#include "ipc.h"
+#include "gecko.h"
 
 //#define	NAND_DEBUG	1
 #undef NAND_SUPPORT_WRITE
@@ -41,13 +43,19 @@ type *name = (type*)(((u32)(_al__##name)) + ((alignment) - (( \
 #define	PAGE_SIZE			2048
 #define PAGE_SPARE_SIZE		64
 
-static int irq = 0;
+static int ipc_code = 0;
+static int ipc_tag = 0;
 
 void nand_irq(void)
 {
-	irq = 1;
+	int code, tag;
+	if (ipc_code != 0) {
+		code = ipc_code;
+		tag = ipc_tag;
+		ipc_code = ipc_tag = 0;
+		ipc_post(code, tag, 1, 0);
+	}
 }
-
 
 static inline u32 __nand_read32(u32 addr)
 {
@@ -72,7 +80,6 @@ void nand_send_command(u32 command, u32 bitmask, u32 flags, u32 num_bytes) {
 	__nand_write32(NAND_CMD, 0x7fffffff);
 	__nand_write32(NAND_CMD, 0);
 	__nand_write32(NAND_CMD, cmd);
-	__nand_wait();
 }
 
 void __nand_set_address(s32 page_off, s32 pageno) {
@@ -97,6 +104,7 @@ int nand_reset(void)
 {
 	NAND_debug("nand_reset()\n");
 	nand_send_command(NAND_RESET, 0, 0x8000, 0);
+	__nand_wait();
 // yay cargo cult
 	__nand_write32(NAND_CONF, 0x8000000);
 	__nand_write32(NAND_CONF, 0x4b3e0e7f);
@@ -117,6 +125,7 @@ u32 nand_get_id(void) {
 
 	__nand_setup_dma(idbuf, (u8 *)-1);
 	nand_send_command(NAND_CHIPID, 1, 0x2000, 0x40);
+	__nand_wait();
 	NAND_debug("id = %02hx%02hx%02hx%02hx (post)\n", idbuf[0], idbuf[1], idbuf[2], idbuf[3]);
 
 	return idbuf[0] << 24 | idbuf[1] << 16 | idbuf[2] << 8 | idbuf[3];
@@ -128,18 +137,13 @@ u32 nand_get_status(void) {
 	dc_flushrange(status_buf, 0x40);
 	__nand_setup_dma(status_buf, (u8 *)-1);
 	nand_send_command(NAND_GETSTATUS, 0, 0x2000, 0x40);
+	__nand_wait();
 	dc_invalidaterange(status_buf, 0x40);
 	return status_buf[0];
 }
 
-inline void __nand_wait_irq(void) {
-	while(irq == 0);
-}
-
 void nand_read_page(u32 pageno, void *data, void *ecc) {
   NAND_debug("nand_read_page(%u, %p, %p)\n", pageno, data, ecc);
-#if 1
-  irq = 0;
   __nand_set_address(0, pageno);
   nand_send_command(NAND_READ_PRE, 0x1f, 0, 0);
 
@@ -148,33 +152,8 @@ void nand_read_page(u32 pageno, void *data, void *ecc) {
 
   __nand_setup_dma(data, ecc);
   nand_send_command(NAND_READ_POST, 0, 0x4000b000, 0x840);
-
-  __nand_wait_irq();
-#else
-	int i;
-	unsigned char *c_data = (unsigned char *)data;
-	unsigned char *c_ecc = (unsigned char *)ecc;
-	for(i=0; i<0x800; i++) c_data[i] = pageno % 256;
-	for(i=0; i<0x40; i++) c_ecc = pageno % 256;
-#endif
 }
 
-
-// FIXME: do we really need to read the ECC data?
-static u8 ecc[64] __attribute__((aligned(32))) MEM2_BSS;
-void nand_read_cluster(u32 clusterno, void *data) {
-	int i;
-	for(i = 0; i < 8; i++)
-		nand_read_page((clusterno*8) + i, data + (i * PAGE_SIZE), ecc);
-}
-
-void nand_read_decrypted_cluster(u32 clusterno, void *data) {
-	nand_read_cluster(clusterno, data);
-	aes_reset();
-	aes_set_key(otp.nand_key);
-	aes_empty_iv();
-	aes_decrypt(data, data, 0x400, 0);
-}
 
 #ifdef NAND_SUPPORT_WRITE
 void nand_write_page(u32 pageno, void *data, void *ecc) {
@@ -200,7 +179,53 @@ void nand_erase_block(u32 pageno) {
 
 void nand_initialize(void)
 {
-	irq_enable(IRQ_NAND);
-	irq = 0;
+	ipc_code = ipc_tag = 0;
 	nand_reset();
+	irq_enable(IRQ_NAND);
+}
+
+void nand_ipc(volatile ipc_request *req)
+{
+	if (ipc_code != 0 || ipc_tag != 0) {
+		gecko_printf("NAND: previous IPC request is not done yet.");
+		ipc_post(req->code, req->tag, 1, -1);
+		return;
+	}
+
+	switch (req->req) {
+		case IPC_NAND_RESET:
+			nand_reset();
+			ipc_post(req->code, req->tag, 1, 0);
+			break;
+
+		case IPC_NAND_GETID:
+			ipc_post(req->code, req->tag, 2, 0, nand_get_id());
+			break;
+
+		case IPC_NAND_READ:
+			ipc_code = req->code;
+			ipc_tag = req->tag;
+			nand_read_page(req->args[0], (void *)req->args[1],
+				       (void *)req->args[1]);
+			break;
+#ifdef NAND_SUPPORT_WRITE
+		case IPC_NAND_WRITE:
+			ipc_code = req->code;
+			ipc_tag = req->tag;
+			nand_write_page(req->args[0], (void *)req->args[1],
+				       (void *)req->args[1]);
+			break;
+#endif
+#ifdef NAND_SUPPORT_ERASE
+		case IPC_NAND_ERASE:
+			ipc_code = req->code;
+			ipc_tag = req->tag;
+			nand_erase_block(req->args[0]);
+			break;
+#endif
+		default:
+			gecko_printf("IPC: unknown SLOW NAND request %04x\n",
+					req->req);
+
+	}
 }

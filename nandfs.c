@@ -63,8 +63,8 @@ s32 nandfs_initialize()
 
 	for(i = 0; i < sizeof(struct _nandfs_sffs)/(PAGE_SIZE*8);
 			i++) {
-		nand_read_cluster(supercluster + i,
-				((u8 *)&sffs) + (i * PAGE_SIZE * 8));
+/*		nand_read_cluster(supercluster + i,
+				((u8 *)&sffs) + (i * PAGE_SIZE * 8));*/
 	}
 
 	initialized = 1;
@@ -155,7 +155,7 @@ s32 nandfs_read(void *ptr, u32 size, u32 nmemb, struct nandfs_fp *fp)
 		return 0;
 
 	while(total > 0) {
-		nand_read_decrypted_cluster(fp->cur_cluster, buffer);
+//		nand_read_decrypted_cluster(fp->cur_cluster, buffer);
 		copy_offset = fp->offset % (PAGE_SIZE * 8);
 		copy_len = (PAGE_SIZE * 8) - copy_offset;
 		if(copy_len > total)
