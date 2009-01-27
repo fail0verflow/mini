@@ -7,6 +7,10 @@
 #define IPC_SLOW		0x00
 
 #define IPC_DEV_SYS		0x00
+#define IPC_DEV_NAND	0x01
+#define IPC_DEV_SD		0x02
+#define IPC_DEV_KEYS	0x03
+#define IPC_DEV_MISC	0x10
 
 #define IPC_SYS_PING	0x0000
 #define IPC_SYS_JUMP	0x0001
@@ -25,6 +29,23 @@
 #define IPC_SYS_MASK32	0x010c
 #define IPC_SYS_MASK16	0x010d
 #define IPC_SYS_MASK8	0x010e
+
+#define IPC_NAND_RESET	0x0000
+#define IPC_NAND_GETID	0x0001
+#define IPC_NAND_READ	0x0002
+#define IPC_NAND_WRITE	0x0003
+#define IPC_NAND_ERASE	0x0004
+
+#define IPC_SD_RESET	0x0000
+#define IPC_SD_GETSTATUS 0x0001
+#define IPC_SD_GETSIZE	0x0002
+#define IPC_SD_READ		0x0003
+#define IPC_SD_WRITE	0x0004
+
+#define IPC_KEYS_GETOTP	0x0000
+#define IPC_KEYS_GETEEP	0x0001
+
+#define IPC_MISC_BACKUP_DOBLOCK 0x0001
 
 #define IPC_CODE (f,d,r) (((f)<<24)|((d)<<16)|(r))
 
