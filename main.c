@@ -16,9 +16,6 @@
 #include "crypto.h"
 #include "nand.h"
 
-// TODO: move to powerpc
-#include "nandfs.h"
-
 void *vector;
 
 typedef struct {
@@ -173,10 +170,6 @@ void *_main(void *base)
 
 	nand_initialize();
 	gecko_puts("NAND initialized.\n");
-
-	// TODO: move to powerpc
-	nandfs_initialize();
-	gecko_puts("NAND FS initialized.\n");
 
 	gecko_puts("Initializing IPC...\n");
 	ipc_initialize();

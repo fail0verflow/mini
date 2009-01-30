@@ -53,7 +53,7 @@ void nand_irq(void)
 		code = ipc_code;
 		tag = ipc_tag;
 		ipc_code = ipc_tag = 0;
-		ipc_post(code, tag, 1, 0);
+		ipc_post(code, tag, 0);
 	}
 }
 
@@ -195,25 +195,25 @@ void nand_ipc(volatile ipc_request *req)
 	switch (req->req) {
 		case IPC_NAND_RESET:
 			nand_reset();
-			ipc_post(req->code, req->tag, 1, 0);
+			ipc_post(req->code, req->tag, 0);
 			break;
 
 		case IPC_NAND_GETID:
-			ipc_post(req->code, req->tag, 2, 0, nand_get_id());
+			ipc_post(req->code, req->tag, 1, nand_get_id());
 			break;
 
 		case IPC_NAND_READ:
 			ipc_code = req->code;
 			ipc_tag = req->tag;
 			nand_read_page(req->args[0], (void *)req->args[1],
-				       (void *)req->args[1]);
+				       (void *)req->args[2]);
 			break;
 #ifdef NAND_SUPPORT_WRITE
 		case IPC_NAND_WRITE:
 			ipc_code = req->code;
 			ipc_tag = req->tag;
 			nand_write_page(req->args[0], (void *)req->args[1],
-				       (void *)req->args[1]);
+				       (void *)req->args[2]);
 			break;
 #endif
 #ifdef NAND_SUPPORT_ERASE

@@ -2,6 +2,7 @@
 #define __CRYPTO_H__	1
 
 #include "types.h"
+#include "ipc.h"
 
 typedef struct
 {
@@ -42,6 +43,7 @@ typedef struct
 extern otp_t otp;
 
 void crypto_read_otp();
+void crypto_ipc(volatile ipc_request *req);
 
 void crypto_initialize();
 
@@ -50,5 +52,6 @@ void aes_set_iv(u8 *iv);
 void aes_empty_iv();
 void aes_set_key(u8 *key);
 void aes_decrypt(u8 *src, u8 *dst, u32 blocks, u8 keep_iv);
+void aes_ipc(volatile ipc_request *req);
 
 #endif

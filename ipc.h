@@ -6,10 +6,11 @@
 #define IPC_FAST		0x01
 #define IPC_SLOW		0x00
 
-#define IPC_DEV_SYS		0x00
+#define IPC_DEV_SYS	0x00
 #define IPC_DEV_NAND	0x01
-#define IPC_DEV_SD		0x02
+#define IPC_DEV_SD	0x02
 #define IPC_DEV_KEYS	0x03
+#define IPC_DEV_AES	0x04
 #define IPC_DEV_MISC	0x10
 
 #define IPC_SYS_PING	0x0000
@@ -44,6 +45,11 @@
 
 #define IPC_KEYS_GETOTP	0x0000
 #define IPC_KEYS_GETEEP	0x0001
+
+#define IPC_AES_RESET	0x0000
+#define IPC_AES_SETIV	0x0001
+#define	IPC_AES_SETKEY	0x0002
+#define	IPC_AES_DECRYPT	0x0003
 
 #define IPC_MISC_BACKUP_DOBLOCK 0x0001
 

@@ -4,6 +4,7 @@
 #include "utils.h"
 #include "ipc.h"
 #include "crypto.h"
+#include "nand.h"
 
 void irq_setup_stack(void);
 
@@ -43,7 +44,7 @@ void irq_handler(void)
 		write32(HW_IRQFLAG, IRQF_TIMER);
 	}
 	if(flags & IRQF_NAND) {
-		gecko_printf("IRQ: NAND\n");
+//		gecko_printf("IRQ: NAND\n");
 		write32(NAND_CMD, 0x7fffffff); // shut it up
 		write32(HW_IRQFLAG, IRQF_NAND);
 		nand_irq();
