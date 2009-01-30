@@ -130,8 +130,12 @@ void aes_ipc(volatile ipc_request *req)
 			aes_set_key((u8 *)req->args);
 			break;
 		case IPC_AES_DECRYPT:
+			dc_invalidaterange((u8 *)req->args[0],
+					(req->args[3]+1)*16);
 			aes_decrypt((u8 *)req->args[0], (u8 *)req->args[1],
 				    req->args[2], req->args[3]);
+			dc_flushrange((u8 *)req->args[1],
+					(req->args[3]+1)*16);
 			break;
 		default:
 			gecko_printf("IPC: unknown SLOW AES request %04x\n",
