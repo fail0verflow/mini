@@ -178,6 +178,22 @@
 
 #define	EINTERRUPT_ALL			0x3ff
 
+static int ipc_code = 0;
+static int ipc_tag = 0;
+static sdhci_t sdhci;
+
+// not currently used :(
+void sd_irq(void)
+{
+	int code, tag;
+	if (ipc_code != 0) {
+		code = ipc_code;
+		tag = ipc_tag;
+		ipc_code = ipc_tag = 0;
+		ipc_post(code, tag, 0);
+	}
+}
+
 u8 __sd_read8(u32 addr)
 {
 	u32 mask;
@@ -449,7 +465,7 @@ static int __sd_power(sdhci_t *sdhci, int vdd)
 
 	if(!(caps & vdd))
 	{
-		sdhc_error(sdhci->reg_base, "voltage %x not supported by the hc");
+		sdhc_error(sdhci->reg_base, "voltage %x not supported by the hc", vdd);
 		return SDHC_EINVAL;
 	}
 
@@ -1046,3 +1062,54 @@ int sd_write(sdhci_t *sdhci, u32 start_block, u32 blk_cnt, const void *buffer)
 }
 
 #endif
+
+void sd_initialize(void)
+{
+	ipc_code = ipc_tag = 0;
+    sd_init(&sdhci, 0);
+//	irq_enable(IRQ_NAND); ??
+}
+
+void sd_ipc(volatile ipc_request *req)
+{
+	int retval = 0;
+	if (ipc_code != 0 || ipc_tag != 0) {
+		gecko_printf("SDHC: previous IPC request is not done yet.");
+		ipc_post(req->code, req->tag, 1, -1);
+		return;
+	}
+
+	switch (req->req) {
+		case IPC_SD_MOUNT:
+			retval = sd_mount(&sdhci);
+			ipc_post(req->code, req->tag, 1, retval);
+			break;
+
+		case IPC_SD_SELECT:
+			retval = sd_select(&sdhci);
+			ipc_post(req->code, req->tag, 1, retval);
+			break;
+
+		case IPC_SD_GETSTATE:
+			retval = __sd_read32(sdhci.reg_base + SDHC_PRESENT_STATE);
+			ipc_post(req->code, req->tag, 1, retval);
+			break;
+			
+		case IPC_SD_READ:
+			retval = sd_read(&sdhci, req->args[0], req->args[1], 
+							(void *)req->args[2]);
+			ipc_post(req->code, req->tag, 1, retval);
+			break;
+
+		case IPC_SD_WRITE:
+			retval = sd_write(&sdhci, req->args[0], req->args[1], 
+							(void *)req->args[2]);
+			ipc_post(req->code, req->tag, 1, retval);
+			break;
+
+		default:
+			gecko_printf("IPC: unknown SLOW NAND request %04x\n",
+					req->req);
+
+	}
+}
