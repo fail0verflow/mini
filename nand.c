@@ -40,6 +40,8 @@ type *name = (type*)(((u32)(_al__##name)) + ((alignment) - (( \
 
 #define NAND_BUSY_MASK 0x80000000
 
+#define NAND_FLAGS_IRQ 0x40000000
+
 #define	PAGE_SIZE			2048
 #define PAGE_SPARE_SIZE		64
 
@@ -111,35 +113,20 @@ int nand_reset(void)
 	return 0;
 }
 
-u32 nand_get_id(void) {
-	STACK_ALIGN(u8, idbuf, 0x40, 64);
-	
-	__nand_wait();
-
-	NAND_debug("nand_get_id(%p) (pre)\n", idbuf);
-	memset(idbuf, 0x42, 4);
-	dc_flushrange(idbuf, 0x40);
+void nand_get_id(u8 *idbuf) {
 	__nand_set_address(0,0);
 
-	NAND_debug("id = %02hx%02hx%02hx%02hx\n", idbuf[0], idbuf[1], idbuf[2], idbuf[3]);
+  	dc_invalidaterange(idbuf, 0x40);
 
 	__nand_setup_dma(idbuf, (u8 *)-1);
-	nand_send_command(NAND_CHIPID, 1, 0x2000, 0x40);
-	__nand_wait();
-	NAND_debug("id = %02hx%02hx%02hx%02hx (post)\n", idbuf[0], idbuf[1], idbuf[2], idbuf[3]);
-
-	return idbuf[0] << 24 | idbuf[1] << 16 | idbuf[2] << 8 | idbuf[3];
+	nand_send_command(NAND_CHIPID, 1, NAND_FLAGS_IRQ | 0x2000, 0x40);
 }
 
-u32 nand_get_status(void) {
-	STACK_ALIGN(u8, status_buf, 0x40, 64);
+void nand_get_status(u8 *status_buf) {
 	status_buf[0]=0;
-	dc_flushrange(status_buf, 0x40);
-	__nand_setup_dma(status_buf, (u8 *)-1);
-	nand_send_command(NAND_GETSTATUS, 0, 0x2000, 0x40);
-	__nand_wait();
 	dc_invalidaterange(status_buf, 0x40);
-	return status_buf[0];
+	__nand_setup_dma(status_buf, (u8 *)-1);
+	nand_send_command(NAND_GETSTATUS, 0, NAND_FLAGS_IRQ | 0x2000, 0x40);
 }
 
 void nand_read_page(u32 pageno, void *data, void *ecc) {
@@ -151,7 +138,7 @@ void nand_read_page(u32 pageno, void *data, void *ecc) {
   dc_invalidaterange(ecc, 0x50);
 
   __nand_setup_dma(data, ecc);
-  nand_send_command(NAND_READ_POST, 0, 0x4000b000, 0x840);
+  nand_send_command(NAND_READ_POST, 0, NAND_FLAGS_IRQ | 0xb000, 0x840);
 }
 
 
@@ -162,9 +149,9 @@ void nand_write_page(u32 pageno, void *data, void *ecc) {
 	dc_flushrange(ecc, 0x40);	
 	__nand_set_address(0, pageno);
 	__nand_setup_dma(data, ecc);
-	nand_send_command(NAND_WRITE_PRE, 0x1f, 0x40005000, 0x840);
+	nand_send_command(NAND_WRITE_PRE, 0x1f, NAND_FLAGS_IRQ | 0x5000, 0x840);
 	
-	nand_send_command(NAND_WRITE_POST, 0, 0x40008000, 0x0);
+	nand_send_command(NAND_WRITE_POST, 0, NAND_FLAGS_IRQ | 0x8000, 0x0);
 }
 #endif
 
@@ -173,7 +160,7 @@ void nand_erase_block(u32 pageno) {
   	NAND_debug("nand_erase_block(%d)\n", pageno);
   	__nand_set_address(0, pageno);
   	nand_send_command(NAND_ERASE_PRE, 0x1c, 0, 0);
-	nand_send_command(NAND_ERASE_POST, 0, 0x40008000, 0x0);
+	nand_send_command(NAND_ERASE_POST, 0, NAND_FLAGS_IRQ | 0x8000, 0x0);
 }
 #endif
 
@@ -199,7 +186,9 @@ void nand_ipc(volatile ipc_request *req)
 			break;
 
 		case IPC_NAND_GETID:
-			ipc_post(req->code, req->tag, 1, nand_get_id());
+			ipc_code = req->code;
+			ipc_tag = req->tag;
+			nand_get_id((u8 *)req->args[0]);
 			break;
 
 		case IPC_NAND_READ:
