@@ -706,7 +706,7 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 					blk_cnt = blk_cnt > (SDMA_BLOCK_SIZE / SDHC_BLOCK_SIZE) ? blk_cnt - (SDMA_BLOCK_SIZE / SDHC_BLOCK_SIZE) : 0;
 					__sd_dumpregs(sdhci);
 					sdhc_debug(sdhci->reg_base, "DMA interrupt set, updating next SDMA address");
-					sdhc_debug(sdhci->reg_base, "sd blocks left: %d, addr: %08x -> %08x", blk_cnt, ptr, ptr + SDMA_BLOCK_SIZE);
+					sdhc_debug(sdhci->reg_base, "sd blocks left: %d, addr: %p -> %p", blk_cnt, ptr, ptr + SDMA_BLOCK_SIZE);
 
 					if(blk_cnt == 0)
 					{
@@ -789,7 +789,7 @@ void __sd_print_status(sdhci_t *sdhci)
 			gecko_printf("DISCONNECT]\n");
 			break;
 		default:
-			sdhc_debug(sdhci->reg_base, "Reserved]\n", status);
+			gecko_printf("Reserved]\n");
 	}
 
 #endif
