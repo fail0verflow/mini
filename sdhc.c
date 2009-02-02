@@ -1108,7 +1108,7 @@ void sd_ipc(volatile ipc_request *req)
 			break;
 
 		default:
-			gecko_printf("IPC: unknown SLOW NAND request %04x\n",
+			gecko_printf("IPC: unknown SLOW SDHC request %04x\n",
 					req->req);
 
 	}
