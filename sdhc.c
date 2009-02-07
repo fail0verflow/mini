@@ -697,13 +697,15 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 				{
 					__sd_dumpregs(sdhci);
 					sdhc_debug(sdhci->reg_base, "transfer completed. disabling interrupts again and returning.");
-					__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, 0);
+					__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, INTERRUPT_TRANSFER_COMPLETE | INTERRUPT_DMA);
 					__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE, 0);
 					return 0;
 				}
 				else if(retval & INTERRUPT_DMA)
 				{
-					blk_cnt = blk_cnt > (SDMA_BLOCK_SIZE / SDHC_BLOCK_SIZE) ? blk_cnt - (SDMA_BLOCK_SIZE / SDHC_BLOCK_SIZE) : 0;
+					u32 blk_left = __sd_read16(sdhci->reg_base + SDHC_BLOCK_COUNT);
+					blk_left = blk_cnt - blk_left;
+					ptr = buffer + blk_cnt * SDHC_BLOCK_SIZE;
 					__sd_dumpregs(sdhci);
 					sdhc_debug(sdhci->reg_base, "DMA interrupt set, updating next SDMA address");
 					sdhc_debug(sdhci->reg_base, "sd blocks left: %d, addr: %p -> %p", blk_cnt, ptr, ptr + SDMA_BLOCK_SIZE);
@@ -715,8 +717,7 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 						return SDHC_EIO;
 					}
 
-					__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, 0);
-					ptr += SDMA_BLOCK_SIZE;
+					__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, INTERRUPT_DMA);
 					__sd_write32(sdhci->reg_base + SDHC_SDMA_ADDR, (u32 )ptr);
 
 					sdhc_debug(sdhci->reg_base, "next DMA transfer started.");
