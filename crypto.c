@@ -6,12 +6,13 @@
 #include "ipc.h"
 #include "gecko.h"
 #include "string.h"
-
+#include "seeprom.h"
 
 #define		AES_CMD_RESET	0
 #define		AES_CMD_DECRYPT	0x9800
 
 otp_t otp;
+seeprom_t seeprom;
 
 void crypto_read_otp(void)
 {
@@ -23,10 +24,15 @@ void crypto_read_otp(void)
 	}
 }
 
+void crypto_read_seeprom(void)
+{
+  seeprom_read(&seeprom, 0, sizeof(seeprom) / 2);
+}
 
 void crypto_initialize()
 {
 	crypto_read_otp();
+	crypto_read_seeprom();
 	write32(AES_CMD, 0);
 	while (read32(AES_CMD) != 0);
 	irq_enable(IRQ_AES);
@@ -39,6 +45,10 @@ void crypto_ipc(volatile ipc_request *req)
 		case IPC_KEYS_GETOTP:
 			memcpy((void *)req->args[0], &otp, sizeof(otp));
 			dc_flushrange((void *)req->args[0], sizeof(otp));
+			break;
+		case IPC_KEYS_GETEEP:
+			memcpy((void *)req->args[0], &seeprom, sizeof(seeprom));
+			dc_flushrange((void *)req->args[0], sizeof(seeprom));
 			break;
 		default:
 			gecko_printf("IPC: unknown SLOW CRYPTO request %04x\n",
