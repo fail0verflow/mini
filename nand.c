@@ -145,6 +145,10 @@ void nand_read_page(u32 pageno, void *data, void *ecc) {
 #ifdef NAND_SUPPORT_WRITE
 void nand_write_page(u32 pageno, void *data, void *ecc) {
 	NAND_debug("nand_write_page(%u, %p, %p)\n", pageno, data, ecc);
+	if (pageno < 0x200) {
+	  printf("Error: nand_write to page %d forbidden\n", pageno);
+	  return;
+	}
 	dc_flushrange(data, 0x800);
 	dc_flushrange(ecc, 0x40);	
 	__nand_set_address(0, pageno);
@@ -158,6 +162,10 @@ void nand_write_page(u32 pageno, void *data, void *ecc) {
 #ifdef NAND_SUPPORT_ERASE
 void nand_erase_block(u32 pageno) {
   	NAND_debug("nand_erase_block(%d)\n", pageno);
+	if (pageno < 0x200) {
+	  printf("Error: nand_erase to page %d forbidden\n", pageno);
+	  return;
+	}
   	__nand_set_address(0, pageno);
   	nand_send_command(NAND_ERASE_PRE, 0x1c, 0, 0);
 	nand_send_command(NAND_ERASE_POST, 0, NAND_FLAGS_IRQ | 0x8000, 0x0);
