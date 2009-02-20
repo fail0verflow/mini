@@ -35,7 +35,6 @@ extern u32 __page_table[4096];
 #define		HW_138			(HW_REG_BASE + 0x138)
 #define		HW_188			(HW_REG_BASE + 0x188)
 #define		HW_18C			(HW_REG_BASE + 0x18c)
-#define		HW_214			(HW_REG_BASE + 0x214)
 
 // what is this thing doing anyway?
 // and why only on reads?
@@ -44,7 +43,7 @@ u32 _mc_read32(u32 addr)
 	u32 data;
 	u32 tmp130 = 0;
 	// this seems to be a bug workaround
-	if(!(read32(HW_214) & 0xF0))
+	if(!(read32(HW_VERSION) & 0xF0))
 	{
 		tmp130 = read32(HW_130);
 		write32(HW_130, tmp130 | 0x400);
@@ -55,9 +54,9 @@ u32 _mc_read32(u32 addr)
 		read32(HW_138);
 	}
 	data = read32(addr);
-	read32(HW_214); //???
+	read32(HW_VERSION); //???
 
-	if(!(read32(HW_214) & 0xF0))
+	if(!(read32(HW_VERSION) & 0xF0))
 		write32(HW_130, tmp130);
 
 	return data;

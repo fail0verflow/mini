@@ -139,6 +139,7 @@
 
 #define		HW_OTPCMD			(HW_REG_BASE + 0x1ec)
 #define		HW_OTPDATA			(HW_REG_BASE + 0x1f0)
+#define		HW_VERSION			(HW_REG_BASE + 0x214)
 
 
 /* NAND Registers */
