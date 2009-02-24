@@ -13,6 +13,7 @@ void nand_get_status(u8 *);
 void nand_read_page(u32 pageno, void *data, void *ecc);
 void nand_write_page(u32 pageno, void *data, void *ecc);
 void nand_erase_block(u32 pageno);
+void nand_wait(void);
 
 void nand_read_cluster(u32 clusterno, void *data);
 

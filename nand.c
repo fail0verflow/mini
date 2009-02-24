@@ -141,6 +141,9 @@ void nand_read_page(u32 pageno, void *data, void *ecc) {
   nand_send_command(NAND_READ_POST, 0, NAND_FLAGS_IRQ | 0xb000, 0x840);
 }
 
+void nand_wait() {
+	__nand_wait();
+}
 
 #ifdef NAND_SUPPORT_WRITE
 void nand_write_page(u32 pageno, void *data, void *ecc) {

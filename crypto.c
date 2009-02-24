@@ -113,8 +113,6 @@ void aes_decrypt(u8 *src, u8 *dst, u32 blocks, u8 keep_iv)
 		if (this_blocks > 0x80)
 			this_blocks = 0x80;
 	
-		dc_flushrange(src, this_blocks<<4);
-		dc_invalidaterange(dst, this_blocks<<4);
 		write32(AES_SRC, (u32)src);
 		write32(AES_DEST, (u32)dst);
 		aes_command(AES_CMD_DECRYPT, keep_iv, this_blocks);

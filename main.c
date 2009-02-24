@@ -15,6 +15,7 @@
 #include "exception.h"
 #include "crypto.h"
 #include "nand.h"
+#include "boot2.h"
 
 void *vector;
 
@@ -171,6 +172,12 @@ void *_main(void *base)
 	nand_initialize();
 	gecko_puts("NAND initialized.\n");
 
+	boot2_init();
+	gecko_puts("Boot2 loaded to memory.\n");
+
+//	gecko_printf("boot2_run = %d\n", boot2_run(0x10001, 0x48415858));
+//	goto end;
+
 	gecko_puts("Initializing IPC...\n");
 	ipc_initialize();
 
@@ -204,6 +211,7 @@ void *_main(void *base)
 	mem_shutdown();
 
 	//vector = patch_boot2(base, (((u64)tidh)<<32) | tidl);
+end:
 
 	gecko_printf("Vectoring to %p...\n",vector);
 	return vector;
