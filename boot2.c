@@ -41,7 +41,7 @@ void boot2_init() {
 
 	for (i = 0x40; i < 0x140; i++, ptr += 2048) {
 		nand_read_page(i, ptr, ecc);
-		nand_wait();
+		__nand_wait();
 	}
 
 	if (hdr->len != sizeof(struct wadheader))
