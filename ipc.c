@@ -109,6 +109,7 @@ static int process_slow(volatile ipc_request *req)
 			break;
 		case IPC_DEV_BOOT2:
 			boot2_ipc(req);
+			return 0;
 			break;
 		default:
 			gecko_printf("IPC: unknown SLOW request %02x-%04x\n", req->device, req->req);
