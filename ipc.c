@@ -9,6 +9,7 @@
 #include "nand.h"
 #include "sdhc.h"
 #include "crypto.h"
+#include "boot2.h"
 
 static volatile ipc_request in_queue[IPC_IN_SIZE] ALIGNED(32) MEM2_BSS;
 static volatile ipc_request out_queue[IPC_OUT_SIZE] ALIGNED(32) MEM2_BSS;
@@ -105,6 +106,9 @@ static int process_slow(volatile ipc_request *req)
 			break;
 		case IPC_DEV_AES:
 			aes_ipc(req);
+			break;
+		case IPC_DEV_BOOT2:
+			boot2_ipc(req);
 			break;
 		default:
 			gecko_printf("IPC: unknown SLOW request %02x-%04x\n", req->device, req->req);

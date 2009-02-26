@@ -3,15 +3,15 @@
 
 #include "types.h"
 
-#define IPC_FAST		0x01
-#define IPC_SLOW		0x00
+#define IPC_FAST	0x01
+#define IPC_SLOW	0x00
 
 #define IPC_DEV_SYS	0x00
 #define IPC_DEV_NAND	0x01
 #define IPC_DEV_SD	0x02
 #define IPC_DEV_KEYS	0x03
 #define IPC_DEV_AES	0x04
-#define IPC_DEV_MISC	0x10
+#define IPC_DEV_BOOT2	0x05
 
 #define IPC_SYS_PING	0x0000
 #define IPC_SYS_JUMP	0x0001
@@ -40,7 +40,7 @@
 #define IPC_SD_MOUNT	0x0000
 #define IPC_SD_SELECT	0x0001
 #define IPC_SD_GETSTATE	0x0002
-#define IPC_SD_READ		0x0003
+#define IPC_SD_READ	0x0003
 #define IPC_SD_WRITE	0x0004
 
 #define IPC_KEYS_GETOTP	0x0000
@@ -51,7 +51,7 @@
 #define	IPC_AES_SETKEY	0x0002
 #define	IPC_AES_DECRYPT	0x0003
 
-#define IPC_MISC_BACKUP_DOBLOCK 0x0001
+#define IPC_BOOT2_RUN	0x0000
 
 #define IPC_CODE (f,d,r) (((f)<<24)|((d)<<16)|(r))
 

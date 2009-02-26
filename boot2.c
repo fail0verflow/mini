@@ -41,7 +41,7 @@ void boot2_init() {
 
 	for (i = 0x40; i < 0x140; i++, ptr += 2048) {
 		nand_read_page(i, ptr, ecc);
-		__nand_wait();
+		nand_wait();
 	}
 
 	if (hdr->len != sizeof(struct wadheader))
@@ -104,13 +104,14 @@ int boot2_run(u32 tid_hi, u32 tid_lo) {
 	patch[2] = tid_hi;
 	patch[3] = tid_lo;
 
+	gecko_printf("booting boot2 with title 0x%08x, 0x%08x\n", tid_hi, tid_lo);
 	powerpc_hang();
 	memcpy((void *)0x11000000, boot2, sizeof boot2);
 	ptr = (void *)0x11000000 + hdr->hdrsize + hdr->loadersize;
 	for (i = 0; i < sizeof(boot2); i += 1) {
 		if (memcmp(ptr+i, match, sizeof(match)) == 0) {
 			memcpy(ptr+i, patch, sizeof(patch));
-			gecko_printf("patched data @%08x\n", ptr+i);
+			gecko_printf("patched data @%08x\n", (u32)ptr+i);
 		}
 	}
 
@@ -119,4 +120,18 @@ int boot2_run(u32 tid_hi, u32 tid_lo) {
 	vector = (void *)0x11000000 + hdr->hdrsize;
 	gecko_printf("boot2 is at %p\n", vector);
 	return 1;
+}
+
+void boot2_ipc(volatile ipc_request *req)
+{
+	u32 ret = 0;
+
+	switch (req->req) {
+		case IPC_BOOT2_RUN:
+			ret = boot2_run((u32)req->args[0], (u32)req->args[1]);
+			ipc_post(req->code, req->tag, 1, ret);
+			break;
+		default:
+			gecko_printf("IPC: unknown SLOW BOOT2 request %04X\n", req->req);
+	}
 }
