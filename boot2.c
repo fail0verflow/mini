@@ -104,7 +104,7 @@ int boot2_run(u32 tid_hi, u32 tid_lo) {
 	patch[3] = tid_lo;
 
 	gecko_printf("booting boot2 with title 0x%08x, 0x%08x\n", tid_hi, tid_lo);
-	powerpc_hang();
+	mem_protect(1, (void *)0x11000000, (void *)0x13FFFFFF);
 	memcpy((void *)0x11000000, boot2, sizeof boot2);
 	ptr = (void *)0x11000000 + hdr->hdrsize + hdr->loadersize;
 	for (i = 0; i < sizeof(boot2); i += 1) {
