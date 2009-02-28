@@ -74,8 +74,8 @@ void exc_handler(u32 type, u32 spsr, u32 *regs)
 
 	switch (type) {
 		case 1: // undefined instruction
-			gecko_printf("Undefined instruction @ %08x: %08x\n", regs[14]-4, read32(regs[14]-4));
-			return;
+			gecko_printf("Undefined instruction @ %08x:\n%08x %08x *%08x* %08x %08x\n", 
+						pc, read32(pc-8), read32(pc-4), read32(pc), read32(pc), read32(pc+8));
 			break;
 		case 3: // INSTR ABORT
 		case 4: // DATA ABORT 
