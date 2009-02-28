@@ -8,7 +8,7 @@
 
 static u8 boot2[256 << 11] MEM2_BSS __attribute__((aligned(64)));
 static u8 key[32] MEM2_BSS __attribute__((aligned(64)));
-static u8 ecc[64] __attribute__((aligned(64)));
+static u8 ecc[128] __attribute__((aligned(64)));
 static u8 boot2_initialized = 0;
 extern void *vector;
 
@@ -58,7 +58,6 @@ void boot2_init() {
 	aes_set_iv(iv);
 	aes_set_key(otp.common_key);
 	memcpy(key, tikptr+0x1bf, 16);
-	gecko_puts("flushing now...\n");
 	dc_flushrange(key, 32);
 	gecko_puts("dc_flush done.\n");
 	aes_decrypt(key, key, 1, 0);

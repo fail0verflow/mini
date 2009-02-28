@@ -6,7 +6,7 @@
 #include "memory.h"
 
 const char *exceptions[] = {
-	"RESET", "UNDEFINED", "SWI", "INSTR ABORT", "DATA ABORT", "RESERVED", "IRQ", "FIQ"
+	"RESET", "UNDEFINED INSTR", "SWI", "INSTR ABORT", "DATA ABORT", "RESERVED", "IRQ", "FIQ", "(unknown exception type)"
 };
 
 const char *aborts[] = {
@@ -42,16 +42,17 @@ void exception_initialize(void)
 
 void exc_handler(u32 type, u32 spsr, u32 *regs)
 {
+	if (type > 8) type = 8;
 	gecko_printf("\nException %d (%s):\n", type, exceptions[type]);
 
-	u32 pc;
+	u32 pc, fsr;
 
 	switch(type) {
-		case 3:
-		case 7:
+		case 7: // FIQ
+		case 3: // INSTR ABORT
 			pc = regs[15] - 4;
 			break;
-		case 4:
+		case 4: // DATA ABORT
 			pc = regs[15] - 8;
 			break;
 		default:
@@ -66,21 +67,29 @@ void exc_handler(u32 type, u32 spsr, u32 *regs)
 	gecko_printf("R12-R15: %08x %08x %08x %08x\n", regs[12], regs[13], regs[14], pc);
 
 	gecko_printf("SPSR: %08x\n", spsr);
+	gecko_printf("CPSR: %08x\n", get_cpsr());
 	gecko_printf("CR:   %08x\n", get_cr());
 	gecko_printf("TTBR: %08x\n", get_ttbr());
 	gecko_printf("DACR: %08x\n", get_dacr());
 
-	if(type == 3 || type == 4) {
-		u32 fsr;
-		if(type == 3)
-			fsr = get_ifsr();
-		else
-			fsr = get_dfsr();
-		gecko_printf("Abort type: %s\n", aborts[fsr&0xf]);
-		if(domvalid[fsr&0xf])
-			gecko_printf("Domain: %d\n", (fsr>>4)&0xf);
-		if(type == 4)
-			gecko_printf("Address: 0x%08x\n", get_far());
+	switch (type) {
+		case 1: // undefined instruction
+			gecko_printf("Undefined instruction @ %08x: %08x\n", regs[14]-4, read32(regs[14]-4));
+			return;
+			break;
+		case 3: // INSTR ABORT
+		case 4: // DATA ABORT 
+			if(type == 3)
+				fsr = get_ifsr();
+			else
+				fsr = get_dfsr();
+			gecko_printf("Abort type: %s\n", aborts[fsr&0xf]);
+			if(domvalid[fsr&0xf])
+				gecko_printf("Domain: %d\n", (fsr>>4)&0xf);
+			if(type == 4)
+				gecko_printf("Address: 0x%08x\n", get_far());
+		break;
+		default: break;
 	}
 
 	panic(0xA3);
