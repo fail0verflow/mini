@@ -38,5 +38,7 @@ typedef s32 size_t;
 	(u32)(_al__##name))&((alignment)-1))))
 
 
+#define INT_MAX ((int)0x7fffffff)
+#define UINT_MAX ((unsigned int)0xffffffff)
 
 #endif
