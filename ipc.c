@@ -230,8 +230,13 @@ void ipc_initialize(void)
 	irq_enable(IRQ_IPC);
 	write32(HW_IPC_ARMCTRL, IPC_CTRL_INT_RECV);
 }
+
 void ipc_shutdown(void)
 {
+	write32(HW_IPC_ARMMSG, 0);
+	write32(HW_IPC_PPCMSG, 0);
+	write32(HW_IPC_PPCCTRL, IPC_CTRL_SENT|IPC_CTRL_RECV);
+	write32(HW_IPC_ARMCTRL, IPC_CTRL_SENT|IPC_CTRL_RECV);
 	irq_disable(IRQ_IPC);
 }
 
