@@ -22,8 +22,16 @@ typedef struct
 	u8 nand_key[16];
 	u8 rng_key[16];
 	u32 unk1;
-	u32 unk2;
+	u32 unk2; // 0x00000007
 } __attribute__((packed)) otp_t;
+
+typedef struct
+{
+	u8 version;
+	u8 pad[3];
+	u32 update_tag;
+	u16 checksum;
+} __attribute__((packed)) boot2ver_t;
 
 typedef struct
 {
@@ -33,10 +41,11 @@ typedef struct
 			u32 dunno1; // 0x1 = CA
 			u32 ng_key_id;
 			u8 ng_sig[60];
-			u8 fill[0x2c];
+			boot2ver_t boot2ver[2];
+			u8 fill[0x18];
 			u8 korean_key[16];
 		};
-		u8 data[512];
+		u8 data[256];
 	};
 } __attribute__((packed)) seeprom_t;
 
