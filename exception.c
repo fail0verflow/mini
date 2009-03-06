@@ -4,6 +4,7 @@
 #include "utils.h"
 #include "ipc.h"
 #include "memory.h"
+#include "panic.h"
 
 const char *exceptions[] = {
 	"RESET", "UNDEFINED INSTR", "SWI", "INSTR ABORT", "DATA ABORT", "RESERVED", "IRQ", "FIQ", "(unknown exception type)"
@@ -92,5 +93,5 @@ void exc_handler(u32 type, u32 spsr, u32 *regs)
 		default: break;
 	}
 
-	panic(0xA3);
+	panic2(0, PANIC_EXCEPTION);
 }

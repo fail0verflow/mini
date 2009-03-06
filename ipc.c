@@ -10,6 +10,7 @@
 #include "sdhc.h"
 #include "crypto.h"
 #include "boot2.h"
+#include "panic.h"
 
 static volatile ipc_request in_queue[IPC_IN_SIZE] ALIGNED(32) MEM2_BSS;
 static volatile ipc_request out_queue[IPC_OUT_SIZE] ALIGNED(32) MEM2_BSS;
@@ -193,7 +194,7 @@ static void process_in(void)
 	} else {
 		if(slow_queue_head == ((slow_queue_tail + 1)&(IPC_SLOW_SIZE-1))) {
 			gecko_printf("IPC: Slowqueue overrun\n");
-			panic(0x33);
+			panic2(0, PANIC_IPCOVF);
 		}
 		slow_queue[slow_queue_tail] = *req;
 		slow_queue_tail = (slow_queue_tail+1)&(IPC_SLOW_SIZE-1);
