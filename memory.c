@@ -229,6 +229,25 @@ void mem_setswap(int enable)
 
 }
 
+u32 dma_addr(void *p)
+{
+	u32 addr = (u32)p;
+
+	switch(addr>>20) {
+		case 0xfff:
+		case 0x0d4:
+		case 0x0dc:
+			if(read32(HW_MEMMIRR) & 0x20) {
+				addr ^= 0x10000;
+			}
+			addr &= 0x0001FFFF;
+			addr |= 0x0d400000;
+			break;
+	}
+	//gecko_printf("DMA to %p: address %08x\n", p, addr);
+	return addr;
+}
+
 #define SECTION				0x012
 
 #define	NONBUFFERABLE		0x000

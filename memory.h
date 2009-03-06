@@ -27,6 +27,8 @@ void mem_setswap(int enable);
 void mem_initialize(void);
 void mem_shutdown(void);
 
+u32 dma_addr(void *);
+
 static inline u32 get_cr(void)
 {
 	u32 data;
