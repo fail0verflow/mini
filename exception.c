@@ -76,10 +76,6 @@ void exc_handler(u32 type, u32 spsr, u32 *regs)
 	gecko_printf("DACR: %08x\n", get_dacr());
 
 	switch (type) {
-		case 1: // undefined instruction
-			gecko_printf("Undefined instruction @ %08x:\n%08x %08x *%08x* %08x %08x\n", 
-						pc, read32(pc-8), read32(pc-4), read32(pc), read32(pc+4), read32(pc+8));
-			break;
 		case 3: // INSTR ABORT
 		case 4: // DATA ABORT 
 			if(type == 3)
@@ -95,5 +91,11 @@ void exc_handler(u32 type, u32 spsr, u32 *regs)
 		default: break;
 	}
 
+	if(type != 3) {
+		gecko_printf("Code dump:\n");
+		gecko_printf("%08x:  %08x %08x %08x %08x\n", pc-16, read32(pc-16), read32(pc-12), read32(pc-8), read32(pc-4));
+		gecko_printf("%08x: *%08x %08x %08x %08x\n", pc, read32(pc), read32(pc+4), read32(pc+8), read32(pc+12));
+		gecko_printf("%08x:  %08x %08x %08x %08x\n", pc+16, read32(pc+16), read32(pc+20), read32(pc+24), read32(pc+28));
+	}
 	panic2(0, PANIC_EXCEPTION);
 }
