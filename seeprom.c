@@ -4,8 +4,7 @@
 #include "start.h"
 #include "gpio.h"
 
-#define gpio_delay() udelay(100)
-
+#define eeprom_delay() udelay(5)
 
 void send_bits(int b, int bits)
 {
@@ -15,11 +14,11 @@ void send_bits(int b, int bits)
 			set32(HW_GPIO1OUT, GP_EEP_MOSI);
 		else
 			clear32(HW_GPIO1OUT, GP_EEP_MOSI);
-		gpio_delay();
+		eeprom_delay();
 		set32(HW_GPIO1OUT, GP_EEP_CLK);
-		gpio_delay();
+		eeprom_delay();
 		clear32(HW_GPIO1OUT, GP_EEP_CLK);
-		gpio_delay();
+		eeprom_delay();
 	}
 }
 
@@ -30,9 +29,9 @@ int recv_bits(int bits)
 	{
 		res <<= 1;
 		set32(HW_GPIO1OUT, GP_EEP_CLK);
-		gpio_delay();
+		eeprom_delay();
 		clear32(HW_GPIO1OUT, GP_EEP_CLK);
-		gpio_delay();
+		eeprom_delay();
 		res |= !!(read32(HW_GPIO1IN) & GP_EEP_MISO);
 	}
 	return res;
@@ -49,7 +48,7 @@ int seeprom_read(void *dst, int offset, int size)
 
 	clear32(HW_GPIO1OUT, GP_EEP_CLK);
 	clear32(HW_GPIO1OUT, GP_EEP_CS);
-	gpio_delay();
+	eeprom_delay();
 
 	for(i = 0; i < size; ++i)
 	{
@@ -58,7 +57,7 @@ int seeprom_read(void *dst, int offset, int size)
 		recv = recv_bits(16);
 		*ptr++ = recv;
 		clear32(HW_GPIO1OUT, GP_EEP_CS);
-		gpio_delay();
+		eeprom_delay();
 	}
 
 	return size;
