@@ -113,8 +113,8 @@ void aes_decrypt(u8 *src, u8 *dst, u32 blocks, u8 keep_iv)
 		if (this_blocks > 0x80)
 			this_blocks = 0x80;
 	
-		write32(AES_SRC, (u32)src);
-		write32(AES_DEST, (u32)dst);
+		write32(AES_SRC, dma_addr(src));
+		write32(AES_DEST, dma_addr(dst));
 		aes_command(AES_CMD_DECRYPT, keep_iv, this_blocks);
 
 		blocks -= this_blocks;

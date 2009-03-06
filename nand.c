@@ -99,11 +99,11 @@ void __nand_setup_dma(u8 *data, u8 *spare) {
 	NAND_debug("nand_setup_dma: %p, %p\n", data, spare);
 	if (((s32)data) != -1) {
 		dc_invalidaterange(data, 0x800);
-		__nand_write32(NAND_DATA, (s32)data);
+		__nand_write32(NAND_DATA, dma_addr(data));
 	}
 	if (((s32)spare) != -1) {
 		dc_invalidaterange(spare, 0x50); // +0x10 for calculated syndrome?
-		__nand_write32(NAND_ECC, (s32)spare);
+		__nand_write32(NAND_ECC, dma_addr(spare));
 	}
 }
 
