@@ -49,8 +49,10 @@ void exc_handler(u32 type, u32 spsr, u32 *regs)
 	u32 pc, fsr;
 
 	switch(type) {
-		case 7: // FIQ
+		case 1: // UND
+		case 2: // SWI
 		case 3: // INSTR ABORT
+		case 7: // FIQ
 			pc = regs[15] - 4;
 			break;
 		case 4: // DATA ABORT
