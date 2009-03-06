@@ -159,6 +159,11 @@ void *_main(void *base)
 	gecko_puts("Configuring caches and MMU...\n");
 	mem_initialize();
 
+	gecko_printf("IOSflags: %08x %08x %08x\n",
+		read32(0xffffff00), read32(0xffffff04), read32(0xffffff08));
+	gecko_printf("          %08x %08x %08x\n",
+		read32(0xffffff0c), read32(0xffffff10), read32(0xffffff14));
+
 	irq_initialize();
 	irq_enable(IRQ_TIMER);
 	irq_enable(IRQ_GPIO1B);
