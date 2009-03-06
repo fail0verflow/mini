@@ -271,8 +271,11 @@ void map_section(u32 from, u32 to, u32 size, u32 attributes)
 	}
 }
 
+//#define NO_CACHES
+
 void mem_initialize(void)
 {
+	u32 cr;
 	u32 cookie = irq_kill();
 
 	gecko_printf("MEM: cleaning up\n");
@@ -300,9 +303,11 @@ void mem_initialize(void)
 
 	_drain_write_buffer();
 
+	cr = get_cr();
+
+#ifndef NO_CACHES
 	gecko_printf("MEM: enabling caches\n");
 
-	u32 cr = get_cr();
 	cr |= 0x1004; //ICACHE/DCACHE and MMU enable
 	set_cr(cr);
 
@@ -310,6 +315,7 @@ void mem_initialize(void)
 
 	cr |= 0x0001; //ICACHE/DCACHE and MMU enable
 	set_cr(cr);
+#endif
 
 	gecko_printf("MEM: init done\n");
 
