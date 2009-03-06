@@ -186,7 +186,7 @@ void *_main(void *base)
 	gecko_puts("Initializing IPC...\n");
 	ipc_initialize();
 
-	gecko_puts("Initializign SD...\n");
+	gecko_puts("Initializing SD...\n");
 	sd_initialize();
 
 	gecko_puts("Mounting SD...\n");
