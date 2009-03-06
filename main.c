@@ -180,9 +180,6 @@ void *_main(void *base)
 	boot2_init();
 	gecko_puts("Boot2 loaded to memory.\n");
 
-//	gecko_printf("boot2_run = %d\n", boot2_run(0x10001, 0x48415858));
-//	goto end;
-
 	gecko_puts("Initializing IPC...\n");
 	ipc_initialize();
 
