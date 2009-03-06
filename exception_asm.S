@@ -50,6 +50,7 @@ v_undf:
 
 	ldmfd	sp!, {r0-r12}
 	add		sp, sp, #8
+	ldmfd	sp!, {lr}
 	movs	pc, lr
 
 v_swi:
@@ -64,6 +65,7 @@ v_swi:
 
 	ldmfd	sp!, {r0-r12}
 	add		sp, sp, #8
+	ldmfd	sp!, {lr}
 	movs	pc, lr
 
 v_instr_abrt:
@@ -78,6 +80,7 @@ v_instr_abrt:
 
 	ldmfd	sp!, {r0-r12}
 	add		sp, sp, #8
+	ldmfd	sp!, {lr}
 	subs	pc, lr, #4
 
 v_data_abrt:
@@ -92,6 +95,7 @@ v_data_abrt:
 
 	ldmfd	sp!, {r0-r12}
 	add		sp, sp, #8
+	ldmfd	sp!, {lr}
 	subs	pc, lr, #8
 
 v_reserved:
@@ -106,6 +110,7 @@ v_reserved:
 
 	ldmfd	sp!, {r0-r12}
 	add		sp, sp, #8
+	ldmfd	sp!, {lr}
 	movs	pc, lr
 
 v_fiq:
@@ -120,5 +125,6 @@ v_fiq:
 
 	ldmfd	sp!, {r0-r12}
 	add		sp, sp, #8
+	ldmfd	sp!, {lr}
 	subs	pc, lr, #4
 
