@@ -602,12 +602,12 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 		else
 			dc_invalidaterange(buffer, blk_cnt * BLOCK_SIZE);
 			
-		__sd_write32(sdhci->reg_base + SDHC_SDMA_ADDR, (u32)buffer);
+		__sd_write32(sdhci->reg_base + SDHC_SDMA_ADDR, dma_addr(buffer));
 		__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, 0);
 		__sd_write16(sdhci->reg_base + SDHC_ERROR_INTERRUPT_STATUS, 0);
 		__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE, INTERRUPT_ALL);
 		__sd_write16(sdhci->reg_base + SDHC_ERROR_INTERRUPT_ENABLE, EINTERRUPT_ALL);
-		__sd_write32(sdhci->reg_base + SDHC_SDMA_ADDR, (u32 )buffer);
+		__sd_write32(sdhci->reg_base + SDHC_SDMA_ADDR, dma_addr(buffer));
 	}
 
 	__sd_dumpregs(sdhci);
@@ -718,7 +718,7 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 					}
 
 					__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, INTERRUPT_DMA);
-					__sd_write32(sdhci->reg_base + SDHC_SDMA_ADDR, (u32 )ptr);
+					__sd_write32(sdhci->reg_base + SDHC_SDMA_ADDR, dma_addr(ptr));
 
 					sdhc_debug(sdhci->reg_base, "next DMA transfer started.");
 					__sd_dumpregs(sdhci);
