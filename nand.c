@@ -71,8 +71,8 @@ void nand_irq(void)
 		gecko_printf("NAND: Error on IRQ\n");
 		err = -1;
 	}
-	ahb_memflush(NAND);
-	magic_bullshit(0);
+	ahb_flush_from(AHB_NAND);
+	ahb_flush_to(AHB_STARLET);
 	if (current_request.code != 0) {
 		switch (current_request.req) {
 			case IPC_NAND_GETID:
@@ -102,8 +102,8 @@ inline void __nand_wait(void) {
 	while(__nand_read32(NAND_CMD) & NAND_BUSY_MASK);
 	if(__nand_read32(NAND_CMD) & NAND_ERROR)
 		gecko_printf("NAND: Error on wait\n");
-	ahb_memflush(NAND);
-	magic_bullshit(0);
+	ahb_flush_from(AHB_NAND);
+	ahb_flush_to(AHB_STARLET);
 }
 
 void nand_send_command(u32 command, u32 bitmask, u32 flags, u32 num_bytes) {
@@ -192,6 +192,7 @@ void nand_write_page(u32 pageno, void *data, void *ecc) {
 	}
 	dc_flushrange(data, PAGE_SIZE);
 	dc_flushrange(ecc, PAGE_SPARE_SIZE);
+	ahb_flush_to(AHB_NAND);
 	__nand_set_address(0, pageno);
 	__nand_setup_dma(data, ecc);
 	nand_send_command(NAND_WRITE_PRE, 0x1f, NAND_FLAGS_IRQ | NAND_FLAGS_WR | NAND_FLAGS_ECC, 0x840);

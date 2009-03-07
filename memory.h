@@ -10,18 +10,17 @@
 	((typeof(x))(((u32)(x)) & (~(align-1))))
 
 enum AHBDEV {
-	MEMORY = 0,
-	NAND,
-	RAW0 = 0x100,
-	RAWF = 0x10F,
+	AHB_STARLET = 0, //or MEM2??
+	AHB_1 = 1, //or MEM1??
+	AHB_NAND = 3,
 };
 
 void dc_flushrange(const void *start, u32 size);
 void dc_invalidaterange(void *start, u32 size);
 void dc_flushall(void);
 void ic_invalidateall(void);
-void magic_bullshit(int type);
-void ahb_memflush(enum AHBDEV dev);
+void ahb_flush_from(enum AHBDEV dev);
+void ahb_flush_to(enum AHBDEV dev);
 void mem_protect(int enable, void *start, void *end);
 void mem_setswap(int enable);
 
