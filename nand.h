@@ -17,6 +17,12 @@ void nand_wait(void);
 
 void nand_read_cluster(u32 clusterno, void *data);
 
+#define NAND_ECC_OK 0
+#define NAND_ECC_CORRECTED 1
+#define NAND_ECC_UNCORRECTABLE -1
+
+int nand_correct(u32 pageno, void *data, void *ecc);
+
 void nand_initialize();
 
 void nand_ipc(volatile ipc_request *req);

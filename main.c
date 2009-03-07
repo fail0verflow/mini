@@ -178,7 +178,6 @@ void *_main(void *base)
 	gecko_puts("NAND initialized.\n");
 
 	boot2_init();
-	gecko_puts("Boot2 loaded to memory.\n");
 
 	gecko_puts("Initializing IPC...\n");
 	ipc_initialize();

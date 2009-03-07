@@ -200,6 +200,48 @@ void nand_initialize(void)
 	irq_enable(IRQ_NAND);
 }
 
+int nand_correct(u32 pageno, void *data, void *ecc)
+{
+	u8 *dp = (u8*)data;
+	u32 *ecc_read = (u32*)((u8*)ecc)+0x30;
+	u32 *ecc_calc = (u32*)((u8*)ecc)+0x40;
+	int i;
+	int uncorrectable = 0;
+	int corrected = 0;
+	
+	for(i=0;i<4;i++) {
+		u32 syndrome = *ecc_read ^ *ecc_calc; //calculate ECC syncrome
+		if(syndrome) {
+			if(!((syndrome-1)&syndrome)) {
+				// single-bit error in ECC
+				corrected++;
+			} else {
+				// byteswap and extract odd and even halves
+				u16 even = (syndrome >> 24) | ((syndrome >> 8) & 0xf00);
+				u16 odd = ((syndrome << 8) & 0xf00) | ((syndrome >> 8) & 0x0ff);
+				if((even ^ odd) != 0xfff) {
+					// oops, can't fix this one
+					uncorrectable++;
+				} else {
+					// fix the bad bit
+					dp[odd >> 3] ^= 1<<(odd&7);
+					corrected++;
+				}
+			}
+		}
+		dp += 0x200;
+		ecc_read++;
+		ecc_calc++;
+	}
+	if(uncorrectable || corrected)
+		gecko_printf("ECC stats for NAND page 0x%x: %d uncorrectable, %d corrected\n", uncorrectable, corrected);
+	if(uncorrectable)
+		return NAND_ECC_UNCORRECTABLE;
+	if(corrected)
+		return NAND_ECC_CORRECTED;
+	return NAND_ECC_OK;
+}
+
 void nand_ipc(volatile ipc_request *req)
 {
 	if (ipc_code != 0 || ipc_tag != 0) {

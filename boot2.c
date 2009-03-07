@@ -42,6 +42,10 @@ void boot2_init() {
 	for (i = 0x40; i < 0x140; i++, ptr += 2048) {
 		nand_read_page(i, ptr, ecc);
 		nand_wait();
+		if(nand_correct(i, ptr, ecc) < 0) {
+			gecko_printf("boot2 is corrupted, cannot load!\n");
+			return;
+		}
 	}
 
 	if (hdr->len != sizeof(struct wadheader))
@@ -75,6 +79,7 @@ void boot2_init() {
 
 	memcpy(boot2, cntptr, datalen);
 	boot2_initialized = 1;
+	gecko_printf("boot2 loaded\n");
 }
 
 static u32 match[] = {
