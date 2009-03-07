@@ -13,6 +13,7 @@ enum AHBDEV {
 	AHB_STARLET = 0, //or MEM2??
 	AHB_1 = 1, //or MEM1??
 	AHB_NAND = 3,
+	AHB_SDHC = 9,
 };
 
 void dc_flushrange(const void *start, u32 size);

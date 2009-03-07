@@ -74,7 +74,7 @@ void _ahb_flush_to(enum AHBDEV dev) {
 		//case 6: mask = 0x0010; break;
 		//case 7: mask = 0x0020; break;
 		//case 8: mask = 0x0040; break;
-		//case 9: mask = 0x0080; break;
+		case AHB_SDHC: mask = 0x0080; break;
 		//case 10: mask = 0x0100; break;
 		//case 11: mask = 0x1000; break;
 		//case 12: mask = 0x0000; break;
@@ -88,6 +88,7 @@ void _ahb_flush_to(enum AHBDEV dev) {
 		switch(dev) {
 			// 2 to 10 in IOS, add more
 			case AHB_NAND:
+			case AHB_SDHC:
 				while((read32(HW_18C) & 0xF) == 9)
 					set32(HW_188, 0x10000);
 				clear32(HW_188, 0x10000);
@@ -155,6 +156,7 @@ void ahb_flush_from(enum AHBDEV dev)
 			req = 1;
 			break;
 		case AHB_NAND:
+		case AHB_SDHC:
 			req = 8;
 			break;
 		default:

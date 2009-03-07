@@ -597,10 +597,12 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 	if(use_dma == 1)
 	{
 		sdhc_debug(sdhci->reg_base, "preparing buffer for SDMA transfer");
-		if(mask == SDHC_BFR_WRITE_ENABLE)
+		if(mask == SDHC_BFR_WRITE_ENABLE) {
 			dc_flushrange(buffer, blk_cnt * BLOCK_SIZE);
-		else
+			ahb_flush_to(AHB_SDHC);
+		} else {
 			dc_invalidaterange(buffer, blk_cnt * BLOCK_SIZE);
+		}
 			
 		__sd_write32(sdhci->reg_base + SDHC_SDMA_ADDR, dma_addr(buffer));
 		__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, 0);
@@ -699,6 +701,8 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 					sdhc_debug(sdhci->reg_base, "transfer completed. disabling interrupts again and returning.");
 					__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, INTERRUPT_TRANSFER_COMPLETE | INTERRUPT_DMA);
 					__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE, 0);
+					if(mask == SDHC_BFR_READ_ENABLE)
+						ahb_flush_from(AHB_SDHC);
 					return 0;
 				}
 				else if(retval & INTERRUPT_DMA)
