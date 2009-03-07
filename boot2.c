@@ -62,9 +62,7 @@ void boot2_init() {
 	aes_set_iv(iv);
 	aes_set_key(otp.common_key);
 	memcpy(key, tikptr+0x1bf, 16);
-	dc_flushrange(key, 32);
 	aes_decrypt(key, key, 1, 0);
-	dc_invalidaterange(key, 32);
 
 	memcpy(&datalen, tmdptr+0x1e4+8+4, 4);
 	memset(iv, 0, 16);
@@ -73,9 +71,7 @@ void boot2_init() {
 	aes_reset();
 	aes_set_iv(iv);
 	aes_set_key(key);
-	dc_flushrange(cntptr, ALIGN_FORWARD(datalen, 16));
 	aes_decrypt(cntptr, cntptr, ALIGN_FORWARD(datalen, 16)/16, 0);
-	dc_invalidaterange(cntptr, ALIGN_FORWARD(datalen, 16));
 
 	memcpy(boot2, cntptr, datalen);
 	boot2_initialized = 1;

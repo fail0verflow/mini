@@ -112,10 +112,17 @@ void aes_decrypt(u8 *src, u8 *dst, u32 blocks, u8 keep_iv)
 		this_blocks = blocks;
 		if (this_blocks > 0x80)
 			this_blocks = 0x80;
-	
+
 		write32(AES_SRC, dma_addr(src));
 		write32(AES_DEST, dma_addr(dst));
+
+		dc_flushrange(src, blocks * 16);
+		dc_invalidaterange(src, blocks * 16);
+
+		ahb_flush_to(AHB_AES);
 		aes_command(AES_CMD_DECRYPT, keep_iv, this_blocks);
+		ahb_flush_from(AHB_AES);
+		ahb_flush_to(AHB_STARLET);
 
 		blocks -= this_blocks;
 		src += this_blocks<<4;
@@ -138,12 +145,8 @@ void aes_ipc(volatile ipc_request *req)
 			aes_set_key((u8 *)req->args);
 			break;
 		case IPC_AES_DECRYPT:
-			dc_invalidaterange((u8 *)req->args[0],
-					(req->args[3]+1)*16);
 			aes_decrypt((u8 *)req->args[0], (u8 *)req->args[1],
 				    req->args[2], req->args[3]);
-			dc_flushrange((u8 *)req->args[1],
-					(req->args[3]+1)*16);
 			break;
 		default:
 			gecko_printf("IPC: unknown SLOW AES request %04x\n",

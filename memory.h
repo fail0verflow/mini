@@ -10,9 +10,11 @@
 	((typeof(x))(((u32)(x)) & (~(align-1))))
 
 enum AHBDEV {
-	AHB_STARLET = 0, //or MEM2??
-	AHB_1 = 1, //or MEM1??
+	AHB_STARLET = 0, //or MEM2 or some controller or bus or ??
+	AHB_1 = 1, //ppc or something else???
 	AHB_NAND = 3,
+	AHB_AES = 4,
+	AHB_SHA1 = 5,
 	AHB_SDHC = 9,
 };
 
