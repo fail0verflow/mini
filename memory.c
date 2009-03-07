@@ -146,6 +146,9 @@ void ahb_memflush(enum AHBDEV dev)
 		case MEMORY:
 			req = 1;
 			break;
+		case NAND:
+			req = 8;
+			break;
 		default:
 			if((dev >= RAW0) && (dev <= RAWF))
 			{

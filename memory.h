@@ -11,6 +11,7 @@
 
 enum AHBDEV {
 	MEMORY = 0,
+	NAND,
 	RAW0 = 0x100,
 	RAWF = 0x10F,
 };
