@@ -135,7 +135,7 @@ void nand_get_id(u8 *idbuf) {
 	dc_invalidaterange(idbuf, 0x40);
 
 	__nand_setup_dma(idbuf, (u8 *)-1);
-	nand_send_command(NAND_CHIPID, 1, NAND_FLAGS_RD, 0x40);
+	nand_send_command(NAND_CHIPID, 1, NAND_FLAGS_IRQ | NAND_FLAGS_RD, 0x40);
 }
 
 void nand_get_status(u8 *status_buf) {
@@ -144,7 +144,7 @@ void nand_get_status(u8 *status_buf) {
 	dc_invalidaterange(status_buf, 0x40);
 
 	__nand_setup_dma(status_buf, (u8 *)-1);
-	nand_send_command(NAND_GETSTATUS, 0, NAND_FLAGS_RD, 0x40);
+	nand_send_command(NAND_GETSTATUS, 0, NAND_FLAGS_IRQ | NAND_FLAGS_RD, 0x40);
 }
 
 void nand_read_page(u32 pageno, void *data, void *ecc) {
