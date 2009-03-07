@@ -39,6 +39,7 @@ type *name = (type*)(((u32)(_al__##name)) + ((alignment) - (( \
 #define NAND_WRITE_POST 0x10
 
 #define NAND_BUSY_MASK 0x80000000
+#define NAND_ERROR 0x20000000
 
 #define NAND_FLAGS_IRQ 	0x40000000
 #define NAND_FLAGS_WAIT 0x8000
@@ -53,9 +54,16 @@ type *name = (type*)(((u32)(_al__##name)) + ((alignment) - (( \
 static int ipc_code = 0;
 static int ipc_tag = 0;
 
+static inline u32 __nand_read32(u32 addr)
+{
+	return read32(addr);
+}
+
 void nand_irq(void)
 {
 	int code, tag;
+	if(__nand_read32(NAND_CMD) & NAND_ERROR)
+		gecko_printf("NAND: Error on IRQ\n");
 	ahb_memflush(NAND);
 	magic_bullshit(0);
 	if (ipc_code != 0) {
@@ -66,11 +74,6 @@ void nand_irq(void)
 	}
 }
 
-static inline u32 __nand_read32(u32 addr)
-{
-	return read32(addr);
-}
-
 inline void __nand_write32(u32 addr, u32 data)
 {
 	write32(addr, data);
@@ -78,6 +81,8 @@ inline void __nand_write32(u32 addr, u32 data)
 
 inline void __nand_wait(void) {
 	while(__nand_read32(NAND_CMD) & NAND_BUSY_MASK);
+	if(__nand_read32(NAND_CMD) & NAND_ERROR)
+		gecko_printf("NAND: Error on wait\n");
 	ahb_memflush(NAND);
 	magic_bullshit(0);
 }
