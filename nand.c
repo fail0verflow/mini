@@ -254,7 +254,7 @@ int nand_correct(u32 pageno, void *data, void *ecc)
 		ecc_calc++;
 	}
 	if(uncorrectable || corrected)
-		gecko_printf("ECC stats for NAND page 0x%x: %d uncorrectable, %d corrected\n", uncorrectable, corrected);
+		gecko_printf("ECC stats for NAND page 0x%x: %d uncorrectable, %d corrected\n", pageno, uncorrectable, corrected);
 	if(uncorrectable)
 		return NAND_ECC_UNCORRECTABLE;
 	if(corrected)
