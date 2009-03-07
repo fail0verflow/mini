@@ -49,7 +49,7 @@ type *name = (type*)(((u32)(_al__##name)) + ((alignment) - (( \
 
 #define	PAGE_SIZE			2048
 #define PAGE_SPARE_SIZE		64
-#define NAND_MAX_PAGE		4096
+#define NAND_MAX_PAGE		0x40000
 
 static int ipc_code = 0;
 static int ipc_tag = 0;
@@ -162,7 +162,7 @@ void nand_wait() {
 #ifdef NAND_SUPPORT_WRITE
 void nand_write_page(u32 pageno, void *data, void *ecc) {
 	NAND_debug("nand_write_page(%u, %p, %p)\n", pageno, data, ecc);
-	if ((pageno < 0x200) || (pageno >= NAND_PAGE_MAX)) {
+	if ((pageno < 0x200) || (pageno >= NAND_MAX_PAGE)) {
 		printf("Error: nand_write to page %d forbidden\n", pageno);
 		return;
 	}
@@ -179,7 +179,7 @@ void nand_write_page(u32 pageno, void *data, void *ecc) {
 #ifdef NAND_SUPPORT_ERASE
 void nand_erase_block(u32 pageno) {
 	NAND_debug("nand_erase_block(%d)\n", pageno);
-	if ((pageno < 0x200) || (pageno >= NAND_PAGE_MAX)) {
+	if ((pageno < 0x200) || (pageno >= NAND_MAX_PAGE)) {
 		printf("Error: nand_erase to page %d forbidden\n", pageno);
 		return;
 	}
