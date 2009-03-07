@@ -8,7 +8,7 @@
 
 static u8 boot2[256 << 11] MEM2_BSS ALIGNED(64);
 static u8 key[32] ALIGNED(64);
-static u8 ecc[128] ALIGNED(64);
+static u8 ecc[128] ALIGNED(128);
 static u8 boot2_initialized = 0;
 extern void *vector;
 
