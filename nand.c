@@ -56,6 +56,8 @@ static int ipc_tag = 0;
 void nand_irq(void)
 {
 	int code, tag;
+	ahb_memflush(NAND);
+	magic_bullshit(0);
 	if (ipc_code != 0) {
 		code = ipc_code;
 		tag = ipc_tag;
@@ -76,6 +78,8 @@ inline void __nand_write32(u32 addr, u32 data)
 
 inline void __nand_wait(void) {
 	while(__nand_read32(NAND_CMD) & NAND_BUSY_MASK);
+	ahb_memflush(NAND);
+	magic_bullshit(0);
 }
 
 void nand_send_command(u32 command, u32 bitmask, u32 flags, u32 num_bytes) {
