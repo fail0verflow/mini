@@ -8,6 +8,7 @@
 #include "irq.h"
 #include "ipc.h"
 #include "gecko.h"
+#include "types.h"
 
 //#define	NAND_DEBUG	1
 #undef NAND_SUPPORT_WRITE
@@ -49,10 +50,14 @@ type *name = (type*)(((u32)(_al__##name)) + ((alignment) - (( \
 
 #define	PAGE_SIZE			2048
 #define PAGE_SPARE_SIZE		64
+#define ECC_BUFFER_SIZE		(PAGE_SPARE_SIZE+16)
 #define NAND_MAX_PAGE		0x40000
 
-static int ipc_code = 0;
-static int ipc_tag = 0;
+ipc_request current_request;
+
+u8 ipc_data[PAGE_SIZE] MEM2_BSS ALIGNED(32);
+// keep cache aligned size
+u8 ipc_ecc[ECC_BUFFER_SIZE+16] MEM2_BSS ALIGNED(128); //128 alignment REQUIRED
 
 static inline u32 __nand_read32(u32 addr)
 {
@@ -61,16 +66,30 @@ static inline u32 __nand_read32(u32 addr)
 
 void nand_irq(void)
 {
-	int code, tag;
-	if(__nand_read32(NAND_CMD) & NAND_ERROR)
+	int code, tag, err = 0;
+	if(__nand_read32(NAND_CMD) & NAND_ERROR) {
 		gecko_printf("NAND: Error on IRQ\n");
+		err = -1;
+	}
 	ahb_memflush(NAND);
 	magic_bullshit(0);
-	if (ipc_code != 0) {
-		code = ipc_code;
-		tag = ipc_tag;
-		ipc_code = ipc_tag = 0;
-		ipc_post(code, tag, 0);
+	if (current_request.code != 0) {
+		switch (current_request.req) {
+			case IPC_NAND_GETID:
+				memcpy32((void*)current_request.args[0], ipc_data, 0x40);
+				dc_flushrange((void*)current_request.args[0], 0x40);
+				break;
+			case IPC_NAND_READ:
+				memcpy32((void*)current_request.args[1], ipc_data, PAGE_SIZE);
+				memcpy32((void*)current_request.args[2], ipc_ecc, ECC_BUFFER_SIZE);
+				dc_flushrange((void*)current_request.args[1], PAGE_SIZE);
+				dc_flushrange((void*)current_request.args[2], ECC_BUFFER_SIZE);
+				break;
+		}
+		code = current_request.code;
+		tag = current_request.tag;
+		current_request.code = 0;
+		ipc_post(code, tag, 1, err);
 	}
 }
 
@@ -107,12 +126,13 @@ void __nand_set_address(s32 page_off, s32 pageno) {
 void __nand_setup_dma(u8 *data, u8 *spare) {
 	NAND_debug("nand_setup_dma: %p, %p\n", data, spare);
 	if (((s32)data) != -1) {
-		dc_invalidaterange(data, 0x800);
 		__nand_write32(NAND_DATA, dma_addr(data));
 	}
 	if (((s32)spare) != -1) {
-		dc_invalidaterange(spare, 0x50); // +0x10 for calculated syndrome?
-		__nand_write32(NAND_ECC, dma_addr(spare));
+		u32 addr = dma_addr(spare);
+		if(addr & 0x7f)
+			gecko_printf("NAND: Spare buffer 0x%08x is not aligned, data will be corrupted\n", addr);
+		__nand_write32(NAND_ECC, addr);
 	}
 }
 
@@ -152,8 +172,8 @@ void nand_read_page(u32 pageno, void *data, void *ecc) {
 	__nand_set_address(0, pageno);
 	nand_send_command(NAND_READ_PRE, 0x1f, 0, 0);
 
-	dc_invalidaterange(data, 0x800);
-	dc_invalidaterange(ecc, 0x50);
+	dc_invalidaterange(data, PAGE_SIZE);
+	dc_invalidaterange(ecc, ECC_BUFFER_SIZE);
 
 	__nand_setup_dma(data, ecc);
 	nand_send_command(NAND_READ_POST, 0, NAND_FLAGS_IRQ | NAND_FLAGS_WAIT | NAND_FLAGS_RD | NAND_FLAGS_ECC, 0x840);
@@ -170,8 +190,8 @@ void nand_write_page(u32 pageno, void *data, void *ecc) {
 		printf("Error: nand_write to page %d forbidden\n", pageno);
 		return;
 	}
-	dc_flushrange(data, 0x800);
-	dc_flushrange(ecc, 0x40);
+	dc_flushrange(data, PAGE_SIZE);
+	dc_flushrange(ecc, PAGE_SPARE_SIZE);
 	__nand_set_address(0, pageno);
 	__nand_setup_dma(data, ecc);
 	nand_send_command(NAND_WRITE_PRE, 0x1f, NAND_FLAGS_IRQ | NAND_FLAGS_WR | NAND_FLAGS_ECC, 0x840);
@@ -195,7 +215,7 @@ void nand_erase_block(u32 pageno) {
 
 void nand_initialize(void)
 {
-	ipc_code = ipc_tag = 0;
+	current_request.code = 0;
 	nand_reset();
 	irq_enable(IRQ_NAND);
 }
@@ -244,12 +264,11 @@ int nand_correct(u32 pageno, void *data, void *ecc)
 
 void nand_ipc(volatile ipc_request *req)
 {
-	if (ipc_code != 0 || ipc_tag != 0) {
+	if (current_request.code != 0) {
 		gecko_printf("NAND: previous IPC request is not done yet.");
 		ipc_post(req->code, req->tag, 1, -1);
 		return;
 	}
-
 	switch (req->req) {
 		case IPC_NAND_RESET:
 			nand_reset();
@@ -257,9 +276,8 @@ void nand_ipc(volatile ipc_request *req)
 			break;
 
 		case IPC_NAND_GETID:
-			ipc_code = req->code;
-			ipc_tag = req->tag;
-			nand_get_id((u8 *)req->args[0]);
+			current_request = *req;
+			nand_get_id(ipc_data);
 			break;
 
 		case IPC_NAND_STATUS:
@@ -269,23 +287,22 @@ void nand_ipc(volatile ipc_request *req)
 			break;
 
 		case IPC_NAND_READ:
-			ipc_code = req->code;
-			ipc_tag = req->tag;
-			nand_read_page(req->args[0], (void *)req->args[1],
-				       (void *)req->args[2]);
+			current_request = *req;
+			nand_read_page(req->args[0], ipc_data, ipc_ecc);
 			break;
 #ifdef NAND_SUPPORT_WRITE
 		case IPC_NAND_WRITE:
-			ipc_code = req->code;
-			ipc_tag = req->tag;
-			nand_write_page(req->args[0], (void *)req->args[1],
-				       (void *)req->args[2]);
+			current_request = *req;
+			dc_invalidaterange((void*)req->args[1], PAGE_SIZE);
+			dc_invalidaterange((void*)req->args[2], PAGE_SPARE_SIZE);
+			memcpy(ipc_data, (void*)req->args[1], PAGE_SIZE);
+			memcpy(ipc_ecc, (void*)req->args[2], PAGE_SPARE_SIZE);
+			nand_write_page(req->args[0], ipc_data, ipc_ecc);
 			break;
 #endif
 #ifdef NAND_SUPPORT_ERASE
 		case IPC_NAND_ERASE:
-			ipc_code = req->code;
-			ipc_tag = req->tag;
+			current_request = *req;
 			nand_erase_block(req->args[0]);
 			break;
 #endif
