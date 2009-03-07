@@ -127,13 +127,16 @@ void _magic_bullshit(int type) {
 
 void magic_bullshit(int type)
 {
+	u32 cookie = irq_kill();
 	_magic_bullshit(type);
 	if(type != 0)
 		_magic_bullshit(0);
+	irq_restore(cookie);
 }
 
 void ahb_memflush(enum AHBDEV dev)
 {
+	u32 cookie = irq_kill();
 	u16 req = 0;
 	u16 ack;
 	int i;
@@ -166,6 +169,7 @@ void ahb_memflush(enum AHBDEV dev)
 	if(i>=1000000) {
 		gecko_printf("ahb_memflush(%d): Flush (0x%x) did not ack!\n", dev, req);
 	}
+	irq_restore(cookie);
 }
 
 void dc_flushrange(const void *start, u32 size)
