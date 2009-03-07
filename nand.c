@@ -17,7 +17,7 @@
 #	include "gecko.h"
 #	define	NAND_debug(f, arg...) gecko_printf("NAND: " f "\n", ##arg);
 #else
-#	define	NAND_debug(f, arg...) 
+#	define	NAND_debug(f, arg...)
 #endif
 
 #define STACK_ALIGN(type, name, cnt, alignment)         \
@@ -84,10 +84,10 @@ inline void __nand_wait(void) {
 
 void nand_send_command(u32 command, u32 bitmask, u32 flags, u32 num_bytes) {
 	u32 cmd = NAND_BUSY_MASK | (bitmask << 24) | (command << 16) | flags | num_bytes;
-	
+
 	NAND_debug("nand_send_command(%x, %x, %x, %x) -> %x\n",
 		command, bitmask, flags, num_bytes, cmd);
-			
+
 	__nand_write32(NAND_CMD, 0x7fffffff);
 	__nand_write32(NAND_CMD, 0);
 	__nand_write32(NAND_CMD, cmd);
@@ -95,7 +95,7 @@ void nand_send_command(u32 command, u32 bitmask, u32 flags, u32 num_bytes) {
 
 void __nand_set_address(s32 page_off, s32 pageno) {
 	NAND_debug("nand_set_address: %d, %d\n", page_off, pageno);
-	if (page_off != -1) __nand_write32(NAND_ADDR0, page_off);	
+	if (page_off != -1) __nand_write32(NAND_ADDR0, page_off);
 	if (pageno != -1) __nand_write32(NAND_ADDR1, pageno);
 }
 
@@ -125,7 +125,7 @@ int nand_reset(void)
 void nand_get_id(u8 *idbuf) {
 	__nand_set_address(0,0);
 
-  	dc_invalidaterange(idbuf, 0x40);
+	dc_invalidaterange(idbuf, 0x40);
 
 	__nand_setup_dma(idbuf, (u8 *)-1);
 	nand_send_command(NAND_CHIPID, 1, NAND_FLAGS_IRQ | NAND_FLAGS_RD, 0x40);
@@ -139,15 +139,15 @@ void nand_get_status(u8 *status_buf) {
 }
 
 void nand_read_page(u32 pageno, void *data, void *ecc) {
-  NAND_debug("nand_read_page(%u, %p, %p)\n", pageno, data, ecc);
-  __nand_set_address(0, pageno);
-  nand_send_command(NAND_READ_PRE, 0x1f, 0, 0);
+	NAND_debug("nand_read_page(%u, %p, %p)\n", pageno, data, ecc);
+	__nand_set_address(0, pageno);
+	nand_send_command(NAND_READ_PRE, 0x1f, 0, 0);
 
-  dc_invalidaterange(data, 0x800);
-  dc_invalidaterange(ecc, 0x50);
+	dc_invalidaterange(data, 0x800);
+	dc_invalidaterange(ecc, 0x50);
 
-  __nand_setup_dma(data, ecc);
-  nand_send_command(NAND_READ_POST, 0, NAND_FLAGS_IRQ | NAND_FLAGS_WAIT | NAND_FLAGS_RD | NAND_FLAGS_ECC, 0x840);
+	__nand_setup_dma(data, ecc);
+	nand_send_command(NAND_READ_POST, 0, NAND_FLAGS_IRQ | NAND_FLAGS_WAIT | NAND_FLAGS_RD | NAND_FLAGS_ECC, 0x840);
 }
 
 void nand_wait() {
@@ -158,28 +158,28 @@ void nand_wait() {
 void nand_write_page(u32 pageno, void *data, void *ecc) {
 	NAND_debug("nand_write_page(%u, %p, %p)\n", pageno, data, ecc);
 	if ((pageno < 0x200) || (pageno >= NAND_PAGE_MAX)) {
-	  printf("Error: nand_write to page %d forbidden\n", pageno);
-	  return;
+		printf("Error: nand_write to page %d forbidden\n", pageno);
+		return;
 	}
 	dc_flushrange(data, 0x800);
-	dc_flushrange(ecc, 0x40);	
+	dc_flushrange(ecc, 0x40);
 	__nand_set_address(0, pageno);
 	__nand_setup_dma(data, ecc);
 	nand_send_command(NAND_WRITE_PRE, 0x1f, NAND_FLAGS_IRQ | NAND_FLAGS_WR | NAND_FLAGS_ECC, 0x840);
-	
+
 	nand_send_command(NAND_WRITE_POST, 0, NAND_FLAGS_IRQ | NAND_FLAGS_WAIT, 0);
 }
 #endif
 
 #ifdef NAND_SUPPORT_ERASE
 void nand_erase_block(u32 pageno) {
-  	NAND_debug("nand_erase_block(%d)\n", pageno);
+	NAND_debug("nand_erase_block(%d)\n", pageno);
 	if ((pageno < 0x200) || (pageno >= NAND_PAGE_MAX)) {
-	  printf("Error: nand_erase to page %d forbidden\n", pageno);
-	  return;
+		printf("Error: nand_erase to page %d forbidden\n", pageno);
+		return;
 	}
-  	__nand_set_address(0, pageno);
-  	nand_send_command(NAND_ERASE_PRE, 0x1c, 0, 0);
+	__nand_set_address(0, pageno);
+	nand_send_command(NAND_ERASE_PRE, 0x1c, 0, 0);
 	nand_send_command(NAND_ERASE_POST, 0, NAND_FLAGS_IRQ | NAND_FLAGS_WAIT, 0);
 }
 #endif
