@@ -79,6 +79,10 @@ void nand_irq(void)
 				memcpy32((void*)current_request.args[0], ipc_data, 0x40);
 				dc_flushrange((void*)current_request.args[0], 0x40);
 				break;
+			case IPC_NAND_STATUS:
+				memcpy32((void*)current_request.args[0], ipc_data, 0x40);
+				dc_flushrange((void*)current_request.args[0], 0x40);
+				break;
 			case IPC_NAND_READ:
 				memcpy32((void*)current_request.args[1], ipc_data, PAGE_SIZE);
 				memcpy32((void*)current_request.args[2], ipc_ecc, ECC_BUFFER_SIZE);
@@ -282,9 +286,8 @@ void nand_ipc(volatile ipc_request *req)
 			break;
 
 		case IPC_NAND_STATUS:
-			ipc_code = req->code;
-			ipc_tag = req->tag;
-			nand_get_status((u8 *)req->args[0]);
+			current_request = *req;
+			nand_get_status(ipc_data);
 			break;
 
 		case IPC_NAND_READ:
