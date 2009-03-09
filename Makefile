@@ -8,8 +8,8 @@ LIBS = -lgcc
 ELFLOADER = ../elfloader/elfloader.bin
 MAKEBIN = python ../makebin.py
 
-TARGET = iosboot.bin
-ELF = iosboot.elf
+TARGET = armboot.bin
+ELF = armboot.elf
 OBJECTS = start.o main.o ipc.o vsprintf.o string.o gecko.o memory.o memory_asm.o \
 	utils_asm.o utils.o ff.o diskio.o sdhc.o powerpc_elf.o powerpc.o panic.o irq.o irq_asm.o \
 	exception.o exception_asm.o seeprom.o crypto.o nand.o boot2.o
