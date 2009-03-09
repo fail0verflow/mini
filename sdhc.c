@@ -126,6 +126,7 @@
 #define	SD_CMD_SEND_RELATIVE_ADDR	 3
 #define	SD_CMD_SELECT_CARD		 7
 #define	SD_CMD_SEND_IF_COND		 8
+#define	SD_CMD_SEND_CSD			 9
 #define	SD_CMD_SEND_STATUS		13
 #define	SD_CMD_SET_BLOCKLEN		16
 #define	SD_CMD_READ_MULTIPLE_BLOCK	18
@@ -877,7 +878,7 @@ int sd_mount(sdhci_t *sdhci)
 		retval = __sd_cmd(sdhci, SD_CMD_APP_SEND_OP_COND, SD_R3, sdhci->ocr, 0, NULL, resp, 6);
 		if(resp[0] & OCR_POWERUP_STATUS)
 		{
-			sdhc_debug(sdhci->reg_base, "card power up is done.");
+			sdhc_error(sdhci->reg_base, "card power up is done.");
 			break;
 		}
 		udelay(SDHC_WAIT_TIMEOUT_OUTER);
@@ -904,7 +905,7 @@ int sd_mount(sdhci_t *sdhci)
 	}
 
 	sdhc_debug(sdhci->reg_base, "sending ALL_SEND_CID command to get connected card");
-	retval = __sd_cmd(sdhci, SD_CMD_ALL_SEND_CID, SD_R3, 0, 0, NULL, resp, 6);
+	retval = __sd_cmd(sdhci, SD_CMD_ALL_SEND_CID, SD_R3, 0, 0, NULL, resp, 16);
 	if(retval < 0)
 	{
 		sdhc_error(sdhci->reg_base, "__sd_cmd returned %d, resetting controller.", retval);
@@ -912,9 +913,13 @@ int sd_mount(sdhci_t *sdhci)
 		return SDHC_EIO;
 	}
 
-	sdhci->cid = resp[0];
+	memcpy(sdhci->cid, resp, 128/8);
 
-	sdhc_debug(sdhci->reg_base, "CID: %08X, requesting RCA", sdhci->cid);
+	sdhc_debug(sdhci->reg_base, "CID: %08X%08x%08x%08x, requesting RCA",
+			sdhci->cid[0],
+			sdhci->cid[1],
+			sdhci->cid[2],
+			sdhci->cid[3]);
 	retval = __sd_cmd(sdhci, SD_CMD_SEND_RELATIVE_ADDR, SD_R6, 0, 0, NULL, resp, 6);
 	if(retval < 0)
 	{
@@ -942,6 +947,22 @@ int sd_mount(sdhci_t *sdhci)
 	__sd_print_status(sdhci);
 
 	sd_select(sdhci);
+
+#if 0
+	sdhc_debug(sdhci->reg_base, "requesting CSD noW!!");
+	retval = __sd_cmd(sdhci, SD_CMD_SEND_CSD, SD_R2, sdhci->rca << 16, 0, NULL, resp,
+			16);
+	if (retval < 0) {
+		sdhc_error(sdhci->reg_base, "failed to get CSD register (%d)", retval);
+		__sd_reset(sdhci, 1);
+	}
+	memcpy(sdhci->csd, resp, 128/8);
+	sdhc_debug(sdhci->reg_base, "CSD: %08X%08x%08x%08x",
+			sdhci->csd[0],
+			sdhci->csd[1],
+			sdhci->csd[2],
+			sdhci->csd[3]);
+#endif
 
 	sdhc_debug(sdhci->reg_base, "setting bus width to 4");
 	__sd_write8(sdhci->reg_base + SDHC_HOST_CONTROL, __sd_read8(sdhci->reg_base + SDHC_HOST_CONTROL) | SDHC_HCR_BUSWIDTH_4);
