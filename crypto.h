@@ -27,11 +27,13 @@ typedef struct
 
 typedef struct
 {
-	u8 version;
-	u8 pad[3];
+	u8 boot2version;
+	u8 unknown1;
+	u8 unknown2;
+	u8 pad;
 	u32 update_tag;
 	u16 checksum;
-} __attribute__((packed)) boot2ver_t;
+} __attribute__((packed)) eep_ctr_t;
 
 typedef struct
 {
@@ -41,7 +43,7 @@ typedef struct
 			u32 dunno1; // 0x1 = CA
 			u32 ng_key_id;
 			u8 ng_sig[60];
-			boot2ver_t boot2ver[2];
+			eep_ctr_t counters[2];
 			u8 fill[0x18];
 			u8 korean_key[16];
 		};

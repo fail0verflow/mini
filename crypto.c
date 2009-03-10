@@ -26,7 +26,7 @@ void crypto_read_otp(void)
 
 void crypto_read_seeprom(void)
 {
-  seeprom_read(&seeprom, 0, sizeof(seeprom) / 2);
+	seeprom_read(&seeprom, 0, sizeof(seeprom) / 2);
 }
 
 void crypto_initialize()
