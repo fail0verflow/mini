@@ -10,7 +10,7 @@
 #include "gecko.h"
 #include "types.h"
 
-#define	NAND_DEBUG	1
+//#define	NAND_DEBUG	1
 //#define NAND_SUPPORT_WRITE 1
 //#define NAND_SUPPORT_ERASE 1
 
