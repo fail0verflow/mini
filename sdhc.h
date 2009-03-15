@@ -22,8 +22,8 @@ typedef struct
 	u16 rca;
 	u32 ocr;
 
-	u32 cid[4];
-	u32 csd[4];
+	u8 cid[16];
+	u8 csd[16];
 } sdhci_t;
 
 int sd_init(sdhci_t *sdhci, int slot);

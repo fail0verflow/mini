@@ -915,11 +915,14 @@ int sd_mount(sdhci_t *sdhci)
 
 	memcpy(sdhci->cid, resp, 128/8);
 
-	sdhc_debug(sdhci->reg_base, "CID: %08X%08x%08x%08x, requesting RCA",
+/*	sdhc_error(sdhci->reg_base, "CID: %08X%08x%08x%08x, requesting RCA",
 			sdhci->cid[0],
 			sdhci->cid[1],
 			sdhci->cid[2],
-			sdhci->cid[3]);
+			sdhci->cid[3]); */
+	sdhc_error(sdhci->reg_base, "MID=%02x OID=%02x%02x PNM='%c%c%c%c%c' PRV=%02x PSN=%02x%02x%02x%02x MDT=%d/%d [%02x]\n",
+		sdhci->cid[0], sdhci->cid[1], sdhci->cid[2], sdhci->cid[3], sdhci->cid[4], sdhci->cid[5], sdhci->cid[6], sdhci->cid[7], 
+		sdhci->cid[8], sdhci->cid[9], sdhci->cid[10], sdhci->cid[11], sdhci->cid[12], sdhci->cid[13], sdhci->cid[14], sdhci->cid[15]); 
 	retval = __sd_cmd(sdhci, SD_CMD_SEND_RELATIVE_ADDR, SD_R6, 0, 0, NULL, resp, 6);
 	if(retval < 0)
 	{
@@ -939,7 +942,7 @@ int sd_mount(sdhci_t *sdhci)
 		__sd_reset(sdhci, 1);
 	}
 	memcpy(sdhci->csd, resp, 128/8);
-	sdhc_debug(sdhci->reg_base, "CSD: %08X%08x%08x%08x",
+	sdhc_error(sdhci->reg_base, "CSD: %08X%08x%08x%08x",
 			sdhci->csd[0],
 			sdhci->csd[1],
 			sdhci->csd[2],
