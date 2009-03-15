@@ -946,9 +946,6 @@ int sd_mount(sdhci_t *sdhci)
 
 	__sd_print_status(sdhci);
 
-	sd_select(sdhci);
-
-#if 0
 	sdhc_debug(sdhci->reg_base, "requesting CSD noW!!");
 	retval = __sd_cmd(sdhci, SD_CMD_SEND_CSD, SD_R2, sdhci->rca << 16, 0, NULL, resp,
 			16);
@@ -962,7 +959,8 @@ int sd_mount(sdhci_t *sdhci)
 			sdhci->csd[1],
 			sdhci->csd[2],
 			sdhci->csd[3]);
-#endif
+
+	sd_select(sdhci);
 
 	sdhc_debug(sdhci->reg_base, "setting bus width to 4");
 	__sd_write8(sdhci->reg_base + SDHC_HOST_CONTROL, __sd_read8(sdhci->reg_base + SDHC_HOST_CONTROL) | SDHC_HCR_BUSWIDTH_4);
