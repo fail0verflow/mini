@@ -931,6 +931,21 @@ int sd_mount(sdhci_t *sdhci)
 	sdhci->rca = (resp[0] >> 16) & 0xffff;
 	sdhc_debug(sdhci->reg_base, "RCA: %04X", sdhci->rca);
 
+	sdhc_debug(sdhci->reg_base, "requesting CSD noW!!");
+	retval = __sd_cmd(sdhci, SD_CMD_SEND_CSD, SD_R2, sdhci->rca << 16, 0, NULL, resp,
+			16);
+	if (retval < 0) {
+		sdhc_error(sdhci->reg_base, "failed to get CSD register (%d)", retval);
+		__sd_reset(sdhci, 1);
+	}
+	memcpy(sdhci->csd, resp, 128/8);
+	sdhc_debug(sdhci->reg_base, "CSD: %08X%08x%08x%08x",
+			sdhci->csd[0],
+			sdhci->csd[1],
+			sdhci->csd[2],
+			sdhci->csd[3]);
+
+
 	__sd_print_status(sdhci);
 
 	sd_select(sdhci);
@@ -945,20 +960,6 @@ int sd_mount(sdhci_t *sdhci)
 	}
 
 	__sd_print_status(sdhci);
-
-	sdhc_debug(sdhci->reg_base, "requesting CSD noW!!");
-	retval = __sd_cmd(sdhci, SD_CMD_SEND_CSD, SD_R2, sdhci->rca << 16, 0, NULL, resp,
-			16);
-	if (retval < 0) {
-		sdhc_error(sdhci->reg_base, "failed to get CSD register (%d)", retval);
-		__sd_reset(sdhci, 1);
-	}
-	memcpy(sdhci->csd, resp, 128/8);
-	sdhc_debug(sdhci->reg_base, "CSD: %08X%08x%08x%08x",
-			sdhci->csd[0],
-			sdhci->csd[1],
-			sdhci->csd[2],
-			sdhci->csd[3]);
 
 	sd_select(sdhci);
 
