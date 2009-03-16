@@ -195,6 +195,11 @@ void sd_irq(void)
 	}
 }
 
+unsigned int bswap32(unsigned int input) {
+	return ((input & 0x000000FF) << 24) | ((input & 0x0000FF00) << 8)  |
+	       ((input & 0x00FF0000) >> 8) | ((input & 0xFF000000) >> 24);
+}
+
 u8 __sd_read8(u32 addr)
 {
 	u32 mask;
@@ -641,7 +646,7 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 	__sd_dumpregs(sdhci);
 
 	for(i = 0; i < 4; i++)
-		sdhc_debug(sdhci->reg_base, "response %d: %X", i, __sd_read32(sdhci->reg_base + SDHC_RESPONSE + 4*i));
+		sdhc_debug(sdhci->reg_base, "response %d: %08X", i, __sd_read32(sdhci->reg_base + SDHC_RESPONSE + 4*i));
 	if(rlen < 4 && type & SD_RSP_PRESENT)
 	{
 		sdhc_debug(sdhci->reg_base, "response buffer not big enough for response...");
@@ -802,11 +807,76 @@ void __sd_print_status(sdhci_t *sdhci)
 	return;
 }
 
+static int __sd_getcid(sdhci_t *sdhci) {
+	u32 resp[4];
+	u32 swapped[4];
+	sdhc_debug(sdhci->reg_base, "sending ALL_SEND_CID command to get connected card");
+	int retval = __sd_cmd(sdhci, SD_CMD_ALL_SEND_CID, SD_R2, 0, 0, NULL, resp, 16);
+	if(retval < 0)
+	{
+		sdhc_error(sdhci->reg_base, "__sd_cmd returned %d, resetting controller.", retval);
+		__sd_reset(sdhci, 1);
+		return SDHC_EIO;
+	}
+	swapped[0] = bswap32(resp[3]);
+	swapped[1] = bswap32(resp[2]);
+	swapped[2] = bswap32(resp[1]);
+	swapped[3] = bswap32(resp[0]);
+
+	memcpy(&sdhci->cid, swapped, sizeof swapped);
+
+	sdhc_error(sdhci->reg_base, "MID=%02x OID='%c%c' PNM='%c%c%c%c%c' PRV=%d.%d PSN=%08x MDT=200%d/%02d\n",
+					sdhci->cid.mid, sdhci->cid.oid[0], sdhci->cid.oid[1], 
+					sdhci->cid.pnm[0], sdhci->cid.pnm[1], sdhci->cid.pnm[2], sdhci->cid.pnm[3], sdhci->cid.pnm[4],
+					sdhci->cid.prv >> 4, sdhci->cid.prv & 0xf, sdhci->cid.psn, sdhci->cid.mdt >> 4, sdhci->cid.mdt & 0xf);
+	return 0;
+}
+
+static int __sd_getcsd(sdhci_t *sdhci) {
+	u32 resp[4];
+	u32 swapped[4];
+	sdhc_debug(sdhci->reg_base, "requesting CSD noW!!");
+	int retval = __sd_cmd(sdhci, SD_CMD_SEND_CSD, SD_R2, sdhci->rca << 16, 0, NULL, resp, 16);
+	if (retval < 0) {
+		sdhc_error(sdhci->reg_base, "failed to get CSD register (%d)", retval);
+		__sd_reset(sdhci, 1);
+		return SDHC_EIO;
+	}
+	swapped[0] = bswap32(resp[3]);
+	swapped[1] = bswap32(resp[2]);
+	swapped[2] = bswap32(resp[1]);
+	swapped[3] = bswap32(resp[0]);
+
+	memcpy(&sdhci->csd, swapped, sizeof swapped);
+	sdhc_error(sdhci->reg_base, "CSD = %08x%08x%08x%08x", swapped[0], swapped[1], swapped[2], swapped[3]);
+	unsigned int card_size = 0; // in kilobytes, so as to not overflow
+	sdhc_error(sdhci->reg_base, "CSD: csd_structure=%x taac=%x nsac=%x tran_speed=%x", 
+			sdhci->csd.csd_structure, sdhci->csd.taac, sdhci->csd.nsac, sdhci->csd.tran_speed);
+	sdhc_error(sdhci->reg_base, "CSD: ccc=%x read_bl_len=%x read_bl_partial=%x write_blk_misalign=%x", 
+			sdhci->csd.ccc, sdhci->csd.read_bl_len, sdhci->csd.read_bl_partial, sdhci->csd.write_blk_misalign);
+	if (sdhci->csd.csd_structure) { // SDHC
+		sdhc_error(sdhci->reg_base, "CSD: read_blk_misalign=%x dsr_imp=%x c_size_hc=%x",
+			sdhci->csd.read_blk_misalign, sdhci->csd.dsr_imp, sdhci->csd.c_size_hc);
+//		card_size = (sdhci->csd.c_size_hc + 1) * 512;
+		card_size = ((swapped[2] >> 16) | ((swapped[1] & 0x3f) << 16)) * 512;
+	} else {
+		sdhc_error(sdhci->reg_base, "CSD: read_blk_misalign=%x dsr_imp=%x c_size=%x c_size_mult=%x", 
+				sdhci->csd.read_blk_misalign, sdhci->csd.dsr_imp, sdhci->csd.c_size, sdhci->csd.c_size_mult);
+//		card_size = (sdhci->csd.c_size + 1) * (4 << sdhci->csd.c_size_mult) * (1 << sdhci->csd.read_bl_len) / 1024;
+			unsigned int c_size = (swapped[1] & 3) << 10 | (swapped[2] >> 22);
+			unsigned int c_size_mult = (swapped[2] >> 15) & 7;
+			sdhc_error(sdhci->reg_base, "calc c_size=%x, c_size_mult=%x", c_size, c_size_mult);
+		card_size = (c_size + 1) * (4 << c_size_mult) * (1 << sdhci->csd.read_bl_len) / 1024;
+	}
+	sdhc_error(sdhci->reg_base, "card size = %uK (%uM)", card_size, card_size / 1024);
+	return 0;
+}
+
 int sd_mount(sdhci_t *sdhci)
 {
 	u32 caps;
 	s32 retval;
-	u32 resp[5];
+	u32 resp[64];
 	int tries;
 
 	__sd_dumpregs(sdhci);
@@ -904,25 +974,9 @@ int sd_mount(sdhci_t *sdhci)
 		sdhci->is_sdhc = 0;
 	}
 
-	sdhc_debug(sdhci->reg_base, "sending ALL_SEND_CID command to get connected card");
-	retval = __sd_cmd(sdhci, SD_CMD_ALL_SEND_CID, SD_R3, 0, 0, NULL, resp, 16);
-	if(retval < 0)
-	{
-		sdhc_error(sdhci->reg_base, "__sd_cmd returned %d, resetting controller.", retval);
-		__sd_reset(sdhci, 1);
-		return SDHC_EIO;
-	}
-
-	memcpy(sdhci->cid, resp, 128/8);
-
-/*	sdhc_error(sdhci->reg_base, "CID: %08X%08x%08x%08x, requesting RCA",
-			sdhci->cid[0],
-			sdhci->cid[1],
-			sdhci->cid[2],
-			sdhci->cid[3]); */
-	sdhc_error(sdhci->reg_base, "MID=%02x OID=%02x%02x PNM='%c%c%c%c%c' PRV=%02x PSN=%02x%02x%02x%02x MDT=%d/%d [%02x]\n",
-		sdhci->cid[0], sdhci->cid[1], sdhci->cid[2], sdhci->cid[3], sdhci->cid[4], sdhci->cid[5], sdhci->cid[6], sdhci->cid[7], 
-		sdhci->cid[8], sdhci->cid[9], sdhci->cid[10], sdhci->cid[11], sdhci->cid[12], sdhci->cid[13], sdhci->cid[14], sdhci->cid[15]); 
+	retval = __sd_getcid(sdhci);
+	if (retval) return retval;
+	
 	retval = __sd_cmd(sdhci, SD_CMD_SEND_RELATIVE_ADDR, SD_R6, 0, 0, NULL, resp, 6);
 	if(retval < 0)
 	{
@@ -933,22 +987,9 @@ int sd_mount(sdhci_t *sdhci)
 
 	sdhci->rca = (resp[0] >> 16) & 0xffff;
 	sdhc_debug(sdhci->reg_base, "RCA: %04X", sdhci->rca);
-
-	sdhc_debug(sdhci->reg_base, "requesting CSD noW!!");
-	retval = __sd_cmd(sdhci, SD_CMD_SEND_CSD, SD_R2, sdhci->rca << 16, 0, NULL, resp,
-			16);
-	if (retval < 0) {
-		sdhc_error(sdhci->reg_base, "failed to get CSD register (%d)", retval);
-		__sd_reset(sdhci, 1);
-	}
-	memcpy(sdhci->csd, resp, 128/8);
-	sdhc_error(sdhci->reg_base, "CSD: %08X%08x%08x%08x",
-			sdhci->csd[0],
-			sdhci->csd[1],
-			sdhci->csd[2],
-			sdhci->csd[3]);
-
-
+	retval = __sd_getcsd(sdhci);
+	if (retval) return retval;
+	
 	__sd_print_status(sdhci);
 
 	sd_select(sdhci);

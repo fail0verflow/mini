@@ -11,6 +11,63 @@
 #define	SDHC_EINVAL	-0x1005
 #define	SDHC_EIO	-0x1006
 
+/*struct {
+	unsigned int		manfid;
+	char			prod_name[8];
+	unsigned int		serial;
+	unsigned short		oemid;
+	unsigned short		year;
+	unsigned char		hwrev;
+	unsigned char		fwrev;
+	unsigned char		month;
+} __attribute((packed) cid_str;
+*/
+
+typedef struct {
+	unsigned char		dummy;
+	unsigned char		mid;
+	char		oid[2];
+	char		pnm[5];
+	unsigned char		prv;
+	unsigned int		psn;
+	unsigned short		mdt;
+} __attribute__((packed)) cid_str;
+
+typedef struct {
+	unsigned char		dummy;
+	unsigned 			csd_structure : 2;
+	unsigned			reserved0 : 6;
+	unsigned char		taac;
+	unsigned char		nsac;
+	unsigned char		tran_speed;
+	unsigned 			ccc : 12;
+	unsigned			read_bl_len : 4;
+	unsigned			read_bl_partial : 1;
+	unsigned			write_blk_misalign : 1;
+	unsigned			read_blk_misalign : 1;
+	unsigned			dsr_imp : 1;
+	union {
+		struct {
+			unsigned			reserved : 2;
+			unsigned			c_size : 12;
+			unsigned			vdd_r_curr_min : 3;
+			unsigned			vdd_r_curr_max : 3;
+			unsigned			vdd_w_curr_min : 3;
+			unsigned			vdd_w_curr_max : 3;
+			unsigned			c_size_mult	: 3;
+		};
+		struct {
+			unsigned			reserved2 : 6;
+			unsigned			c_size_hc : 22;
+			unsigned			reserved3 : 1;
+		};
+	};
+	unsigned			erase_blk_en : 1;
+	unsigned			sector_size : 7;
+	unsigned			wp_grp_size : 7;
+	unsigned int		stuff;
+} __attribute__((packed)) csd_str;
+
 typedef struct
 {
 	u32 reg_base;
@@ -22,8 +79,8 @@ typedef struct
 	u16 rca;
 	u32 ocr;
 
-	u8 cid[16];
-	u8 csd[16];
+	cid_str cid;
+	csd_str csd;
 } sdhci_t;
 
 int sd_init(sdhci_t *sdhci, int slot);
