@@ -33,41 +33,6 @@ typedef struct {
 	unsigned short		mdt;
 } __attribute__((packed)) cid_str;
 
-typedef struct {
-	unsigned char		dummy;
-	unsigned 			csd_structure : 2;
-	unsigned			reserved0 : 6;
-	unsigned char		taac;
-	unsigned char		nsac;
-	unsigned char		tran_speed;
-	unsigned 			ccc : 12;
-	unsigned			read_bl_len : 4;
-	unsigned			read_bl_partial : 1;
-	unsigned			write_blk_misalign : 1;
-	unsigned			read_blk_misalign : 1;
-	unsigned			dsr_imp : 1;
-	union {
-		struct {
-			unsigned			reserved : 2;
-			unsigned			c_size : 12;
-			unsigned			vdd_r_curr_min : 3;
-			unsigned			vdd_r_curr_max : 3;
-			unsigned			vdd_w_curr_min : 3;
-			unsigned			vdd_w_curr_max : 3;
-			unsigned			c_size_mult	: 3;
-		};
-		struct {
-			unsigned			reserved2 : 6;
-			unsigned			c_size_hc : 22;
-			unsigned			reserved3 : 1;
-		};
-	};
-	unsigned			erase_blk_en : 1;
-	unsigned			sector_size : 7;
-	unsigned			wp_grp_size : 7;
-	unsigned int		stuff;
-} __attribute__((packed)) csd_str;
-
 typedef struct
 {
 	u32 reg_base;
@@ -80,7 +45,8 @@ typedef struct
 	u32 ocr;
 
 	cid_str cid;
-	csd_str csd;
+	u32 timeout;
+	u32 num_sectors;
 } sdhci_t;
 
 int sd_init(sdhci_t *sdhci, int slot);

@@ -833,42 +833,45 @@ static int __sd_getcid(sdhci_t *sdhci) {
 }
 
 static int __sd_getcsd(sdhci_t *sdhci) {
-	u32 resp[4];
-	u32 swapped[4];
-	sdhc_debug(sdhci->reg_base, "requesting CSD noW!!");
-	int retval = __sd_cmd(sdhci, SD_CMD_SEND_CSD, SD_R2, sdhci->rca << 16, 0, NULL, resp, 16);
+	u8 resp[16];
+	sdhc_debug(sdhci->reg_base, "requesting CSD");
+	int retval = __sd_cmd(sdhci, SD_CMD_SEND_CSD, SD_R2, sdhci->rca << 16, 0, NULL, (u32 *)resp, 16);
 	if (retval < 0) {
 		sdhc_error(sdhci->reg_base, "failed to get CSD register (%d)", retval);
 		__sd_reset(sdhci, 1);
 		return SDHC_EIO;
 	}
-	swapped[0] = bswap32(resp[3]);
-	swapped[1] = bswap32(resp[2]);
-	swapped[2] = bswap32(resp[1]);
-	swapped[3] = bswap32(resp[0]);
+	sdhc_error(sdhci->reg_base, "CSD = %02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x",
+		resp[14], resp[13], resp[12], resp[11], resp[10], resp[9], resp[8],
+		resp[7], resp[6], resp[5], resp[4], resp[3], resp[2], resp[1], resp[0]);
 
-	memcpy(&sdhci->csd, swapped, sizeof swapped);
-	sdhc_error(sdhci->reg_base, "CSD = %08x%08x%08x%08x", swapped[0], swapped[1], swapped[2], swapped[3]);
-	unsigned int card_size = 0; // in kilobytes, so as to not overflow
-	sdhc_error(sdhci->reg_base, "CSD: csd_structure=%x taac=%x nsac=%x tran_speed=%x", 
-			sdhci->csd.csd_structure, sdhci->csd.taac, sdhci->csd.nsac, sdhci->csd.tran_speed);
-	sdhc_error(sdhci->reg_base, "CSD: ccc=%x read_bl_len=%x read_bl_partial=%x write_blk_misalign=%x", 
-			sdhci->csd.ccc, sdhci->csd.read_bl_len, sdhci->csd.read_bl_partial, sdhci->csd.write_blk_misalign);
-	if (sdhci->csd.csd_structure) { // SDHC
-		sdhc_error(sdhci->reg_base, "CSD: read_blk_misalign=%x dsr_imp=%x c_size_hc=%x",
-			sdhci->csd.read_blk_misalign, sdhci->csd.dsr_imp, sdhci->csd.c_size_hc);
-//		card_size = (sdhci->csd.c_size_hc + 1) * 512;
-		card_size = ((swapped[2] >> 16) | ((swapped[1] & 0x3f) << 16)) * 512;
-	} else {
-		sdhc_error(sdhci->reg_base, "CSD: read_blk_misalign=%x dsr_imp=%x c_size=%x c_size_mult=%x", 
-				sdhci->csd.read_blk_misalign, sdhci->csd.dsr_imp, sdhci->csd.c_size, sdhci->csd.c_size_mult);
-//		card_size = (sdhci->csd.c_size + 1) * (4 << sdhci->csd.c_size_mult) * (1 << sdhci->csd.read_bl_len) / 1024;
-			unsigned int c_size = (swapped[1] & 3) << 10 | (swapped[2] >> 22);
-			unsigned int c_size_mult = (swapped[2] >> 15) & 7;
-			sdhc_error(sdhci->reg_base, "calc c_size=%x, c_size_mult=%x", c_size, c_size_mult);
-		card_size = (c_size + 1) * (4 << c_size_mult) * (1 << sdhci->csd.read_bl_len) / 1024;
+	if (resp[13] == 0xe) { // sdhc
+		unsigned int c_size = resp[7] << 16 | resp[6] << 8 | resp[5];
+		sdhc_error(sdhci->reg_base, "sdhc mode, c_size=%u, card size = %uk", c_size, (c_size + 1)* 512);
+		sdhci->timeout = 250 * 1000000; // spec says read timeout is 100ms and write/erase timeout is 250ms
+		sdhci->num_sectors = (c_size + 1) * 1024; // number of 512-byte sectors
+		}
+	else {
+		unsigned int taac, nsac, read_bl_len, c_size, c_size_mult;
+		taac = resp[13];
+		nsac = resp[12];
+		read_bl_len = resp[9] & 0xF;
+		
+		c_size = (resp[8] & 3) << 10;
+		c_size |= (resp[7] << 2);
+		c_size |= (resp[6] >> 6);
+		c_size_mult = (resp[5] & 3) << 1;
+		c_size_mult |= resp[4] >> 7;
+		sdhc_error(sdhci->reg_base, "taac=%u nsac=%u read_bl_len=%u c_size=%u c_size_mult=%u card size=%u bytes",
+			taac, nsac, read_bl_len, c_size, c_size_mult, (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len));
+		unsigned int time_unit[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000};
+		unsigned int time_value[] = {1, 10, 12, 13, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80}; // must div by 10
+		sdhci->timeout = time_unit[taac & 7] * time_value[(taac >> 3) & 0xf] / 10;
+		sdhc_error(sdhci->reg_base, "calculated timeout =  %uns", sdhci->timeout);
+		sdhci->num_sectors = (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len) / 512;
 	}
-	sdhc_error(sdhci->reg_base, "card size = %uK (%uM)", card_size, card_size / 1024);
+	sdhc_error(sdhci->reg_base, "num sectors = %u", sdhci->num_sectors);
+	
 	return 0;
 }
 
@@ -1174,6 +1177,10 @@ void sd_ipc(volatile ipc_request *req)
 			retval = sd_write(&sdhci, req->args[0], req->args[1], 
 							(void *)req->args[2]);
 			ipc_post(req->code, req->tag, 1, retval);
+			break;
+
+		case IPC_SD_GETSIZE:
+			ipc_post(req->code, req->tag, 1, sdhci.num_sectors);
 			break;
 
 		default:
