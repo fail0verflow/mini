@@ -211,9 +211,6 @@ void *_main(void *base)
 	gecko_puts("Shutting down caches and MMU...\n");
 	mem_shutdown();
 
-	//vector = patch_boot2(base, (((u64)tidh)<<32) | tidl);
-end:
-
 	gecko_printf("Vectoring to %p...\n",vector);
 	return vector;
 }
