@@ -48,12 +48,11 @@ type *name = (type*)(((u32)(_al__##name)) + ((alignment) - (( \
 #define NAND_FLAGS_RD	0x2000
 #define NAND_FLAGS_ECC	0x1000
 
+static ipc_request current_request;
 
-ipc_request current_request;
+static u8 ipc_data[PAGE_SIZE] MEM2_BSS ALIGNED(32);
+static u8 ipc_ecc[ECC_BUFFER_ALLOC] MEM2_BSS ALIGNED(128); //128 alignment REQUIRED
 
-u8 ipc_data[PAGE_SIZE] MEM2_BSS ALIGNED(32);
-// keep cache aligned size
-u8 ipc_ecc[ECC_BUFFER_SIZE+16] MEM2_BSS ALIGNED(128); //128 alignment REQUIRED
 
 static inline u32 __nand_read32(u32 addr)
 {
