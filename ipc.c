@@ -18,6 +18,25 @@ static volatile ipc_request slow_queue[IPC_SLOW_SIZE];
 
 extern char __mem2_area_start[];
 
+// These defines are for the ARMCTRL regs
+// See http://wiibrew.org/wiki/Hardware/IPC
+
+#define		IPC_CTRL_Y1		0x01
+#define		IPC_CTRL_X2		0x02
+#define		IPC_CTRL_X1		0x04
+#define		IPC_CTRL_Y2		0x08
+
+#define		IPC_CTRL_IX1	0x10
+#define		IPC_CTRL_IX2	0x20
+
+// Our definitions for this IPC interface
+#define		IPC_CTRL_OUT	IPC_CTRL_Y1
+#define		IPC_CTRL_IN		IPC_CTRL_X1
+#define		IPC_CTRL_IRQ_IN	IPC_CTRL_IX1
+
+// reset both flags (X* for ARM and Y* for PPC)
+#define		IPC_CTRL_RESET	0x06
+
 const ipc_infohdr __ipc_info ALIGNED(32) MEM2_RODATA = {
 	.magic = "IPC",
 	.version = 1,
@@ -74,7 +93,7 @@ void ipc_post(u32 code, u32 tag, u32 num_args, ...)
 	dc_flushrange((void*)&out_queue[out_tail], 32);
 	out_tail = (out_tail+1)&(IPC_OUT_SIZE-1);
 	poke_outtail(out_tail);
-	write32(HW_IPC_ARMCTRL, IPC_CTRL_INT_RECV | IPC_CTRL_SEND);
+	write32(HW_IPC_ARMCTRL, IPC_CTRL_IRQ_IN | IPC_CTRL_OUT);
 
 	irq_restore(cookie);
 }
@@ -204,8 +223,8 @@ static void process_in(void)
 void ipc_irq(void)
 {
 	int donebell = 0;
-	while(read32(HW_IPC_ARMCTRL) & IPC_CTRL_RECV) {
-		write32(HW_IPC_ARMCTRL, IPC_CTRL_INT_RECV | IPC_CTRL_RECV);
+	while(read32(HW_IPC_ARMCTRL) & IPC_CTRL_IN) {
+		write32(HW_IPC_ARMCTRL, IPC_CTRL_IRQ_IN | IPC_CTRL_IN);
 		while(peek_intail() != in_head) {
 			process_in();
 			in_head = (in_head+1)&(IPC_IN_SIZE-1);
@@ -221,22 +240,22 @@ void ipc_initialize(void)
 {
 	write32(HW_IPC_ARMMSG, 0);
 	write32(HW_IPC_PPCMSG, 0);
-	write32(HW_IPC_PPCCTRL, IPC_CTRL_SENT|IPC_CTRL_RECV);
-	write32(HW_IPC_ARMCTRL, IPC_CTRL_SENT|IPC_CTRL_RECV);
+	write32(HW_IPC_PPCCTRL, IPC_CTRL_RESET);
+	write32(HW_IPC_ARMCTRL, IPC_CTRL_RESET);
 	slow_queue_head = 0;
 	slow_queue_tail = 0;
 	in_head = 0;
 	out_tail = 0;
 	irq_enable(IRQ_IPC);
-	write32(HW_IPC_ARMCTRL, IPC_CTRL_INT_RECV);
+	write32(HW_IPC_ARMCTRL, IPC_CTRL_IRQ_IN);
 }
 
 void ipc_shutdown(void)
 {
 	write32(HW_IPC_ARMMSG, 0);
 	write32(HW_IPC_PPCMSG, 0);
-	write32(HW_IPC_PPCCTRL, IPC_CTRL_SENT|IPC_CTRL_RECV);
-	write32(HW_IPC_ARMCTRL, IPC_CTRL_SENT|IPC_CTRL_RECV);
+	write32(HW_IPC_PPCCTRL, IPC_CTRL_RESET);
+	write32(HW_IPC_ARMCTRL, IPC_CTRL_RESET);
 	irq_disable(IRQ_IPC);
 }
 

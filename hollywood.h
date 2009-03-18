@@ -7,74 +7,19 @@
 #define		HW_REG_BASE			0xd800000
 
 // The PPC can only see the first three IPC registers
-#define		HW_IPC_PPCMSG		(HW_REG_BASE + 0x000) //PPC to ARM
+#define		HW_IPC_PPCMSG		(HW_REG_BASE + 0x000)
 #define		HW_IPC_PPCCTRL		(HW_REG_BASE + 0x004)
-#define		HW_IPC_ARMMSG		(HW_REG_BASE + 0x008) //ARM to PPC
+#define		HW_IPC_ARMMSG		(HW_REG_BASE + 0x008)
 #define		HW_IPC_ARMCTRL		(HW_REG_BASE + 0x00c)
-
-// Write one to send a message. Cleared when peer writes one to IPC_CTRL_RECV.
-#define		IPC_CTRL_SEND		0x01
-// Set by peer to acknowledge a message. Write one to clear.
-#define		IPC_CTRL_SENT		0x02
-// Set by peer to send a message. Write one to clear.
-#define		IPC_CTRL_RECV		0x04
-// Write one acknowledge a message. Cleared when peer writes one to IPC_CTRL_SENT.
-#define		IPC_CTRL_RECVD		0x08
-// Enable interrupt when a message is received
-#define		IPC_CTRL_INT_RECV	0x10
-// Enable interrupt when a sent message is acknowledged
-#define		IPC_CTRL_INT_SENT	0x20
-
-/*
-	The IPC registers are connected to each other.
-	Both registers are identical and this works for
-	both peers. Flag bits are cleared by writing a one
-	to them.
-	
-	When Peer A sets this		Peer B sees this set
-	IPC_CTRL_SEND				IPC_CTRL_RECV
-	IPC_CTRL_RECVD				IPC_CTRL_SENT
-	
-	In fact, bit _SEND on Peer A and bit _RECV on peer B are the same bit,
-	and the same goes for _RECVD and _SENT, except writing one from A _sets_
-	the bit, and writing one from B _clears_ the bit. The same, of course,
-	is true for the other pair of bits in the other direction.
-
-	The flow, therefore, goes as follows, for a message
-	from A to B. Steps with the same number can be taken
-	in any order.
-	
-	1. Peer A writes the message address to the register
-	2. Peer A sets IPC_CTRL_SEND
-	3. Peer B sees IPC_CTRL_RECV
-	4. Peer B writes one to IPC_CTRL_RECV to clear it (A's IPC_CTRL_SEND is cleared at this point)
-	4. Peer B reads its message address register
-	5. Peer B sets IPC_CTRL_RECVD
-	6. Peer A sees IPC_CTRL_SENT
-	7. Peer A writes one to IPC_CTRL_SENT to clear it (B's IPC_CTRL_RECVD is cleared at this point)
-	7. Peer A may now write to the message address register again
-	
-	The same is true for a message from Peer B to Peer A.
-	
-	In the particular case of IOS IPC, the PPC is always the "master"
-	(it sends requests as messages) and the ARM is always the "slave"
-	(it replies to PPC's requests). IOS can handle up to 16(15?)
-	simultaneously pending transactions (the PPC can send up to 16(15?)
-	messages without getting any replies - for example, due to
-	asynchronous requests or multithreaded execution of blocking
-	requests)
-	
-*/
 
 #define		HW_TIMER			(HW_REG_BASE + 0x010)
 #define		HW_ALARM			(HW_REG_BASE + 0x014)
 
-// maybe?
-#define		HW_FIQFLAG			(HW_REG_BASE + 0x030)
-#define		HW_FIQENABLE		(HW_REG_BASE + 0x034)
+#define		HW_PPCIRQFLAG		(HW_REG_BASE + 0x030)
+#define		HW_PPCIRQMASK		(HW_REG_BASE + 0x034)
 
-#define		HW_IRQFLAG			(HW_REG_BASE + 0x038)
-#define		HW_IRQENABLE		(HW_REG_BASE + 0x03c)
+#define		HW_ARMIRQFLAG		(HW_REG_BASE + 0x038)
+#define		HW_ARMIRQMASK		(HW_REG_BASE + 0x03c)
 
 #define		HW_MEMMIRR			(HW_REG_BASE + 0x060)
 
