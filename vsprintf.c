@@ -99,76 +99,11 @@
 #define VA_START(ap, last) va_start(ap, last)
 #define VA_SHIFT(ap, value, type) /* No-op for ANSI C. */
 
-#if HAVE_INTTYPES_H
-#include <inttypes.h>	/* For intmax_t (if not defined in <stdint.h>). */
-#endif	/* HAVE_INTTYPES_H */
-
-#if HAVE_STDDEF_H
-#include <stddef.h>	/* For ptrdiff_t. */
-#endif	/* HAVE_STDDEF_H */
-
-#if HAVE_STDINT_H
-#include <stdint.h>	/* For intmax_t. */
-#endif	/* HAVE_STDINT_H */
-
-/* Support for unsigned long long int.  We may also need ULLONG_MAX. */
-#ifndef ULONG_MAX	/* We may need ULONG_MAX as a fallback. */
-#ifdef UINT_MAX
-#define ULONG_MAX UINT_MAX
-#else
-#define ULONG_MAX INT_MAX
-#endif	/* defined(UINT_MAX) */
-#endif	/* !defined(ULONG_MAX) */
-#ifdef ULLONG
-#undef ULLONG
-#endif	/* defined(ULLONG) */
-#if HAVE_UNSIGNED_LONG_LONG_INT
-#define ULLONG unsigned long long int
-#ifndef ULLONG_MAX
-#define ULLONG_MAX ULONG_MAX
-#endif	/* !defined(ULLONG_MAX) */
-#else
-#define ULLONG unsigned long int
-#ifdef ULLONG_MAX
-#undef ULLONG_MAX
-#endif	/* defined(ULLONG_MAX) */
-#define ULLONG_MAX ULONG_MAX
-#endif	/* HAVE_LONG_LONG_INT */
-
-/* Support for uintmax_t.  We also need UINTMAX_MAX. */
-#ifdef UINTMAX_T
-#undef UINTMAX_T
-#endif	/* defined(UINTMAX_T) */
-#if HAVE_UINTMAX_T || defined(uintmax_t)
-#define UINTMAX_T uintmax_t
-#ifndef UINTMAX_MAX
-#define UINTMAX_MAX ULLONG_MAX
-#endif	/* !defined(UINTMAX_MAX) */
-#else
-#define UINTMAX_T ULLONG
-#ifdef UINTMAX_MAX
-#undef UINTMAX_MAX
-#endif	/* defined(UINTMAX_MAX) */
-#define UINTMAX_MAX ULLONG_MAX
-#endif	/* HAVE_UINTMAX_T || defined(uintmax_t) */
-
-/* Support for long long int. */
-#ifndef LLONG
-#if HAVE_LONG_LONG_INT
-#define LLONG long long int
-#else
-#define LLONG long int
-#endif	/* HAVE_LONG_LONG_INT */
-#endif	/* !defined(LLONG) */
-
-/* Support for intmax_t. */
-#ifndef INTMAX_T
-#if HAVE_INTMAX_T || defined(intmax_t)
-#define INTMAX_T intmax_t
-#else
-#define INTMAX_T LLONG
-#endif	/* HAVE_INTMAX_T || defined(intmax_t) */
-#endif	/* !defined(INTMAX_T) */
+#define ULLONG unsigned long
+#define UINTMAX_T unsigned long
+#define UINTMAX_MAX ULONG_MAX
+#define LLONG long
+#define INTMAX_T long
 
 /* Support for uintptr_t. */
 #ifndef UINTPTR_T

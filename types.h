@@ -41,4 +41,10 @@ typedef s32 size_t;
 #define INT_MAX ((int)0x7fffffff)
 #define UINT_MAX ((unsigned int)0xffffffff)
 
+#define LONG_MAX INT_MAX
+#define ULONG_MAX UINT_MAX
+
+#define LLONG_MAX ((long long)0x7fffffffffffffff)
+#define ULLONG_MAX ((unsigned long long)0xffffffffffffffff)
+
 #endif
