@@ -4,6 +4,13 @@
 #include "types.h"
 #include "ipc.h"
 
+#define PAGE_SIZE			2048
+#define PAGE_SPARE_SIZE		64
+#define ECC_BUFFER_SIZE		(PAGE_SPARE_SIZE+16)
+#define ECC_BUFFER_ALLOC	(PAGE_SPARE_SIZE+32)
+#define BLOCK_SIZE			64
+#define NAND_MAX_PAGE		0x40000
+
 void nand_irq(void);
 
 void nand_send_command(u32 command, u32 bitmask, u32 flags, u32 num_bytes);

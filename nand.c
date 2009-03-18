@@ -48,10 +48,6 @@ type *name = (type*)(((u32)(_al__##name)) + ((alignment) - (( \
 #define NAND_FLAGS_RD	0x2000
 #define NAND_FLAGS_ECC	0x1000
 
-#define	PAGE_SIZE			2048
-#define PAGE_SPARE_SIZE		64
-#define ECC_BUFFER_SIZE		(PAGE_SPARE_SIZE+16)
-#define NAND_MAX_PAGE		0x40000
 
 ipc_request current_request;
 
