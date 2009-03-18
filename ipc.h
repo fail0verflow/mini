@@ -88,6 +88,7 @@ void ipc_irq(void);
 void ipc_initialize(void);
 void ipc_shutdown(void);
 void ipc_post(u32 code, u32 tag, u32 num_args, ...);
+void ipc_flush(void);
 void ipc_process_slow(void);
 
 #endif

@@ -98,6 +98,11 @@ void ipc_post(u32 code, u32 tag, u32 num_args, ...)
 	irq_restore(cookie);
 }
 
+void ipc_flush(void)
+{
+	while(peek_outhead() != out_tail);
+}
+
 static int process_slow(volatile ipc_request *req)
 {
 	//gecko_printf("IPC: process slow_queue @ %p\n",req);
@@ -252,8 +257,10 @@ void ipc_initialize(void)
 
 void ipc_shutdown(void)
 {
-	write32(HW_IPC_ARMMSG, 0);
-	write32(HW_IPC_PPCMSG, 0);
+	// Don't kill message registers so our PPC side doesn't get confused
+	//write32(HW_IPC_ARMMSG, 0);
+	//write32(HW_IPC_PPCMSG, 0);
+	// Do kill flags so Nintendo's SDK doesn't get confused
 	write32(HW_IPC_PPCCTRL, IPC_CTRL_RESET);
 	write32(HW_IPC_ARMCTRL, IPC_CTRL_RESET);
 	irq_disable(IRQ_IPC);
