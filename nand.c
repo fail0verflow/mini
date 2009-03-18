@@ -53,6 +53,7 @@ static ipc_request current_request;
 static u8 ipc_data[PAGE_SIZE] MEM2_BSS ALIGNED(32);
 static u8 ipc_ecc[ECC_BUFFER_ALLOC] MEM2_BSS ALIGNED(128); //128 alignment REQUIRED
 
+static volatile int irq_flag;
 
 static inline u32 __nand_read32(u32 addr)
 {
@@ -90,6 +91,7 @@ void nand_irq(void)
 		current_request.code = 0;
 		ipc_post(code, tag, 1, err);
 	}
+	irq_flag = 1;
 }
 
 inline void __nand_write32(u32 addr, u32 data)
@@ -149,6 +151,7 @@ int nand_reset(void)
 }
 
 void nand_get_id(u8 *idbuf) {
+	irq_flag = 0;
 	__nand_set_address(0,0);
 
 	dc_invalidaterange(idbuf, 0x40);
@@ -158,33 +161,42 @@ void nand_get_id(u8 *idbuf) {
 }
 
 void nand_get_status(u8 *status_buf) {
+	irq_flag = 0;
 	status_buf[0]=0;
 
 	dc_invalidaterange(status_buf, 0x40);
 
 	__nand_setup_dma(status_buf, (u8 *)-1);
 	nand_send_command(NAND_GETSTATUS, 0, NAND_FLAGS_IRQ | NAND_FLAGS_RD, 0x40);
-	__nand_wait();
 }
 
 void nand_read_page(u32 pageno, void *data, void *ecc) {
 //	NAND_debug("nand_read_page(%u, %p, %p)\n", pageno, data, ecc);
+	irq_flag = 0;
 	__nand_set_address(0, pageno);
 	nand_send_command(NAND_READ_PRE, 0x1f, 0, 0);
 
 	dc_invalidaterange(data, PAGE_SIZE);
 	dc_invalidaterange(ecc, ECC_BUFFER_SIZE);
 
+	__nand_wait();
 	__nand_setup_dma(data, ecc);
 	nand_send_command(NAND_READ_POST, 0, NAND_FLAGS_IRQ | NAND_FLAGS_WAIT | NAND_FLAGS_RD | NAND_FLAGS_ECC, 0x840);
 }
 
 void nand_wait() {
-	__nand_wait();
+	// power-saving IRQ wait
+	while(!irq_flag) {
+		u32 cookie = irq_kill();
+		if(!irq_flag)
+			irq_wait();
+		irq_restore(cookie);
+	}
 }
 
 #ifdef NAND_SUPPORT_WRITE
 void nand_write_page(u32 pageno, void *data, void *ecc) {
+	irq_flag = 0;
 	NAND_debug("nand_write_page(%u, %p, %p)\n", pageno, data, ecc);
 	if ((pageno < 0x200) || (pageno >= NAND_MAX_PAGE)) {
 		gecko_printf("Error: nand_write to page %d forbidden\n", pageno);
@@ -195,14 +207,15 @@ void nand_write_page(u32 pageno, void *data, void *ecc) {
 	ahb_flush_to(AHB_NAND);
 	__nand_set_address(0, pageno);
 	__nand_setup_dma(data, ecc);
-	nand_send_command(NAND_WRITE_PRE, 0x1f, NAND_FLAGS_IRQ | NAND_FLAGS_WR | NAND_FLAGS_ECC, 0x840);
-
+	nand_send_command(NAND_WRITE_PRE, 0x1f, NAND_FLAGS_WR, 0x840);
+	__nand_wait();
 	nand_send_command(NAND_WRITE_POST, 0, NAND_FLAGS_IRQ | NAND_FLAGS_WAIT, 0);
 }
 #endif
 
 #ifdef NAND_SUPPORT_ERASE
 void nand_erase_block(u32 pageno) {
+	irq_flag = 0;
 	NAND_debug("nand_erase_block(%d)\n", pageno);
 	if ((pageno < 0x200) || (pageno >= NAND_MAX_PAGE)) {
 		gecko_printf("Error: nand_erase to page %d forbidden\n", pageno);
@@ -210,6 +223,7 @@ void nand_erase_block(u32 pageno) {
 	}
 	__nand_set_address(0, pageno);
 	nand_send_command(NAND_ERASE_PRE, 0x1c, 0, 0);
+	__nand_wait();
 	nand_send_command(NAND_ERASE_POST, 0, NAND_FLAGS_IRQ | NAND_FLAGS_WAIT, 0);
 	NAND_debug("nand_erase_block(%d) done\n", pageno);
 
