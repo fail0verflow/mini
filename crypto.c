@@ -117,7 +117,7 @@ void aes_decrypt(u8 *src, u8 *dst, u32 blocks, u8 keep_iv)
 		write32(AES_DEST, dma_addr(dst));
 
 		dc_flushrange(src, blocks * 16);
-		dc_invalidaterange(src, blocks * 16);
+		dc_invalidaterange(dst, blocks * 16);
 
 		ahb_flush_to(AHB_AES);
 		aes_command(AES_CMD_DECRYPT, keep_iv, this_blocks);
