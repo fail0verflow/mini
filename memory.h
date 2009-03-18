@@ -82,5 +82,19 @@ static inline u32 get_far(void)
 	return data;
 }
 
+void _ahb_flush_to(enum AHBDEV dev);
+
+static inline void dc_inval_block_fast(void *block)
+{
+	__asm__ volatile ( "mcr\tp15, 0, %0, c7, c6, 1" :: "r" (block) );
+	_ahb_flush_to(AHB_STARLET); //TODO: check if really needed and if not, remove
+}
+
+static inline void dc_flush_block_fast(void *block)
+{
+	__asm__ volatile ( "mcr\tp15, 0, %0, c7, c10, 1" :: "r" (block) );
+	__asm__ volatile ( "mcr\tp15, 0, %0, c7, c10, 4" :: "r" (0) );
+	ahb_flush_from(AHB_1); //TODO: check if really needed and if not, remove
+}
 
 #endif

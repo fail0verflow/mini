@@ -90,7 +90,7 @@ void ipc_post(u32 code, u32 tag, u32 num_args, ...)
 		}
 		va_end(ap);
 	}
-	dc_flushrange((void*)&out_queue[out_tail], 32);
+	dc_flush_block_fast((void*)&out_queue[out_tail]);
 	out_tail = (out_tail+1)&(IPC_OUT_SIZE-1);
 	poke_outtail(out_tail);
 	write32(HW_IPC_ARMCTRL, IPC_CTRL_IRQ_IN | IPC_CTRL_OUT);
@@ -148,7 +148,7 @@ static void process_in(void)
 
 	//gecko_printf("IPC: process in %d @ %p\n",in_head,req);
 
-	dc_invalidaterange((void*)req, 32);
+	dc_inval_block_fast((void*)req);
 
 	//gecko_printf("IPC: req %08x %08x [%08x %08x %08x %08x %08x %08x]\n", req->code, req->tag,
 	//	req->args[0], req->args[1], req->args[2], req->args[3], req->args[4], req->args[5]);

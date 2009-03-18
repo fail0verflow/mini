@@ -138,7 +138,7 @@ void ahb_flush_to(enum AHBDEV type)
 {
 	u32 cookie = irq_kill();
 	_ahb_flush_to(type);
-	if(type != 0)
+	if(type != AHB_STARLET)
 		_ahb_flush_to(AHB_STARLET);
 	irq_restore(cookie);
 }
