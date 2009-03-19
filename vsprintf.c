@@ -99,11 +99,11 @@
 #define VA_START(ap, last) va_start(ap, last)
 #define VA_SHIFT(ap, value, type) /* No-op for ANSI C. */
 
-#define ULLONG unsigned long
-#define UINTMAX_T unsigned long
-#define UINTMAX_MAX ULONG_MAX
-#define LLONG long
-#define INTMAX_T long
+#define ULLONG unsigned long long
+#define UINTMAX_T unsigned long long
+#define UINTMAX_MAX ULLONG_MAX
+#define LLONG long long
+#define INTMAX_T long long
 
 /* Support for uintptr_t. */
 #ifndef UINTPTR_T

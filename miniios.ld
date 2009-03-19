@@ -110,5 +110,12 @@ SECTIONS
 		__excstack_addr = .;
 	} >sram2
 
+	/DISCARD/ :
+	{
+		*(.ARM.exidx*)
+		*(.ARM.extab*)
+	}
+
 }
+
 
