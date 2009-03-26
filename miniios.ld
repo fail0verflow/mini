@@ -96,17 +96,18 @@ SECTIONS
 
 	.stack :
 	{
+		. = ALIGN(16);
 		__stack_end = .;
 		. = . +__stack_size;
-		. = ALIGN(64);
+		. = ALIGN(16);
 		__stack_addr = .;
 		__irqstack_end = .;
 		. = . +__irqstack_size;
-		. = ALIGN(64);
+		. = ALIGN(16);
 		__irqstack_addr = .;
 		__excstack_end = .;
 		. = . +__excstack_size;
-		. = ALIGN(64);
+		. = ALIGN(16);
 		__excstack_addr = .;
 	} >sram2
 
