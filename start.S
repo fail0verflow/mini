@@ -44,10 +44,24 @@ v_reset:
 	@ Output 0x42 to the debug port
 	mov	r0, #0x42
 	bl	debug_output
-	
+
 	@ Set up a stack
 	ldr	sp, =__stack_addr
 
+	@ clear the stack to a marker value
+	ldr	r1, =__stack_end
+	ldr	r2, =__stack_addr
+	ldr	r3, =0xDEADBEEF
+stk_loop:
+	@ check for the end
+	cmp	r1, r2
+	beq	done_stk
+	@ clear the word and move on
+	str	r3, [r1]
+	add	r1, r1, #4
+	b	stk_loop
+
+done_stk:
 	@ clear BSS
 	ldr	r1, =__bss_start
 	ldr	r2, =__bss_end
