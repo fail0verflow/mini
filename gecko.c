@@ -190,7 +190,7 @@ int gecko_puts(const char *s)
 int gecko_printf( const char *fmt, ...)
 {
 	va_list args;
-	char buffer[1024];
+	char buffer[256];
 	int i;
 
 	va_start(args, fmt);
