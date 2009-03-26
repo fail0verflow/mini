@@ -11,12 +11,12 @@
 
 #define PHDR_MAX 10
 
-Elf32_Ehdr elfhdr;
-Elf32_Phdr phdrs[PHDR_MAX];
+static Elf32_Ehdr elfhdr;
+static Elf32_Phdr phdrs[PHDR_MAX];
+static FIL fd;
 
 int powerpc_load_file(const char *path)
 {
-	FIL fd;
 	u32 read;
 	FRESULT fres;
 
