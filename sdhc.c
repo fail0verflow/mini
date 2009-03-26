@@ -864,8 +864,8 @@ static int __sd_getcsd(sdhci_t *sdhci) {
 		c_size_mult |= resp[4] >> 7;
 		sdhc_error(sdhci->reg_base, "taac=%u nsac=%u read_bl_len=%u c_size=%u c_size_mult=%u card size=%u bytes",
 			taac, nsac, read_bl_len, c_size, c_size_mult, (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len));
-		unsigned int time_unit[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000};
-		unsigned int time_value[] = {1, 10, 12, 13, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80}; // must div by 10
+		static const unsigned int time_unit[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000};
+		static const unsigned int time_value[] = {1, 10, 12, 13, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80}; // must div by 10
 		sdhci->timeout = time_unit[taac & 7] * time_value[(taac >> 3) & 0xf] / 10;
 		sdhc_error(sdhci->reg_base, "calculated timeout =  %uns", sdhci->timeout);
 		sdhci->num_sectors = (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len) / 512;
@@ -879,7 +879,7 @@ int sd_mount(sdhci_t *sdhci)
 {
 	u32 caps;
 	s32 retval;
-	u32 resp[64];
+	u32 resp[4];
 	int tries;
 
 	__sd_dumpregs(sdhci);
