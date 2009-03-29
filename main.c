@@ -152,7 +152,7 @@ void *_main(void *base)
 	int res;
 
 	gecko_init();
-	gecko_puts("MiniIOS v0.1 loading\n");
+	gecko_puts("MINI v0.2 loading\n");
 
 	gecko_puts("Initializing exceptions...\n");
 	exception_initialize();
