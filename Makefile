@@ -1,4 +1,4 @@
-include ../toolchain.rules
+include ../../toolchain.rules
 
 CFLAGS = -mbig-endian -fomit-frame-pointer -Os -Wall -I. -mcpu=arm926ej-s
 ASFLAGS = -mbig-endian -mcpu=arm926ej-s
