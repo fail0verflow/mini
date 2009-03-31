@@ -7,6 +7,7 @@
 #include "ff.h"
 #include "powerpc_elf.h"
 #include "elf.h"
+#include "memory.h"
 #include "string.h"
 
 #define PHDR_MAX 10
@@ -80,6 +81,9 @@ int powerpc_load_file(const char *path)
 		}
 		phdr++;
 	}
+
+	dc_flushall();
+
 	gecko_puts("ELF load done, booting PPC...\n");
 	powerpc_upload_stub(NULL,0);
 	powerpc_reset();
