@@ -2,7 +2,7 @@ include ../../toolchain.rules
 
 CFLAGS = -mbig-endian -fomit-frame-pointer -Os -Wall -I. -mcpu=arm926ej-s
 ASFLAGS = -mbig-endian -mcpu=arm926ej-s
-LDFLAGS = -nostartfiles -nodefaultlibs -mbig-endian -Wl,-T,MINI.ld,-Map,MINI.map -n
+LDFLAGS = -nostartfiles -nodefaultlibs -mbig-endian -Wl,-T,mini.ld,-Map,mini.map -n
 LIBS = -lgcc
 
 ELFLOADER = ../elfloader/elfloader.bin
@@ -18,7 +18,7 @@ $(TARGET) : $(ELF) $(ELFLOADER)
 	@echo  "MAKEBIN	$@"
 	@$(MAKEBIN) $(ELFLOADER) $< $@
 
-$(ELF) : MINI.ld $(OBJECTS)
+$(ELF) : mini.ld $(OBJECTS)
 	@echo  "LD	$@"
 	@$(LD) $(LDFLAGS) $(OBJECTS) $(LIBS) -o $@
 
