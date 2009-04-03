@@ -209,6 +209,12 @@ void *_main(void *base)
 	gecko_puts("Mounting SD...\n");
 	fres = f_mount(0, &fatfs);
 
+	if (read32(0x0d800190) & 2) {
+		gecko_puts("GameCube compatibility mode detected...\n");
+		boot2_run(1, 0x101);
+		goto shutdown;
+	}
+
 	if(fres != FR_OK) {
 		gecko_printf("Error %d while trying to mount SD\n", fres);
 		panic2(0, PANIC_MOUNT);
@@ -223,13 +229,12 @@ void *_main(void *base)
 	}
 
 	gecko_puts("Going into IPC mainloop...\n");
-	boot2_run(0x10001,0x48415858);
-#if 0
 	ipc_process_slow();
 	gecko_puts("IPC mainloop done!\n");
-#endif
 	gecko_puts("Shutting down IPC...\n");
 	ipc_shutdown();
+
+shutdown:
 	gecko_puts("Shutting down interrupts...\n");
 	irq_shutdown();
 	gecko_puts("Shutting down caches and MMU...\n");
