@@ -1,3 +1,25 @@
+/*
+	mini - a Free Software replacement for the Nintendo/BroadOn IOS.
+
+	sd host controller driver
+	
+Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, version 2.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+*/
+
 /* parts based on:
  *   * "SD Host Controller driver based on the SD Host Controller Standard" copyright (c) 2006 Uwe Stuehler <uwe@openbsd.org>
  *   * Simplified SD Host Controller Standard
@@ -277,7 +299,6 @@ static int __sd_wait16(u32 addr, u16 mask)
 	return SDHC_ETIMEDOUT;
 }
 
-#if 0
 static int __sd_wait32(u32 addr, u32 mask)
 {
 	u8 timeout = SDHC_WAIT_TIMEOUT_MULTIPLY;
@@ -290,7 +311,6 @@ static int __sd_wait32(u32 addr, u32 mask)
 	while(timeout--);
 	return SDHC_ETIMEDOUT;
 }
-#endif
 
 static int __sd_wait8_r(u32 addr, u8 mask)
 {
@@ -600,7 +620,7 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 
 	sdhc_debug(sdhci->reg_base, "command inhibit bits cleared, sending command");
 
-	if(use_dma == 1)
+	if(use_dma == 1 && blk_cnt > 0)
 	{
 		sdhc_debug(sdhci->reg_base, "preparing buffer for SDMA transfer");
 		if(mask == SDHC_BFR_WRITE_ENABLE) {
@@ -610,7 +630,6 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 			dc_invalidaterange(buffer, blk_cnt * BLOCK_SIZE);
 		}
 			
-		__sd_write32(sdhci->reg_base + SDHC_SDMA_ADDR, dma_addr(buffer));
 		__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, 0);
 		__sd_write16(sdhci->reg_base + SDHC_ERROR_INTERRUPT_STATUS, 0);
 		__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE, INTERRUPT_ALL);
@@ -629,19 +648,26 @@ static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, voi
 	sdhc_debug(sdhci->reg_base, "writing mode = %x, arg = %x, cmd = %x", mode, arg, command);
 	__sd_write32(sdhci->reg_base + SDHC_CMD_ARG, arg);
 
+	__sd_write32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE,__sd_read32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE) | INTERRUPT_COMMAND_COMPLETE);
+	__sd_write32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, INTERRUPT_COMMAND_COMPLETE);
 	__sd_write32(sdhci->reg_base + SDHC_CMD_TRANSFER_MODE, ((u32)command << 16) | mode);
 
 	__sd_dumpregs(sdhci);
 	sdhc_debug(sdhci->reg_base, "waiting until command phase is done");
-	retval = __sd_wait32_r(sdhci->reg_base + SDHC_PRESENT_STATE, SDHC_PRESENT_CMD_INHIBIT_CMD);
+	retval = __sd_wait32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS,
+			INTERRUPT_COMMAND_COMPLETE);
+//	retval = __sd_wait32_r(sdhci->reg_base + SDHC_PRESENT_STATE, SDHC_PRESENT_CMD_INHIBIT_CMD);
 	if(retval < 0)
 	{
+		__sd_write32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE,__sd_read32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE) & ~INTERRUPT_COMMAND_COMPLETE);
 		sdhc_error(sdhci->reg_base, "error: command phase not completed");
 		__sd_dumpregs(sdhci);
 		__sd_reset(sdhci, 0);
 		return retval;
 	}
 	sdhc_debug(sdhci->reg_base, "command phase is done");
+	__sd_write32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, INTERRUPT_COMMAND_COMPLETE);
+	__sd_write32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE,__sd_read32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE) & ~INTERRUPT_COMMAND_COMPLETE);
 
 	__sd_dumpregs(sdhci);
 
