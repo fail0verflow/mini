@@ -20,7 +20,7 @@ int powerpc_load_file(const char *path)
 {
 	u32 read;
 	FRESULT fres;
-
+	gecko_printf("%s: %08x\n", __FUNCTION__, read32(HW_TIMER));
 	fres = f_open(&fd, path, FA_READ);
 	if(fres != FR_OK)
 		return -fres;
