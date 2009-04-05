@@ -104,7 +104,7 @@ static void patch_mem(u8 *offset, u32 size, u64 titleID)
 }
 
 void boot2_patchelf(u8 *elf, u64 titleID) {
-	gecko_puts("Patching boot2 ELF...\n");
+	gecko_printf("Patching boot2 ELF...\n");
 
 	if(memcmp("\x7F" "ELF\x01\x02\x01\x61\x01",elf,9)) {
 		gecko_printf("Invalid ELF header! 0x%02x 0x%02x 0x%02x 0x%02x\n",elf[0], elf[1], elf[2], elf[3]);
@@ -133,7 +133,7 @@ void boot2_patchelf(u8 *elf, u64 titleID) {
 		}
 		phdr++;
 	}
-	gecko_puts("Done!\n");
+	gecko_printf("Done!\n");
 }
 
 #define PPC_BOOT_FILE "/system/ppcboot.elf"
@@ -147,7 +147,7 @@ void *patch_boot2(void *base, u64 titleID)
 	ioshdr *parhdr = (ioshdr*)hdr->argument;
 	u8 *elf;
 
-	gecko_puts("Patching BOOT2 for leet hax\n");
+	gecko_printf("Patching BOOT2 for leet hax\n");
 	gecko_printf("Parent BOOT2 header (@%p):\n",parhdr);
 	gecko_printf(" Header size: %08x\n", parhdr->hdrsize);
 	gecko_printf(" Loader size: %08x\n", parhdr->loadersize);
@@ -173,11 +173,11 @@ void *_main(void *base)
 	int res;
 
 	gecko_init();
-	gecko_puts("mini v0.2 loading\n");
+	gecko_printf("mini v0.2 loading\n");
 
-	gecko_puts("Initializing exceptions...\n");
+	gecko_printf("Initializing exceptions...\n");
 	exception_initialize();
-	gecko_puts("Configuring caches and MMU...\n");
+	gecko_printf("Configuring caches and MMU...\n");
 	mem_initialize();
 
 	gecko_printf("IOSflags: %08x %08x %08x\n",
@@ -190,27 +190,27 @@ void *_main(void *base)
 	irq_enable(IRQ_GPIO1B);
 	irq_enable(IRQ_GPIO1);
 	irq_enable(IRQ_RESET);
-	gecko_puts("Interrupts initialized\n");
+	gecko_printf("Interrupts initialized\n");
 
 	crypto_initialize();
-	gecko_puts("crypto support initialized\n");
+	gecko_printf("crypto support initialized\n");
 
 	nand_initialize();
-	gecko_puts("NAND initialized.\n");
+	gecko_printf("NAND initialized.\n");
 
 	boot2_init();
 
-	gecko_puts("Initializing IPC...\n");
+	gecko_printf("Initializing IPC...\n");
 	ipc_initialize();
 
-	gecko_puts("Initializing SD...\n");
+	gecko_printf("Initializing SD...\n");
 	sd_initialize();
 
-	gecko_puts("Mounting SD...\n");
+	gecko_printf("Mounting SD...\n");
 	fres = f_mount(0, &fatfs);
 
 	if (read32(0x0d800190) & 2) {
-		gecko_puts("GameCube compatibility mode detected...\n");
+		gecko_printf("GameCube compatibility mode detected...\n");
 		boot2_run(1, 0x101);
 		goto shutdown;
 	}
@@ -220,24 +220,24 @@ void *_main(void *base)
 		panic2(0, PANIC_MOUNT);
 	}
 
-	gecko_puts("Trying to boot:" PPC_BOOT_FILE "\n");
+	gecko_printf("Trying to boot:" PPC_BOOT_FILE "\n");
 
 	res = powerpc_load_file(PPC_BOOT_FILE);
 	if(res < 0) {
 		gecko_printf("Failed to boot PPC: %d\n", res);
-		gecko_puts("Continuing anyway\n");
+		gecko_printf("Continuing anyway\n");
 	}
 
-	gecko_puts("Going into IPC mainloop...\n");
+	gecko_printf("Going into IPC mainloop...\n");
 	ipc_process_slow();
-	gecko_puts("IPC mainloop done!\n");
-	gecko_puts("Shutting down IPC...\n");
+	gecko_printf("IPC mainloop done!\n");
+	gecko_printf("Shutting down IPC...\n");
 	ipc_shutdown();
 
 shutdown:
-	gecko_puts("Shutting down interrupts...\n");
+	gecko_printf("Shutting down interrupts...\n");
 	irq_shutdown();
-	gecko_puts("Shutting down caches and MMU...\n");
+	gecko_printf("Shutting down caches and MMU...\n");
 	mem_shutdown();
 
 	gecko_printf("Vectoring to %p...\n",vector);

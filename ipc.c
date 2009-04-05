@@ -161,6 +161,10 @@ static void process_in(void)
 					case IPC_SYS_PING:
 						ipc_post(req->code, req->tag, 0);
 						break;
+					case IPC_SYS_DBGMSG:
+						ipc_post(req->code, req->tag, 1,
+								gecko_enable_console(req->args[0]));
+						break;
 					case IPC_SYS_WRITE32:
 						write32(req->args[0], req->args[1]);
 						break;

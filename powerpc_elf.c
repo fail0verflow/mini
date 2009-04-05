@@ -38,7 +38,7 @@ int powerpc_load_file(const char *path)
 	}
 
 	if(elfhdr.e_phoff == 0 || elfhdr.e_phnum == 0) {
-		gecko_puts("ELF has no program headers!\n");
+		gecko_printf("ELF has no program headers!\n");
 		return -102;
 	}
 	if(elfhdr.e_phnum > PHDR_MAX) {
@@ -84,10 +84,10 @@ int powerpc_load_file(const char *path)
 
 	dc_flushall();
 
-	gecko_puts("ELF load done, booting PPC...\n");
+	gecko_printf("ELF load done, booting PPC...\n");
 	powerpc_upload_stub(NULL,0);
 	powerpc_reset();
-	gecko_puts("PPC booted!\n");
+	gecko_printf("PPC booted!\n");
 
 	return 0;
 }

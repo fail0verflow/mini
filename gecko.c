@@ -4,6 +4,9 @@
 #include "string.h"
 #include "utils.h"
 #include "hollywood.h"
+#include "gecko.h"
+
+static u8 gecko_console_enabled = 0;
 
 // These two don't really seem to be needed
 // Maybe only for boot buffer or some PPC stuff
@@ -40,6 +43,7 @@ static u32 _gecko_sendbyte(char sendbyte)
 	return 0;
 }
 
+#if 0
 static u32 _gecko_recvbyte(char *recvbyte)
 {
 	u32 i = 0;
@@ -70,24 +74,9 @@ static u32 _gecko_checkrecv(void)
 		return 1; // Return 1 if safe to recv
 	return 0;
 }
+#endif
 
-void gecko_init(void)
-{
-	write32(EXI0_CSR, 0);
-	write32(EXI1_CSR, 0);
-	write32(EXI2_CSR, 0);
-	write32(EXI0_CSR, 0x2000);
-	write32(EXI0_CSR, 3<<10);
-	write32(EXI1_CSR, 3<<10);
-}
-
-void gecko_flush(void)
-{
-	char tmp;
-	while(_gecko_recvbyte(&tmp));
-}
-
-int gecko_isalive(void)
+static int gecko_isalive(void)
 {
 	u32 i = 0;
 	i = _gecko_command(0x90000000);
@@ -96,7 +85,14 @@ int gecko_isalive(void)
 	return 0;
 }
 
-int gecko_recvbuffer(void *buffer, u32 size)
+#if 0
+static void gecko_flush(void)
+{
+	char tmp;
+	while(_gecko_recvbyte(&tmp));
+}
+
+static int gecko_recvbuffer(void *buffer, u32 size)
 {
 	u32 left = size;
 	char *ptr = (char*)buffer;
@@ -111,8 +107,9 @@ int gecko_recvbuffer(void *buffer, u32 size)
 	_gecko_release();
 	return (size - left);
 }
+#endif
 
-int gecko_sendbuffer(const void *buffer, u32 size)
+static int gecko_sendbuffer(const void *buffer, u32 size)
 {
 	u32 left = size;
 	char *ptr = (char*)buffer;
@@ -128,7 +125,8 @@ int gecko_sendbuffer(const void *buffer, u32 size)
 	return (size - left);
 }
 
-int gecko_recvbuffer_safe(void *buffer, u32 size)
+#if 0
+static int gecko_recvbuffer_safe(void *buffer, u32 size)
 {
 	u32 left = size;
 	char *ptr = (char*)buffer;
@@ -146,7 +144,7 @@ int gecko_recvbuffer_safe(void *buffer, u32 size)
 	return (size - left);
 }
 
-int gecko_sendbuffer_safe(const void *buffer, u32 size)
+static int gecko_sendbuffer_safe(const void *buffer, u32 size)
 {
 	u32 left = size;
 	char *ptr = (char*)buffer;
@@ -166,29 +164,39 @@ int gecko_sendbuffer_safe(const void *buffer, u32 size)
 	_gecko_release();
 	return (size - left);
 }
+#endif
 
-int gecko_putchar(int ic)
+void gecko_init(void)
 {
-	char b = ic;
-	return gecko_sendbuffer(&b, 1);
+	write32(EXI0_CSR, 0);
+	write32(EXI1_CSR, 0);
+	write32(EXI2_CSR, 0);
+	write32(EXI0_CSR, 0x2000);
+	write32(EXI0_CSR, 3<<10);
+	write32(EXI1_CSR, 3<<10);
+
+	if (!gecko_isalive())
+		return;
+
+	gecko_console_enabled = 1;
 }
 
-int gecko_getchar(void)
+u8 gecko_enable_console(const u8 enable)
 {
-	char b;
-	if(gecko_recvbuffer_safe(&b, 1) != 1)
-		return -1;
-	return b;
+	if (enable) {
+		if (gecko_isalive())
+			gecko_console_enabled = 1;
+	} else
+		gecko_console_enabled = 0;
+
+	return gecko_console_enabled;
 }
 
-int gecko_puts(const char *s)
+int gecko_printf(const char *fmt, ...)
 {
-	//udelay(10000);
-	return gecko_sendbuffer(s, strlen(s));
-}
+	if (!gecko_console_enabled)
+		return 0;
 
-int gecko_printf( const char *fmt, ...)
-{
 	va_list args;
 	char buffer[256];
 	int i;
@@ -196,6 +204,6 @@ int gecko_printf( const char *fmt, ...)
 	va_start(args, fmt);
 	i = vsprintf(buffer, fmt, args);
 	va_end(args);
-	gecko_puts(buffer);
-	return i;
+
+	return gecko_sendbuffer(buffer, i);
 }
