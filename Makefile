@@ -2,7 +2,8 @@ include ../../starlet.mk
 
 CFLAGS += -Os -Wall -I.
 ASFLAGS += -D_LANGUAGE_ASSEMBLY
-LDFLAGS += -nostartfiles -nodefaultlibs -Wl,-Tmini.ld
+LDFLAGS += -nostartfiles -nodefaultlibs
+LDSCRIPT = mini.ld
 LIBS = -lgcc
 
 ELFLOADER = ../elfloader/elfloader.bin
