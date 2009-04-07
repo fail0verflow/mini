@@ -134,8 +134,7 @@ static int process_slow(volatile ipc_request *req)
 			aes_ipc(req);
 			break;
 		case IPC_DEV_BOOT2:
-			boot2_ipc(req);
-			return 0;
+			return boot2_ipc(req);
 			break;
 		case IPC_DEV_PPC:
 			powerpc_ipc(req);

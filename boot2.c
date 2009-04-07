@@ -361,7 +361,7 @@ void boot2_run(u32 tid_hi, u32 tid_lo) {
 	return;
 }
 
-void boot2_ipc(volatile ipc_request *req)
+int boot2_ipc(volatile ipc_request *req)
 {
 	switch (req->req) {
 		case IPC_BOOT2_RUN:
@@ -373,8 +373,20 @@ void boot2_ipc(volatile ipc_request *req)
 			} else {
 				ipc_post(req->code, req->tag, 1, -1);
 			}
+			return 0;
 			break;
+
+		case IPC_BOOT2_TMD:
+			if (boot2_initialized) {
+				ipc_post(req->code, req->tag, 1, &boot2_tmd);
+			} else {
+				ipc_post(req->code, req->tag, 1, -1);
+			}
+			return 1;
+			break;
+
 		default:
 			gecko_printf("IPC: unknown SLOW BOOT2 request %04X\n", req->req);
 	}
+	return 1;
 }

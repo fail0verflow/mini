@@ -56,6 +56,7 @@
 #define	IPC_AES_DECRYPT	0x0003
 
 #define IPC_BOOT2_RUN	0x0000
+#define IPC_BOOT2_TMD	0x0001
 
 #define IPC_PPC_BOOT	0x0000
 
