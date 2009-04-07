@@ -67,7 +67,6 @@ int powerpc_load_file(const char *path)
 			gecko_printf("Skipping PHDR of type %d\n",phdr->p_type);
 		} else {
 			void *dst = phdr->p_paddr;
-			dst = (void*)((u32)dst & ~0xC0000000);
 			
 			gecko_printf("LOAD 0x%x -> %p [0x%x]\n", phdr->p_offset, phdr->p_paddr, phdr->p_filesz);
 			fres = f_lseek(&fd, phdr->p_offset);
@@ -85,7 +84,7 @@ int powerpc_load_file(const char *path)
 	dc_flushall();
 
 	gecko_printf("ELF load done, booting PPC...\n");
-	powerpc_upload_stub(NULL,0);
+	powerpc_upload_stub(elfhdr.e_entry);
 	powerpc_reset();
 	gecko_printf("PPC booted!\n");
 

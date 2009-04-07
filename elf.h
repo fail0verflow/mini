@@ -10,7 +10,7 @@ typedef struct {
 	u16 e_type;
 	u16 e_machine;
 	u32 e_version;
-	void *e_entry;
+	u32 e_entry;
 	u32 e_phoff;
 	u32 e_shoff;
 	u32 e_flags;

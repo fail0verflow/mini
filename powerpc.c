@@ -26,32 +26,28 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "start.h"
 #include "gecko.h"
 
-
-const u32 stub_default[0x10] = {
-	0x3c600000,
-	0x60633400,
-	0x7c7a03a6,
-	0x38600000,
-	0x7c7b03a6,
-	0x4c000064,
-	0,
-};
-
-void powerpc_upload_stub(const u32 *stub, u32 len)
+void powerpc_upload_stub(u32 entry)
 {
 	u32 i;
 
 	set32(HW_EXICTRL, EXICTRL_ENABLE_EXI);
 
-	if(stub == NULL || len == 0)
-	{
-		stub = stub_default;
-		len = sizeof(stub_default) / sizeof(u32);
-	}
+	// lis r3, entry@h
+	write32(EXI_BOOT_BASE + 4 * 0, 0x3c600000 | entry >> 16);
+	// ori r3, r3, entry@l
+	write32(EXI_BOOT_BASE + 4 * 1, 0x60630000 | (entry & 0xffff));
+	// mtsrr0 r3
+	write32(EXI_BOOT_BASE + 4 * 2, 0x7c7a03a6);
+	// li r3, 0
+	write32(EXI_BOOT_BASE + 4 * 3, 0x38600000);
+	// mtsrr1 r3
+	write32(EXI_BOOT_BASE + 4 * 4, 0x7c7b03a6);
+	// rfi
+	write32(EXI_BOOT_BASE + 4 * 5, 0x4c000064);
 
-	for(i = 0; i < len; i++)
-		write32(EXI_BOOT_BASE + 4*i, stub[i]);
-	
+	for (i = 6; i < 0x10; ++i)
+		write32(EXI_BOOT_BASE + 4 * i, 0);
+
 	set32(HW_DIFLAGS, DIFLAGS_BOOT_CODE);
 
 	gecko_printf("disabling EXI now...\n");
