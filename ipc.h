@@ -12,6 +12,7 @@
 #define IPC_DEV_KEYS	0x03
 #define IPC_DEV_AES	0x04
 #define IPC_DEV_BOOT2	0x05
+#define IPC_DEV_PPC	0x06
 
 #define IPC_SYS_PING	0x0000
 #define IPC_SYS_JUMP	0x0001
@@ -55,6 +56,8 @@
 #define	IPC_AES_DECRYPT	0x0003
 
 #define IPC_BOOT2_RUN	0x0000
+
+#define IPC_PPC_BOOT	0x0000
 
 #define IPC_CODE (f,d,r) (((f)<<24)|((d)<<16)|(r))
 

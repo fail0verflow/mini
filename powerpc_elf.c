@@ -16,7 +16,7 @@ static Elf32_Ehdr elfhdr;
 static Elf32_Phdr phdrs[PHDR_MAX];
 static FIL fd;
 
-int powerpc_load_file(const char *path)
+int powerpc_boot_file(const char *path)
 {
 	u32 read;
 	FRESULT fres;
@@ -49,7 +49,7 @@ int powerpc_load_file(const char *path)
 	fres = f_lseek(&fd, elfhdr.e_phoff);
 	if(fres != FR_OK)
 		return -fres;
-	
+
 	fres = f_read(&fd, phdrs, sizeof(phdrs[0])*elfhdr.e_phnum, &read);
 	if(fres != FR_OK)
 		return -fres;
@@ -67,7 +67,7 @@ int powerpc_load_file(const char *path)
 			gecko_printf("Skipping PHDR of type %d\n",phdr->p_type);
 		} else {
 			void *dst = phdr->p_paddr;
-			
+
 			gecko_printf("LOAD 0x%x -> %p [0x%x]\n", phdr->p_offset, phdr->p_paddr, phdr->p_filesz);
 			fres = f_lseek(&fd, phdr->p_offset);
 			if(fres != FR_OK)
@@ -85,6 +85,64 @@ int powerpc_load_file(const char *path)
 
 	gecko_printf("ELF load done, booting PPC...\n");
 	powerpc_upload_stub(elfhdr.e_entry);
+	powerpc_reset();
+	gecko_printf("PPC booted!\n");
+
+	return 0;
+}
+
+int powerpc_boot_mem(const u8 *addr, u32 len)
+{
+	if (len < sizeof(Elf32_Ehdr))
+		return -100;
+
+	Elf32_Ehdr *ehdr = (Elf32_Ehdr *) addr;
+
+	if (memcmp("\x7F" "ELF\x01\x02\x01\x00\x00", ehdr->e_ident, 9)) {
+		gecko_printf("Invalid ELF header! 0x%02x 0x%02x 0x%02x 0x%02x\n",
+						ehdr->e_ident[0], ehdr->e_ident[1],
+						ehdr->e_ident[2], ehdr->e_ident[3]);
+		return -101;
+	}
+
+	if (ehdr->e_phoff == 0 || ehdr->e_phnum == 0) {
+		gecko_printf("ELF has no program headers!\n");
+		return -102;
+	}
+
+	if (ehdr->e_phnum > PHDR_MAX) {
+		gecko_printf("ELF has too many (%d) program headers!\n",
+						elfhdr.e_phnum);
+		return -102;
+	}
+
+	int count = ehdr->e_phnum;
+	if (len < ehdr->e_phoff + count * sizeof(Elf32_Phdr))
+		return -103;
+
+	Elf32_Phdr *phdr = (Elf32_Phdr *) &addr[ehdr->e_phoff];
+
+	// TODO: add more checks here
+	// - phdrs out of bounds?
+	// - loaded ELF overwrites itself?
+
+	powerpc_hang();
+
+	while (count--) {
+		if (phdr->p_type != PT_LOAD) {
+			gecko_printf("Skipping PHDR of type %d\n", phdr->p_type);
+		} else {
+			gecko_printf("LOAD 0x%x -> %p [0x%x]\n", phdr->p_offset, phdr->p_paddr, phdr->p_filesz);
+			memcpy((void *) phdr->p_paddr, &addr[phdr->p_offset],
+					phdr->p_filesz);
+		}
+		phdr++;
+	}
+
+	dc_flushall();
+
+	gecko_printf("ELF load done, booting PPC...\n");
+	powerpc_upload_stub(ehdr->e_entry);
 	powerpc_reset();
 	gecko_printf("PPC booted!\n");
 

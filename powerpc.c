@@ -20,7 +20,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 */
 #include "types.h"
+#include "memory.h"
 #include "powerpc.h"
+#include "powerpc_elf.h"
 #include "hollywood.h"
 #include "utils.h"
 #include "start.h"
@@ -73,3 +75,18 @@ void powerpc_reset()
 	udelay(100000);
 	set32(HW_EXICTRL, EXICTRL_ENABLE_EXI);
 }
+
+void powerpc_ipc(volatile ipc_request *req)
+{
+	switch (req->req) {
+		case IPC_PPC_BOOT:
+			dc_invalidaterange((void *) req->args[0], (u32) req->args[1]);
+			int res = powerpc_boot_mem((u8 *) req->args[0], (u32) req->args[1]);
+			if (res)
+				ipc_post(req->code, req->tag, 1, res);
+			break;
+		default:
+			gecko_printf("IPC: unknown SLOW PPC request %04X\n", req->req);
+	}
+}
+

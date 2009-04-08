@@ -222,7 +222,7 @@ void *_main(void *base)
 
 	gecko_printf("Trying to boot:" PPC_BOOT_FILE "\n");
 
-	res = powerpc_load_file(PPC_BOOT_FILE);
+	res = powerpc_boot_file(PPC_BOOT_FILE);
 	if(res < 0) {
 		gecko_printf("Failed to boot PPC: %d\n", res);
 		gecko_printf("Continuing anyway\n");
