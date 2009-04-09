@@ -6,8 +6,12 @@
 /*-----------------------------------------------------------------------*/
 
 #include "diskio.h"
+#include "string.h"
 #include "sdhc.h"
-#include <string.h>
+
+#ifndef MEM2_BSS
+#define MEM2_BSS
+#endif
 
 static sdhci_t sdhci;
 static u8 buffer[512] MEM2_BSS ALIGNED(32);
@@ -23,7 +27,8 @@ DSTATUS disk_initialize (
 
 	sd_init(&sdhci, 0);
 	ret = sd_mount(&sdhci);
-	if(ret < 0)
+
+	if (ret < 0)
 		return STA_NOINIT;
 	else
 		return disk_status(drv);
@@ -38,8 +43,9 @@ DSTATUS disk_status (
 	BYTE drv		/* Physical drive nmuber (0..) */
 )
 {
-	if(sd_inserted(&sdhci) == 0)
+	if (sd_inserted(&sdhci) == 0)
 		return STA_NODISK;
+
 	return 0;
 }
 
@@ -59,15 +65,15 @@ DRESULT disk_read (
 	DRESULT res;
 
 	res = RES_OK;
-	for(i = 0; i < count; i++)
-	{
-		if(sd_read(&sdhci, sector + i, 1, buffer) != 0)
-		{
+	for (i = 0; i < count; i++) {
+		if (sd_read(&sdhci, sector + i, 1, buffer) != 0) {
 			res = RES_ERROR;
 			break;
 		}
+
 		memcpy(buff + i * 512, buffer, 512);
 	}
+
 	return res;
 }
 
@@ -77,7 +83,6 @@ DRESULT disk_read (
 /* Write Sector(s)                                                       */
 
 #if _READONLY == 0
-
 DRESULT disk_write (
 	BYTE drv,			/* Physical drive nmuber (0..) */
 	const BYTE *buff,	/* Data to be written */
@@ -89,15 +94,15 @@ DRESULT disk_write (
 	DRESULT res;
 
 	res = RES_OK;
-	for(i = 0; i < count; i++)
-	{
+	for (i = 0; i < count; i++) {
 		memcpy(buffer, buff + i * 512, 512);
-		if(sd_write(&sdhci, sector + i, 1, buffer) != 0)
-		{
+
+		if(sd_write(&sdhci, sector + i, 1, buffer) != 0) {
 			res = RES_ERROR;
 			break;
 		}
 	}
+
 	return res;
 }
 #endif /* _READONLY */
@@ -113,13 +118,9 @@ DRESULT disk_ioctl (
 	void *buff		/* Buffer to send/receive control data */
 )
 {
-	if(ctrl == CTRL_SYNC)
+	if (ctrl == CTRL_SYNC)
 		return RES_OK;
-	return RES_PARERR;
-}
 
-DWORD get_fattime (void)
-{
-	return 0; // TODO
+	return RES_PARERR;
 }
 

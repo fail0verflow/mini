@@ -4,6 +4,10 @@
 
 #ifndef _INTEGER
 
+#if 0
+#include <windows.h>
+#else
+
 /* These types must be 16-bit, 32-bit or larger integer */
 typedef int				INT;
 typedef unsigned int	UINT;
@@ -17,6 +21,7 @@ typedef unsigned char	BYTE;
 typedef short			SHORT;
 typedef unsigned short	USHORT;
 typedef unsigned short	WORD;
+typedef unsigned short	WCHAR;
 
 /* These types must be 32-bit integer */
 typedef long			LONG;
@@ -25,6 +30,8 @@ typedef unsigned long	DWORD;
 
 /* Boolean type */
 typedef enum { FALSE = 0, TRUE } BOOL;
+
+#endif
 
 #define _INTEGER
 #endif
