@@ -30,5 +30,5 @@ upload: $(TARGET_BIN)
 clean: myclean
 
 myclean:
-	-rm -f mini.bin
+	-rm -f $(TARGET_BIN)
 
