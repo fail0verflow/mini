@@ -33,7 +33,10 @@
 #define CPSR_FIQDIS 0x40
 
 #ifndef _LANGUAGE_ASSEMBLY
+
 #include "types.h"
+
+#define IRQ_ALARM_MS2REG(x)	(1898 * x)
 
 void irq_initialize(void);
 void irq_shutdown(void);
@@ -49,6 +52,8 @@ static inline void irq_wait(void)
 	u32 data = 0;
 	__asm__ volatile ( "mcr\tp15, 0, %0, c7, c0, 4" : : "r" (data) );
 }
+
+void irq_set_alarm(u32 ms, u8 enable);
 
 #endif
 

@@ -1,9 +1,12 @@
 #include "types.h"
+#include "irq.h"
 #include "start.h"
 #include "vsprintf.h"
 #include "string.h"
 #include "utils.h"
 #include "hollywood.h"
+#include "powerpc.h"
+#include "powerpc_elf.h"
 #include "gecko.h"
 
 static u8 gecko_console_enabled = 0;
@@ -34,7 +37,7 @@ static u32 _gecko_command(u32 command)
 	return i;
 }
 
-static u32 _gecko_sendbyte(char sendbyte)
+static u32 _gecko_sendbyte(u8 sendbyte)
 {
 	u32 i = 0;
 	i = _gecko_command(0xB0000000 | (sendbyte<<20));
@@ -43,8 +46,7 @@ static u32 _gecko_sendbyte(char sendbyte)
 	return 0;
 }
 
-#if 0
-static u32 _gecko_recvbyte(char *recvbyte)
+static u32 _gecko_recvbyte(u8 *recvbyte)
 {
 	u32 i = 0;
 	*recvbyte = 0;
@@ -57,6 +59,7 @@ static u32 _gecko_recvbyte(char *recvbyte)
 	return 0;
 }
 
+#if 0
 static u32 _gecko_checksend(void)
 {
 	u32 i = 0;
@@ -65,6 +68,7 @@ static u32 _gecko_checksend(void)
 		return 1; // Return 1 if safe to send
 	return 0;
 }
+#endif
 
 static u32 _gecko_checkrecv(void)
 {
@@ -74,7 +78,6 @@ static u32 _gecko_checkrecv(void)
 		return 1; // Return 1 if safe to recv
 	return 0;
 }
-#endif
 
 static int gecko_isalive(void)
 {
@@ -207,3 +210,111 @@ int gecko_printf(const char *fmt, ...)
 
 	return gecko_sendbuffer(buffer, i);
 }
+
+// irq context
+
+#define GECKO_STATE_NONE 0
+#define GECKO_STATE_RECEIVE_ELF_SIZE 1
+#define GECKO_STATE_RECEIVE_ELF 2
+
+static u32 _gecko_cmd = 0;
+static u32 _gecko_cmd_start_time = 0;
+static u32 _gecko_state = GECKO_STATE_NONE;
+static u32 _gecko_receive_left = 0;
+static u32 _gecko_receive_len = 0;
+static u8 *_gecko_receive_buffer = NULL;
+
+void gecko_timer_initialize(void)
+{
+	if (!gecko_isalive())
+		return;
+
+	irq_set_alarm(100, 1);
+}
+
+void gecko_timer(void) {
+	u8 b;
+
+	if (_gecko_cmd_start_time && read32(HW_TIMER) >
+			(_gecko_cmd_start_time + IRQ_ALARM_MS2REG(5000))) {
+		// time's over, bitch
+		irq_set_alarm(100, 0);
+		_gecko_cmd = 0;
+		_gecko_cmd_start_time = 0;
+		_gecko_state = GECKO_STATE_NONE;
+
+		return;
+	}
+
+	switch (_gecko_state) {
+	case GECKO_STATE_NONE:
+		if (!_gecko_checkrecv() || !_gecko_recvbyte(&b))
+			return;
+
+		_gecko_cmd <<= 8;
+		_gecko_cmd |= b;
+
+		switch (_gecko_cmd) {
+		// upload powerpc ELF
+		case 0x43524150:
+			_gecko_state = GECKO_STATE_RECEIVE_ELF_SIZE;
+			_gecko_receive_len = 0;
+			_gecko_receive_left = 4;
+
+			irq_set_alarm(1, 0);
+			_gecko_cmd_start_time = read32(HW_TIMER);
+
+			gecko_console_enabled = 0;
+
+			break;
+		}
+
+		return;
+
+	case GECKO_STATE_RECEIVE_ELF_SIZE:
+		if (!_gecko_checkrecv() || !_gecko_recvbyte(&b))
+			return;
+
+		_gecko_receive_len <<= 8;
+		_gecko_receive_len |= b;
+		_gecko_receive_left--;
+
+		if (!_gecko_receive_left) {
+			_gecko_state = GECKO_STATE_RECEIVE_ELF;
+			_gecko_receive_buffer = (u8 *) 0x10100000;
+			_gecko_receive_left = _gecko_receive_len;
+
+			powerpc_hang();
+		}
+
+		return;
+
+	case GECKO_STATE_RECEIVE_ELF:
+		while (_gecko_receive_left) {
+			if (!_gecko_checkrecv() || !_gecko_recvbyte(_gecko_receive_buffer))
+				return;
+
+			_gecko_receive_buffer++;
+			_gecko_receive_left--;
+		}
+
+		if (!_gecko_receive_left) {
+			irq_set_alarm(100, 0);
+			_gecko_cmd = 0;
+			_gecko_cmd_start_time = 0;
+			_gecko_state = GECKO_STATE_NONE;
+
+			gecko_console_enabled = 1;
+
+			if (powerpc_boot_mem((u8 *) 0x10100000, _gecko_receive_len))
+				gecko_printf("GECKOTIMER: elflolwtf?\n");
+		}
+
+		return;
+
+	default:
+		gecko_printf("GECKOTIMER: statelolwtf?\n");
+		break;
+	}
+}
+

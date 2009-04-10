@@ -6,6 +6,8 @@
 #include "crypto.h"
 #include "nand.h"
 
+static u32 _alarm_frequency = 0;
+
 void irq_setup_stack(void);
 
 void irq_initialize(void)
@@ -18,6 +20,8 @@ void irq_initialize(void)
 	//???
 	write32(HW_ARMIRQMASK+0x04, 0);
 	write32(HW_ARMIRQMASK+0x20, 0);
+
+	write32(HW_ALARM, 0);
 }
 
 void irq_shutdown(void)
@@ -37,10 +41,11 @@ void irq_handler(void)
 	flags = flags & enabled;
 
 	if(flags & IRQF_TIMER) {
-		gecko_printf("IRQ: timer\n");
-		gecko_printf("Timer: %08x\n", read32(HW_TIMER));
-		gecko_printf("Alarm: %08x\n", read32(HW_ALARM));
-		write32(HW_ALARM, 0); // shut it up
+		if (_alarm_frequency) {
+			// currently we use the alarm timer only for lame usbgecko polling
+			gecko_timer();
+			write32(HW_ALARM, read32(HW_TIMER) + _alarm_frequency);
+		}
 		write32(HW_ARMIRQFLAG, IRQF_TIMER);
 	}
 	if(flags & IRQF_NAND) {
@@ -88,3 +93,12 @@ void irq_disable(u32 irq)
 {
 	clear32(HW_ARMIRQMASK, 1<<irq);
 }
+
+void irq_set_alarm(u32 ms, u8 enable)
+{
+	_alarm_frequency = IRQ_ALARM_MS2REG(ms);
+
+	if (enable)
+		write32(HW_ALARM, read32(HW_TIMER) + _alarm_frequency);
+}
+

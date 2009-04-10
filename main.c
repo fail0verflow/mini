@@ -190,6 +190,7 @@ void *_main(void *base)
 	irq_enable(IRQ_GPIO1B);
 	irq_enable(IRQ_GPIO1);
 	irq_enable(IRQ_RESET);
+	gecko_timer_initialize();
 	gecko_printf("Interrupts initialized\n");
 
 	crypto_initialize();
