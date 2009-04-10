@@ -89,11 +89,12 @@ typedef const struct {
 } ipc_infohdr;
 
 void ipc_irq(void);
+void ipc_queue_slow_jump(u32 addr); // only call this from irq context
 
 void ipc_initialize(void);
 void ipc_shutdown(void);
 void ipc_post(u32 code, u32 tag, u32 num_args, ...);
 void ipc_flush(void);
-void ipc_process_slow(void);
+u32 ipc_process_slow(void);
 
 #endif

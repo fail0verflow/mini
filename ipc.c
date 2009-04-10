@@ -104,7 +104,7 @@ void ipc_flush(void)
 	while(peek_outhead() != out_tail);
 }
 
-static int process_slow(volatile ipc_request *req)
+static u32 process_slow(volatile ipc_request *req)
 {
 	//gecko_printf("IPC: process slow_queue @ %p\n",req);
 
@@ -117,6 +117,8 @@ static int process_slow(volatile ipc_request *req)
 				case IPC_SYS_PING: //PING can be both slow and fast for testing purposes
 					ipc_post(req->code, req->tag, 0);
 					break;
+				case IPC_SYS_JUMP:
+					return req->args[0];
 				default:
 					gecko_printf("IPC: unknown SLOW SYS request %04x\n", req->req);
 			}
@@ -142,7 +144,8 @@ static int process_slow(volatile ipc_request *req)
 		default:
 			gecko_printf("IPC: unknown SLOW request %02x-%04x\n", req->device, req->req);
 	}
-	return 1;
+
+	return 0;
 }
 
 static void process_in(void)
@@ -244,6 +247,26 @@ void ipc_irq(void)
 		gecko_printf("IPC: IRQ but no bell!\n");
 }
 
+void ipc_queue_slow_jump(u32 addr)
+{
+	volatile ipc_request *req = &in_queue[in_head];
+
+	if(slow_queue_head == ((slow_queue_tail + 1)&(IPC_SLOW_SIZE-1))) {
+		gecko_printf("IPC: Slowqueue overrun\n");
+		panic2(0, PANIC_IPCOVF);
+	}
+
+	req->flags = IPC_SLOW;
+	req->device = IPC_DEV_SYS;
+	req->req = IPC_SYS_JUMP;
+
+	req->tag = 0;
+	req->args[0] = addr;
+
+	slow_queue[slow_queue_tail] = *req;
+	slow_queue_tail = (slow_queue_tail+1)&(IPC_SLOW_SIZE-1);
+}
+
 void ipc_initialize(void)
 {
 	write32(HW_IPC_ARMMSG, 0);
@@ -269,18 +292,22 @@ void ipc_shutdown(void)
 	irq_disable(IRQ_IPC);
 }
 
-void ipc_process_slow(void)
+u32 ipc_process_slow(void)
 {
-	while(1) {
-		while(slow_queue_head != slow_queue_tail) {
-			if(!process_slow(&slow_queue[slow_queue_head]))
-				return;
+	u32 vector = 0;
+
+	while (!vector) {
+		while (slow_queue_head != slow_queue_tail) {
+			vector = process_slow(&slow_queue[slow_queue_head]);
 			slow_queue_head = (slow_queue_head+1)&(IPC_SLOW_SIZE-1);
 		}
+
 		u32 cookie = irq_kill();
 		if(slow_queue_head == slow_queue_tail)
 			irq_wait();
 		irq_restore(cookie);
 	}
+
+	return vector;
 }
 

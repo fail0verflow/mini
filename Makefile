@@ -24,6 +24,9 @@ $(TARGET_BIN): $(TARGET) $(ELFLOADER)
 	@echo  "MAKEBIN	$@"
 	@$(MAKEBIN) $(ELFLOADER) $< $@
 
+upload: $(TARGET_BIN)
+	@$(WIIDEV)/bin/bootmii -a $<
+
 clean: myclean
 
 myclean:

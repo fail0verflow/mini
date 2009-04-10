@@ -214,8 +214,8 @@ int gecko_printf(const char *fmt, ...)
 // irq context
 
 #define GECKO_STATE_NONE 0
-#define GECKO_STATE_RECEIVE_ELF_SIZE 1
-#define GECKO_STATE_RECEIVE_ELF 2
+#define GECKO_STATE_RECEIVE_BUFFER_SIZE 1
+#define GECKO_STATE_RECEIVE_BUFFER 2
 
 static u32 _gecko_cmd = 0;
 static u32 _gecko_cmd_start_time = 0;
@@ -257,21 +257,32 @@ void gecko_timer(void) {
 		switch (_gecko_cmd) {
 		// upload powerpc ELF
 		case 0x43524150:
-			_gecko_state = GECKO_STATE_RECEIVE_ELF_SIZE;
+			_gecko_state = GECKO_STATE_RECEIVE_BUFFER_SIZE;
 			_gecko_receive_len = 0;
 			_gecko_receive_left = 4;
+			_gecko_receive_buffer = (u8 *) 0x10100000;
 
 			irq_set_alarm(1, 0);
 			_gecko_cmd_start_time = read32(HW_TIMER);
 
-			gecko_console_enabled = 0;
+			break;
+
+		// upload ARM ELF
+		case 0x5a4f4d47:
+			_gecko_state = GECKO_STATE_RECEIVE_BUFFER_SIZE;
+			_gecko_receive_len = 0;
+			_gecko_receive_left = 4;
+			_gecko_receive_buffer = (u8 *) 0x0; // yarly
+
+			irq_set_alarm(1, 0);
+			_gecko_cmd_start_time = read32(HW_TIMER);
 
 			break;
 		}
 
 		return;
 
-	case GECKO_STATE_RECEIVE_ELF_SIZE:
+	case GECKO_STATE_RECEIVE_BUFFER_SIZE:
 		if (!_gecko_checkrecv() || !_gecko_recvbyte(&b))
 			return;
 
@@ -280,8 +291,7 @@ void gecko_timer(void) {
 		_gecko_receive_left--;
 
 		if (!_gecko_receive_left) {
-			_gecko_state = GECKO_STATE_RECEIVE_ELF;
-			_gecko_receive_buffer = (u8 *) 0x10100000;
+			_gecko_state = GECKO_STATE_RECEIVE_BUFFER;
 			_gecko_receive_left = _gecko_receive_len;
 
 			powerpc_hang();
@@ -289,7 +299,7 @@ void gecko_timer(void) {
 
 		return;
 
-	case GECKO_STATE_RECEIVE_ELF:
+	case GECKO_STATE_RECEIVE_BUFFER:
 		while (_gecko_receive_left) {
 			if (!_gecko_checkrecv() || !_gecko_recvbyte(_gecko_receive_buffer))
 				return;
@@ -298,23 +308,33 @@ void gecko_timer(void) {
 			_gecko_receive_left--;
 		}
 
-		if (!_gecko_receive_left) {
-			irq_set_alarm(100, 0);
-			_gecko_cmd = 0;
-			_gecko_cmd_start_time = 0;
-			_gecko_state = GECKO_STATE_NONE;
-
-			gecko_console_enabled = 1;
-
-			if (powerpc_boot_mem((u8 *) 0x10100000, _gecko_receive_len))
-				gecko_printf("GECKOTIMER: elflolwtf?\n");
-		}
+		if (!_gecko_receive_left)
+			break;
 
 		return;
 
 	default:
 		gecko_printf("GECKOTIMER: statelolwtf?\n");
+		return;
+	}
+
+	// done receiving, handle the command
+	switch (_gecko_cmd) {
+	case 0x43524150:
+		if (powerpc_boot_mem((u8 *) 0x10100000, _gecko_receive_len))
+			gecko_printf("GECKOTIMER: elflolwtf?\n");
+		break;
+
+	case 0x5a4f4d47:
+		// skip headerlen, which is stored at u32[0]
+		ipc_queue_slow_jump(((u32 *) 0x0)[0]);
 		break;
 	}
+
+	irq_set_alarm(100, 0);
+
+	_gecko_cmd = 0;
+	_gecko_cmd_start_time = 0;
+	_gecko_state = GECKO_STATE_NONE;
 }
 

@@ -38,7 +38,6 @@ static u8 boot2_initialized = 0;
 static u8 boot2_copy;
 static u8 pages_read;
 static u8 *page_ptr;
-extern void *vector;
 
 typedef struct {
 	u32 len;
@@ -332,7 +331,7 @@ static u32 patch[] = {
 	0x48415858,
 };
 
-void boot2_run(u32 tid_hi, u32 tid_lo) {
+u32 boot2_run(u32 tid_hi, u32 tid_lo) {
 	u8 *ptr;
 	int i;
 	ioshdr *hdr;
@@ -356,37 +355,40 @@ void boot2_run(u32 tid_hi, u32 tid_lo) {
 	}
 
 	hdr->argument = 0x42;
-	vector = (u8 *)0x11000000 + hdr->hdrsize;
-	gecko_printf("boot2 is at %p\n", vector);
-	return;
+
+	u32 vector = 0x11000000 + hdr->hdrsize;
+	gecko_printf("boot2 is at 0x%08x\n", vector);
+	return vector;
 }
 
-int boot2_ipc(volatile ipc_request *req)
+u32 boot2_ipc(volatile ipc_request *req)
 {
+	u32 vector = 0;
+
 	switch (req->req) {
 		case IPC_BOOT2_RUN:
 			if(boot2_initialized) {
 				// post first so that the memory protection doesn't kill IPC for the PowerPC
 				ipc_post(req->code, req->tag, 1, boot2_copy);
 				ipc_flush();
-				boot2_run((u32)req->args[0], (u32)req->args[1]);
+				vector = boot2_run((u32)req->args[0], (u32)req->args[1]);
 			} else {
 				ipc_post(req->code, req->tag, 1, -1);
 			}
-			return 0;
+
 			break;
 
 		case IPC_BOOT2_TMD:
-			if (boot2_initialized) {
+			if (boot2_initialized)
 				ipc_post(req->code, req->tag, 1, &boot2_tmd);
-			} else {
+			else
 				ipc_post(req->code, req->tag, 1, -1);
-			}
-			return 1;
+
 			break;
 
 		default:
 			gecko_printf("IPC: unknown SLOW BOOT2 request %04X\n", req->req);
 	}
-	return 1;
+
+	return vector;
 }

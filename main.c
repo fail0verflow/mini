@@ -38,8 +38,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "nand.h"
 #include "boot2.h"
 
-void *vector;
-
 typedef struct {
 	u32 hdrsize;
 	u32 loadersize;
@@ -167,10 +165,11 @@ void *patch_boot2(void *base, u64 titleID)
 	return (void*)(((u32)parhdr) + parhdr->hdrsize);
 }
 
-void *_main(void *base)
+u32 _main(void *base)
 {
 	FRESULT fres;
 	int res;
+	u32 vector;
 
 	gecko_init();
 	gecko_printf("mini v0.2 loading\n");
@@ -212,7 +211,7 @@ void *_main(void *base)
 
 	if (read32(0x0d800190) & 2) {
 		gecko_printf("GameCube compatibility mode detected...\n");
-		boot2_run(1, 0x101);
+		vector = boot2_run(1, 0x101);
 		goto shutdown;
 	}
 
@@ -230,7 +229,7 @@ void *_main(void *base)
 	}
 
 	gecko_printf("Going into IPC mainloop...\n");
-	ipc_process_slow();
+	vector = ipc_process_slow();
 	gecko_printf("IPC mainloop done!\n");
 	gecko_printf("Shutting down IPC...\n");
 	ipc_shutdown();
@@ -241,6 +240,6 @@ shutdown:
 	gecko_printf("Shutting down caches and MMU...\n");
 	mem_shutdown();
 
-	gecko_printf("Vectoring to %p...\n",vector);
+	gecko_printf("Vectoring to 0x%08x...\n", vector);
 	return vector;
 }
