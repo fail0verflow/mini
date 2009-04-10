@@ -1,6 +1,6 @@
 include ../../starlet.mk
 
-CFLAGS += -Os -Wall -I.
+CFLAGS += -Os -Wall
 ASFLAGS += -D_LANGUAGE_ASSEMBLY
 LDFLAGS += -nostartfiles -nodefaultlibs
 LDSCRIPT = mini.ld
