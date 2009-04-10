@@ -3,7 +3,7 @@
 
 	boot2 chainloader
 
-Copyright (C) 2008, 2009	marcan (TODO: change name?, add email?,...)
+Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
 Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
 
 This program is free software; you can redistribute it and/or modify

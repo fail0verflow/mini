@@ -3,6 +3,7 @@
 
 Copyright (C) 2008, 2009	Haxx Enterprises
 Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
+Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
 TODO add yourself here, kthx
 
 This program is free software; you can redistribute it and/or modify
