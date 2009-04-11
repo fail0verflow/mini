@@ -779,12 +779,13 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 	 * Start a CPU data transfer.  Writing to the high order byte
 	 * of the SDHC_COMMAND register triggers the SD command. (1.5)
 	 */
-	HWRITE2(hp, SDHC_TRANSFER_MODE, mode);
 	HWRITE2(hp, SDHC_BLOCK_SIZE, blksize);
 	if (blkcount > 1)
 		HWRITE2(hp, SDHC_BLOCK_COUNT, blkcount);
 	HWRITE4(hp, SDHC_ARGUMENT, cmd->c_arg);
-	HWRITE2(hp, SDHC_COMMAND, command);
+	HWRITE4(hp, SDHC_TRANSFER_MODE, ((u32)command<<16)|mode);
+//	HWRITE2(hp, SDHC_COMMAND, command);
+//	HWRITE2(hp, SDHC_TRANSFER_MODE, mode);
 
 	splx(s);
 	return 0;
