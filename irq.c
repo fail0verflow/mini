@@ -26,6 +26,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "ipc.h"
 #include "crypto.h"
 #include "nand.h"
+#include "sdhcvar.h"
 
 static u32 _alarm_frequency = 0;
 
@@ -98,6 +99,12 @@ void irq_handler(void)
 		gecko_printf("IRQ: AES\n");
 		write32(HW_ARMIRQFLAG, IRQF_AES);
 	}
+	if (flags & IRQF_SDHC) {
+		gecko_printf("IRQ: SDHC\n");
+		write32(HW_ARMIRQFLAG, IRQF_SDHC);
+		sdhc_irq();
+	}
+	
 	flags &= ~IRQF_ALL;
 	if(flags) {
 		gecko_printf("IRQ: unknown 0x%08x\n", flags);

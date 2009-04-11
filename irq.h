@@ -40,6 +40,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #define IRQF_TIMER	(1<<IRQ_TIMER)
 #define IRQF_NAND	(1<<IRQ_NAND)
 #define IRQF_AES	(1<<IRQ_AES)
+#define IRQF_SDHC	(1<<IRQ_SDHC)
 #define IRQF_GPIO1B	(1<<IRQ_GPIO1B)
 #define IRQF_GPIO1	(1<<IRQ_GPIO1)
 #define IRQF_RESET	(1<<IRQ_RESET)
@@ -47,7 +48,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #define IRQF_ALL	( \
 	IRQF_TIMER|IRQF_NAND|IRQF_GPIO1B|IRQF_GPIO1| \
-	IRQF_RESET|IRQF_IPC|IRQF_AES \
+	IRQF_RESET|IRQF_IPC|IRQF_AES|IRQF_SDHC \
 	)
 
 #define CPSR_IRQDIS 0x80

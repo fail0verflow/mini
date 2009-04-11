@@ -24,7 +24,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "utils.h"
 #include "start.h"
 #include "hollywood.h"
-#include "sdhc.h"
+#include "sdhcvar.h"
 #include "string.h"
 #include "memory.h"
 #include "elf.h"
@@ -204,8 +204,9 @@ u32 _main(void *base)
 	gecko_printf("Initializing IPC...\n");
 	ipc_initialize();
 
-	gecko_printf("Initializing SD...\n");
-	sd_initialize();
+	gecko_printf("Initializing SDHC...\n");
+	sdhc_init();
+//	sd_initialize();
 
 	gecko_printf("Mounting SD...\n");
 	fres = f_mount(0, &fatfs);

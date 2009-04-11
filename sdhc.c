@@ -1,1217 +1,1079 @@
+/*	$OpenBSD: sdhc.c,v 1.25 2009/01/13 19:44:20 grange Exp $	*/
+
 /*
-	mini - a Free Software replacement for the Nintendo/BroadOn IOS.
-
-	sd host controller driver
-	
-Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
-
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, version 2.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-*/
-
-/* parts based on:
- *   * "SD Host Controller driver based on the SD Host Controller Standard" copyright (c) 2006 Uwe Stuehler <uwe@openbsd.org>
- *   * Simplified SD Host Controller Standard
+ * Copyright (c) 2006 Uwe Stuehler <uwe@openbsd.org>
+ *
+ * Permission to use, copy, modify, and distribute this software for any
+ * purpose with or without fee is hereby granted, provided that the above
+ * copyright notice and this permission notice appear in all copies.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "hollywood.h"
-#include "sdhc.h"
-#include "utils.h"
+/*
+ * SD Host Controller driver based on the SD Host Controller Standard
+ * Simplified Specification Version 1.00 (www.sdcard.com).
+ */
+
+
+#if 0
+#include <sys/param.h>
+#include <sys/device.h>
+#include <sys/kernel.h>
+#include <sys/kthread.h>
+#include <sys/malloc.h>
+#include <sys/systm.h>
+#endif
+
+#include "bsdtypes.h"
+#include "sdhcreg.h"
+#include "sdhcvar.h"
+#include "sdmmcchip.h"
+#include "sdmmcreg.h"
+#include "sdmmcvar.h"
+#include "gecko.h"
 #include "string.h"
-#include "start.h"
-#include "memory.h"
+#include "irq.h"
+#include "utils.h"
 
-#define _READONLY 1
+#define SDHC_DEBUG	1
 
-#define		SDHC_PRINT_ERROR	1
-//#define		SDHC_DEBUG		1
-//#define	SDHC_DEBUG_V		1
+#define SDHC_COMMAND_TIMEOUT	0
+#define SDHC_BUFFER_TIMEOUT	0
+#define SDHC_TRANSFER_TIMEOUT	0
 
-#if defined(SDHC_DEBUG_V) && !defined(SDHC_DEBUG)
-#	define SDHC_DEBUG	1
-#endif
+struct sdhc_host {
+	struct sdhc_softc *sc;		/* host controller device */
+	struct device *sdmmc;		/* generic SD/MMC device */
+	bus_space_tag_t iot;		/* host register set tag */
+	bus_space_handle_t ioh;		/* host register set handle */
+	u_int clkbase;			/* base clock frequency in KHz */
+	int maxblklen;			/* maximum block length */
+	int flags;			/* flags for this host */
+	u_int32_t ocr;			/* OCR value from capabilities */
+	u_int8_t regs[14];		/* host controller state */
+	u_int16_t intr_status;		/* soft interrupt status */
+	u_int16_t intr_error_status;	/* soft error status */
+};
 
-#ifdef SDHC_DEBUG
-#	include "gecko.h"
-#	define	sdhc_debug(reg, f, arg...) do { gecko_printf("sdhc%d: " f "\n", ((reg - SD_REG_BASE) / 0x100), ##arg); } while(0)
-#else
-#	define	sdhc_debug(reg, f, arg...) udelay(100);
-#endif
+#define HDEVNAME(hp)	((hp)->sc->sc_dev.dv_xname)
+#define sdmmc_delay(t)	udelay(t)
 
-#ifdef SDHC_PRINT_ERROR
-#	include "gecko.h"
-#	define	sdhc_error(reg, f, arg...) do { gecko_printf("sdhc%d: " f "\n", ((reg - SD_REG_BASE) / 0x100), ##arg); } while(0)
-#else
-#	define	sdhc_error(reg, f, arg...) 
-#endif
-
-#define	SDHC_SOFTWARE_RESET_DAT		(1 << 2)
-#define	SDHC_SOFTWARE_RESET_CMD		(1 << 1)
-#define	SDHC_SOFTWARE_RESET_ALL		(7)
-
-#define	SDHC_TIMEOUT_MAX		(0x0e)
-
-#define	SDHC_BFREQ_KHZ(c)		((((c) >> 8) & 0x3f) * 1000)
-
-#define	SDHC_CAP_VOLTAGE_33		(1 << 24)
-#define	SDHC_CAP_VOLTAGE_30		(1 << 25)
-#define	SDHC_CAP_VOLTAGE_18		(1 << 26)
-
-#define	SDHC_CAP_SDMA			(1 << 22)
-
-#define	SDHC_PCTRL_VOLTAGE_SHIFT	1
-#define	SDHC_PCTRL_VOLTAGE_33		(0x07 << SDHC_PCTRL_VOLTAGE_SHIFT)
-#define	SDHC_PCTRL_VOLTAGE_30		(0x06 << SDHC_PCTRL_VOLTAGE_SHIFT)
-#define	SDHC_PCTRL_VOLTAGE_18		(0x05 << SDHC_PCTRL_VOLTAGE_SHIFT)
-#define	SDHC_PCTRL_ENABLE		1
-
-#define	SDHC_CLOCK_INTERNAL_ENABLE	(1 << 0)
-#define	SDHC_CLOCK_INTERNAL_STABLE	(1 << 1)
-#define	SDHC_CLOCK_SD_ENABLE		(1 << 2)
-
-#define	SDHC_CARD_INSERTED		(1 << 16)
-#define	SDHC_WRITE_PROTECT		(1 << 19)
-
-#define	SDHC_BLOCKS_MAX			65535
-
-#define	SDHC_CMDMODE_MULTIBLOCK		(1 << 5)
-#define	SDHC_CMDMODE_READ		(1 << 4)
-#define	SDHC_CMDMODE_WRITE		(0 << 4)
-#define	SDHC_CMDMODE_ACMD12_ENABLE	(1 << 2)
-#define	SDHC_CMDMODE_BLOCKCNT_ENABLE	(1 << 1)
-#define	SDHC_CMDMODE_DMA_ENABLE		(1 << 0)
-
-#define	SDHC_CMD_DATA			(1 << 5)
-#define	SDHC_CMD_IDXCHECK		(1 << 4)
-#define	SDHC_CMD_CRC			(1 << 3)
-
-#define	SDHC_CMDTEST_READ		0x40
-
-#define	SDHC_CMD_MASK			0xff
-#define	SDHC_CMD_SHIFT			8
-
-#define	SDHC_CMD_NORESP			0
-#define	SDHC_CMD_RESP_136		1
-#define	SDHC_CMD_RESP_48		2
-#define	SDHC_CMD_RESP_BUSY		3
-
-#define	SDHC_PRESENT_CMD_INHIBIT_CMD	1
-#define	SDHC_PRESENT_CMD_INHIBIT_DAT	2
-#define	SDHC_PRESENT_CMD_INHIBIT_BOTH	3
-
-#define	SDHC_BFR_READ_ENABLE		(1 << 11)
-#define	SDHC_BFR_WRITE_ENABLE		(1 << 10)
-
-#define	SDHC_WAIT_TIMEOUT					10000
-#define	SDHC_WAIT_TIMEOUT_MULTIPLY			50
-#define	SDHC_WAIT_TIMEOUT_OUTER				50000
-#define	SDHC_WAIT_TIMEOUT_OUTER_MULTIPLY	5
-
-
-#define	SDHC_INTERRUPT_DMA		(1 << 3)
-#define	SDHC_INTERRUPT_TRANSF_COMPLETE	(1 << 1)	
-
-#define	SD_RSP_BUSY			0x0100
-#define	SD_RSP_136			0x0200
-#define	SD_RSP_CRC			0x0400
-#define	SD_RSP_IDX			0x0800
-#define	SD_RSP_PRESENT			0x1000
-
-#define	SD_R0				0
-#define	SD_R1				(SD_RSP_PRESENT | SD_RSP_CRC | SD_RSP_IDX)
-#define	SD_R1B				(SD_RSP_PRESENT | SD_RSP_CRC | SD_RSP_IDX | SD_RSP_BUSY)
-#define	SD_R2				(SD_RSP_PRESENT | SD_RSP_CRC | SD_RSP_136)
-#define	SD_R3				SD_RSP_PRESENT
-#define	SD_R4				SD_RSP_PRESENT
-#define	SD_R5				(SD_RSP_PRESENT | SD_RSP_CRC | SD_RSP_IDX)
-#define	SD_R5B				(SD_RSP_PRESENT | SD_RSP_CRC | SD_RSP_IDX | SD_RSP_BUSY)
-#define	SD_R6				(SD_RSP_PRESENT | SD_RSP_CRC | SD_RSP_IDX)
-#define	SD_R7				(SD_RSP_PRESENT | SD_RSP_CRC | SD_RSP_IDX)
-
-#define	SD_READ				0x10000
-
-#define	SD_CMD_ACMD			0xC0
-
-#define	SD_CMD_RESET_CARD		 0
-#define	SD_CMD_ALL_SEND_CID		 2
-#define	SD_CMD_SEND_RELATIVE_ADDR	 3
-#define	SD_CMD_SELECT_CARD		 7
-#define	SD_CMD_SEND_IF_COND		 8
-#define	SD_CMD_SEND_CSD			 9
-#define	SD_CMD_SEND_STATUS		13
-#define	SD_CMD_SET_BLOCKLEN		16
-#define	SD_CMD_READ_MULTIPLE_BLOCK	18
-#define	SD_CMD_WRITE_MULTIPLE_BLOCK	25
-#define	SD_CMD_APP			55
-#define	SD_CMD_READ_OCR			58
-#define	SD_CMD_APP_SET_BUS_WIDTH	(SD_CMD_ACMD +  6)
-#define	SD_CMD_APP_SEND_OP_COND		(SD_CMD_ACMD + 41)
-
-#define	SDHC_HCR_BUSWIDTH_4		2
-
-#define	BLOCK_SIZE			512
-#define	BLOCK_SIZE_512K			7		/* SDMA block size */
-
-#define	SDMA_BLOCK_SIZE			(512 * 1024)
-
-#define MMC_VDD_32_33			0x00100000      /* VDD voltage 3.2 ~ 3.3 */
-#define MMC_VDD_33_34			0x00200000      /* VDD voltage 3.3 ~ 3.4 */
-#define MMC_VDD_29_30			0x00020000      /* VDD voltage 2.9 ~ 3.0 */
-#define MMC_VDD_30_31			0x00040000      /* VDD voltage 3.0 ~ 3.1 */
-#define MMC_VDD_165_195			0x00000080
-
-#define	OCR_POWERUP_STATUS		(1 << 31)
-#define	OCR_HCS				(1 << 30)
-#define	OCR_CCS				OCR_HCS
-
-#define	INTERRUPT_ERROR			(1 << 15)
-#define	INTERRUPT_CARD			(1 <<  8)
-#define	INTERRUPT_CARD_REMOVAL		(1 <<  7)
-#define	INTERRUPT_CARD_INSERTION	(1 <<  6)
-#define	INTERRUPT_BUFFER_READ_READY	(1 <<  5)
-#define	INTERRUPT_BUFFER_WRITE_READY	(1 <<  4)
-#define	INTERRUPT_DMA			(1 <<  3)
-#define	INTERRUPT_BLOCK_GAP_EVENT	(1 <<  2)
-#define	INTERRUPT_TRANSFER_COMPLETE	(1 <<  1)
-#define	INTERRUPT_COMMAND_COMPLETE	(1 <<  0)
-
-#define	INTERRUPT_ALL			0x81ff
-
-#define	EINTERRUPT_ADMA			(1 <<  9)
-#define	EINTERRUPT_ACMD12		(1 <<  8)
-#define	EINTERRUPT_CURRENT_LIMIT	(1 <<  7)
-#define	EINTERRUPT_DATA_END_BIT		(1 <<  6)
-#define	EINTERRUPT_DATA_CRC		(1 <<  5)
-#define EINTERRUPT_DATA_TIMEOUT		(1 <<  4)
-#define	EINTERRUPT_CMD_INDEX		(1 <<  3)
-#define	EINTERRUPT_CMD_END_BIT		(1 <<  2)
-#define	EINTERRUPT_CMD_CRC		(1 <<  1)
-#define	EINTERRUPT_CMD_TIMEOUT		(1 <<  0)
-
-#define	EINTERRUPT_ALL			0x3ff
-
-static int ipc_code = 0;
-static int ipc_tag = 0;
-static sdhci_t sdhci;
-
-// not currently used :(
-void sd_irq(void)
+static inline u32 bus_space_read_4(bus_space_tag_t iot, bus_space_handle_t ioh, u32 reg)
 {
-	int code, tag;
-	if (ipc_code != 0) {
-		code = ipc_code;
-		tag = ipc_tag;
-		ipc_code = ipc_tag = 0;
-		ipc_post(code, tag, 0);
-	}
+	return read32(ioh + reg);
 }
 
-unsigned int bswap32(unsigned int input) {
-	return ((input & 0x000000FF) << 24) | ((input & 0x0000FF00) << 8)  |
-	       ((input & 0x00FF0000) >> 8) | ((input & 0xFF000000) >> 24);
+static inline u16 bus_space_read_2(bus_space_tag_t iot, bus_space_handle_t ioh, u32 reg)
+{
+	if(reg & 3)
+		return (read32((ioh + reg) & ~3) & 0xffff0000) >> 16;
+	else
+		return (read32(ioh + reg) & 0xffff);
 }
 
-u8 __sd_read8(u32 addr)
+static inline u8 bus_space_read_1(bus_space_tag_t iot, bus_space_handle_t ioh, u32 reg)
 {
 	u32 mask;
+	u32 addr;
 	u8 shift;
 
-	shift = (addr & 3) * 8;
+	shift = (reg & 3) * 8;
 	mask = (0xFF << shift);
+	addr = ioh + reg;
 
 	return (read32(addr & ~3) & mask) >> shift;
 }
 
-u16 __sd_read16(u32 addr)
+static inline void bus_space_write_4(bus_space_tag_t iot, bus_space_handle_t ioh, u32 r, u32 v)
 {
-	if(addr & 3)
-		return (read32(addr & ~3) & 0xffff0000) >> 16;
+	write32(ioh + r, v);
+}
+
+static inline void bus_space_write_2(bus_space_tag_t iot, bus_space_handle_t ioh, u32 r, u16 v)
+{
+	if(r & 3)
+		mask32((ioh + r) & ~3, 0xffff0000, v << 16);
 	else
-		return (read32(addr) & 0xffff);
+		mask32((ioh + r), 0xffff, ((u32)v));
 }
 
-inline u32 __sd_read32(u32 addr)
-{
-	return read32(addr);
-}
-
-void __sd_write8(u32 addr, u8 data)
+static inline void bus_space_write_1(bus_space_tag_t iot, bus_space_handle_t ioh, u32 r, u8 v)
 {
 	u32 mask;
+	u32 addr;
 	u8 shift;
 
-	shift = (addr & 3) * 8;
+	shift = (r & 3) * 8;
 	mask = (0xFF << shift);
+	addr = ioh + r;
 
-	mask32(addr & ~3, mask, data << shift);
+	mask32(addr & ~3, mask, v << shift);
 }
 
-void __sd_write16(u32 addr, u16 data)
+u32 splbio()
 {
-	if(addr & 3)
-		mask32(addr & ~3, 0xffff0000, data << 16);
-	else
-		mask32(addr, 0xffff, ((u32)data));
-}
-
-inline void __sd_write32(u32 addr, u32 data)
-{
-	write32(addr, data);
-}
-
-
-#if 0
-static int __sd_wait8(u32 addr, u8 mask)
-{
-	u8 timeout = SDHC_WAIT_TIMEOUT_MULTIPLY;
-	do
-	{
-		if(__sd_read8(addr) & mask)
-			return 0;
-		udelay(SDHC_WAIT_TIMEOUT);
-	}
-	while(timeout--);
-	return SDHC_ETIMEDOUT;
-}
-#endif
-
-static int __sd_wait16(u32 addr, u16 mask)
-{
-	u8 timeout = SDHC_WAIT_TIMEOUT_MULTIPLY;
-	do
-	{
-		if(__sd_read16(addr) & mask)
-			return 0;
-		udelay(SDHC_WAIT_TIMEOUT);
-	}
-	while(timeout--);
-	return SDHC_ETIMEDOUT;
-}
-
-static int __sd_wait32(u32 addr, u32 mask)
-{
-	u8 timeout = SDHC_WAIT_TIMEOUT_MULTIPLY;
-	do
-	{
-		if(__sd_read32(addr) & mask)
-			return 0;
-		udelay(SDHC_WAIT_TIMEOUT);
-	}
-	while(timeout--);
-	return SDHC_ETIMEDOUT;
-}
-
-static int __sd_wait8_r(u32 addr, u8 mask)
-{
-	u8 timeout = SDHC_WAIT_TIMEOUT_MULTIPLY;
-	do
-	{
-		if(!(__sd_read8(addr) & mask))
-			return 0;
-		udelay(SDHC_WAIT_TIMEOUT);
-	}
-	while(timeout--);
-	return SDHC_ETIMEDOUT;
-}
-
-#if 0
-static int __sd_wait16_r(u32 addr, u16 mask)
-{
-	u8 timeout = SDHC_WAIT_TIMEOUT_MULTIPLY;
-	do
-	{
-		if(!(__sd_read16(addr) & mask))
-			return 0;
-		udelay(SDHC_WAIT_TIMEOUT);
-	}
-	while(timeout--);
-	return SDHC_ETIMEDOUT;
-}
-#endif
-
-static int __sd_wait32_r(u32 addr, u32 mask)
-{
-	u8 timeout = SDHC_WAIT_TIMEOUT_MULTIPLY;
-	do
-	{
-		if(!(__sd_read32(addr) & mask))
-			return 0;
-		udelay(SDHC_WAIT_TIMEOUT);
-	}
-	while(timeout--);
-	return SDHC_ETIMEDOUT;
-}
-
-#ifdef SDHC_DEBUG_V
-static void __sd_dumpregs(sdhci_t *sdhci)
-{
-	sdhc_debug(sdhci->reg_base, " register dump:");
-	sdhc_debug(sdhci->reg_base, "  sys addr:    0x%08x", __sd_read32(sdhci->reg_base + SDHC_SDMA_ADDR));
-	sdhc_debug(sdhci->reg_base, "  version:     0x%08x", __sd_read16(sdhci->reg_base + SDHC_VERSION));
-	sdhc_debug(sdhci->reg_base, "  bsize:       0x%08x", __sd_read16(sdhci->reg_base + SDHC_BLOCK_SIZE));
-	sdhc_debug(sdhci->reg_base, "  bcount:      0x%08x", __sd_read16(sdhci->reg_base + SDHC_BLOCK_COUNT));
-	sdhc_debug(sdhci->reg_base, "  argument:    0x%08x", __sd_read32(sdhci->reg_base + SDHC_CMD_ARG));
-	sdhc_debug(sdhci->reg_base, "  trans mode:  0x%08x", __sd_read16(sdhci->reg_base + SDHC_CMD_TRANSFER_MODE));
-	sdhc_debug(sdhci->reg_base, "  pres state:  0x%08x", __sd_read32(sdhci->reg_base + SDHC_PRESENT_STATE));
-	sdhc_debug(sdhci->reg_base, "  hc:          0x%08x", __sd_read8(sdhci->reg_base + SDHC_HOST_CONTROL));
-	sdhc_debug(sdhci->reg_base, "  pwr ctrl:    0x%08x", __sd_read8(sdhci->reg_base + SDHC_POWER_CONTROL));
-	sdhc_debug(sdhci->reg_base, "  gap ctrl:    0x%08x", __sd_read8(sdhci->reg_base + SDHC_BLOCK_GAP_CONTROL));
-	sdhc_debug(sdhci->reg_base, "  wup ctrl:    0x%08x", __sd_read8(sdhci->reg_base + SDHC_WAKEUP_CONTROL));
-	sdhc_debug(sdhci->reg_base, "  clk ctrl:    0x%08x", __sd_read16(sdhci->reg_base + SDHC_CLOCK_CONTROL));
-	sdhc_debug(sdhci->reg_base, "  to ctrl:     0x%08x", __sd_read8(sdhci->reg_base + SDHC_TIMEOUT_CONTROL));
-	sdhc_debug(sdhci->reg_base, "  int status:  0x%08x", __sd_read16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS));
-	sdhc_debug(sdhci->reg_base, "  int enable:  0x%08x", __sd_read16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE));
-	sdhc_debug(sdhci->reg_base, "  eint status: 0x%08x", __sd_read16(sdhci->reg_base + SDHC_ERROR_INTERRUPT_STATUS));
-	sdhc_debug(sdhci->reg_base, "  eint enable: 0x%08x", __sd_read16(sdhci->reg_base + SDHC_ERROR_INTERRUPT_ENABLE));
-	sdhc_debug(sdhci->reg_base, "  caps:        0x%08x", __sd_read32(sdhci->reg_base + SDHC_CAPABILITIES));
-	sdhc_debug(sdhci->reg_base, "  max caps:    0x%08x", __sd_read32(sdhci->reg_base + SDHC_MAX_CAPABILITIES));
-	sdhc_debug(sdhci->reg_base, "  soft reset:  0x%08x", __sd_read8(sdhci->reg_base + SDHC_SOFTWARE_RESET));
-	sdhc_debug(sdhci->reg_base, "  command:     0x%08x", __sd_read16(sdhci->reg_base + SDHC_CMD));
-}
-#else
-#define	__sd_dumpregs(s) while(0) { }
-#endif
-
-static int __sd_reset(sdhci_t *sdhci, int all)
-{
-	int retval;
-	u32 mask;
-
-	sdhci->is_sdhc = 0;
-	sdhci->is_selected = 0;
-	sdhci->is_mounted = 0;
-
-	__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE, 0);
-	__sd_write16(sdhci->reg_base + SDHC_ERROR_INTERRUPT_ENABLE, 0);
-	__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_SIGNAL_ENABLE, 0);
-	__sd_write16(sdhci->reg_base + SDHC_ERROR_INTERRUPT_SIGNAL_ENABLE, 0);
-
-	if(all)
-		mask = SDHC_SOFTWARE_RESET_ALL;
-	else
-		mask = SDHC_SOFTWARE_RESET_CMD | SDHC_SOFTWARE_RESET_DAT;
-
-	sdhc_error(sdhci->reg_base, "resetting card (mask = %x)", mask);
-	__sd_write8(sdhci->reg_base + SDHC_SOFTWARE_RESET, mask);
-
-	retval = __sd_wait8_r(sdhci->reg_base + SDHC_SOFTWARE_RESET, mask);
-	if(retval < 0)
-	{
-		sdhc_debug(sdhci->reg_base, "reset failed, bits were never unset");
-		sdhc_debug(sdhci->reg_base, "software reset register: %02x", __sd_read8(sdhci->reg_base + SDHC_SOFTWARE_RESET));
-		return retval;
-	}
-
-	sdhc_debug(sdhci->reg_base, "reset done");
-	
-	__sd_dumpregs(sdhci);
-	__sd_write8(sdhci->reg_base + SDHC_TIMEOUT_CONTROL, SDHC_TIMEOUT_MAX);
-
+	irq_disable(IRQ_SDHC);
 	return 0;
 }
 
-static int __sd_clock_div(u32 base, u32 target)
+void splx(u32 dummy)
 {
-	int d;
-	for(d = 1; d <= 256; d *= 2)
-	{
-		if((base / d) <= target)
-			return (d/2);
-	}
-	return 256 / 2;
+	irq_enable(IRQ_SDHC);
 }
 
-static int __sd_clock(sdhci_t *sdhci, u8 enable, u32 freq)
-{
-	u32 caps;
-	int d, retval;
-	
-	__sd_write16(sdhci->reg_base + SDHC_CLOCK_CONTROL, 0);
+/* flag values */
+#define SHF_USE_DMA		0x0001
 
-	if(!enable)
-		return 0;
+#define HREAD1(hp, reg)							\
+	(bus_space_read_1((hp)->iot, (hp)->ioh, (reg)))
+#define HREAD2(hp, reg)							\
+	(bus_space_read_2((hp)->iot, (hp)->ioh, (reg)))
+#define HREAD4(hp, reg)							\
+	(bus_space_read_4((hp)->iot, (hp)->ioh, (reg)))
+#define HWRITE1(hp, reg, val)						\
+	bus_space_write_1((hp)->iot, (hp)->ioh, (reg), (val))
+#define HWRITE2(hp, reg, val)						\
+	bus_space_write_2((hp)->iot, (hp)->ioh, (reg), (val))
+#define HWRITE4(hp, reg, val)						\
+	bus_space_write_4((hp)->iot, (hp)->ioh, (reg), (val))
+#define HCLR1(hp, reg, bits)						\
+	HWRITE1((hp), (reg), HREAD1((hp), (reg)) & ~(bits))
+#define HCLR2(hp, reg, bits)						\
+	HWRITE2((hp), (reg), HREAD2((hp), (reg)) & ~(bits))
+#define HSET1(hp, reg, bits)						\
+	HWRITE1((hp), (reg), HREAD1((hp), (reg)) | (bits))
+#define HSET2(hp, reg, bits)						\
+	HWRITE2((hp), (reg), HREAD2((hp), (reg)) | (bits))
 
-	caps = read32(sdhci->reg_base + SDHC_CAPABILITIES);
+int	sdhc_host_reset(sdmmc_chipset_handle_t);
+u_int32_t sdhc_host_ocr(sdmmc_chipset_handle_t);
+int	sdhc_host_maxblklen(sdmmc_chipset_handle_t);
+int	sdhc_card_detect(sdmmc_chipset_handle_t);
+int	sdhc_bus_power(sdmmc_chipset_handle_t, u_int32_t);
+int	sdhc_bus_clock(sdmmc_chipset_handle_t, int);
+void	sdhc_card_intr_mask(sdmmc_chipset_handle_t, int);
+void	sdhc_card_intr_ack(sdmmc_chipset_handle_t);
+void	sdhc_exec_command(sdmmc_chipset_handle_t, struct sdmmc_command *);
+int	sdhc_start_command(struct sdhc_host *, struct sdmmc_command *);
+int	sdhc_wait_state(struct sdhc_host *, u_int32_t, u_int32_t);
+int	sdhc_soft_reset(struct sdhc_host *, int);
+int	sdhc_wait_intr(struct sdhc_host *, int, int);
+void	sdhc_transfer_data(struct sdhc_host *, struct sdmmc_command *);
+void	sdhc_read_data(struct sdhc_host *, u_char *, int);
+void	sdhc_write_data(struct sdhc_host *, u_char *, int);
 
-	if(SDHC_BFREQ_KHZ(caps) != 0)
-		d = __sd_clock_div(SDHC_BFREQ_KHZ(caps), freq);
-	else
-		d = 256 / 2;
-
-	__sd_write16(sdhci->reg_base + SDHC_CLOCK_CONTROL, (d << 8) | SDHC_CLOCK_INTERNAL_ENABLE);
-
-	__sd_dumpregs(sdhci);
-	sdhc_debug(sdhci->reg_base, "waiting for internal clock to become stable");
-
-	retval = __sd_wait16(sdhci->reg_base + SDHC_CLOCK_CONTROL, SDHC_CLOCK_INTERNAL_STABLE);
-	if(retval < 0)
-	{
-		sdhc_debug(sdhci->reg_base, "clock didn't become stable :/");
-		__sd_dumpregs(sdhci);
-		return retval;
-	}
-	sdhc_debug(sdhci->reg_base, "clock is stable; enabling sd clock");
-
-	__sd_write16(sdhci->reg_base + SDHC_CLOCK_CONTROL, (d << 8) | SDHC_CLOCK_SD_ENABLE | SDHC_CLOCK_INTERNAL_ENABLE);
-	return 0;
-}
-
-static int __sd_power(sdhci_t *sdhci, int vdd)
-{
-	u32 caps;
-	u8 pwr;
-
-	caps = __sd_read32(sdhci->reg_base + SDHC_CAPABILITIES);
-
-	if(vdd == -1)
-	{
-		if(caps & SDHC_CAP_VOLTAGE_33)
-			vdd = SDHC_CAP_VOLTAGE_33;
-		else if(caps & SDHC_CAP_VOLTAGE_30)
-			vdd = SDHC_CAP_VOLTAGE_30;
-		else if(caps & SDHC_CAP_VOLTAGE_18)
-			vdd = SDHC_CAP_VOLTAGE_18;
-		else
-		{
-			sdhc_error(sdhci->reg_base, "no voltage supported by the host? this should never happen...");
-			return SDHC_ESTRANGE;
-		}
-	}
-
-	if(!(caps & vdd))
-	{
-		sdhc_error(sdhci->reg_base, "voltage %x not supported by the hc", vdd);
-		return SDHC_EINVAL;
-	}
-
-
-	pwr = 0;
-	switch(vdd)
-	{
-		case SDHC_CAP_VOLTAGE_33:
-			pwr |= SDHC_PCTRL_VOLTAGE_33;
-			break;
-		case SDHC_CAP_VOLTAGE_30:
-			pwr |= SDHC_PCTRL_VOLTAGE_30;
-			break;
-		case SDHC_CAP_VOLTAGE_18:
-			pwr |= SDHC_PCTRL_VOLTAGE_18;
-			break;
-		default:
-			sdhc_error(sdhci->reg_base, "invalid vdd: %x", vdd);
-			return SDHC_EINVAL;
-	}
-
-	__sd_write8(sdhci->reg_base + SDHC_POWER_CONTROL, pwr);
-	pwr |= SDHC_PCTRL_ENABLE;
-	__sd_write8(sdhci->reg_base + SDHC_POWER_CONTROL, pwr);
-
-	__sd_dumpregs(sdhci);
-	sdhc_debug(sdhci->reg_base, "card should get voltage now"); 
-
-	if(!(__sd_read8(sdhci->reg_base + SDHC_POWER_CONTROL) & SDHC_PCTRL_ENABLE))
-	{
-		sdhc_error(sdhci->reg_base, "pctrl = 0 again");
-		return SDHC_ESTRANGE;
-	}
-
-	return 0;
-
-}
-
-static s32 __sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, void *buffer, u32 *response, u8 rlen)
-{
-	int mode;
-	int command;
-	int mask;
-	int use_dma;
-	int retval;
-	int i, imax;
-	u32 caps;
-
-	if(cmd & SD_CMD_ACMD)
-	{
-		sdhc_debug(sdhci->reg_base, " cmd %X is ACMD%d, sending CMD55 first", cmd, cmd - SD_CMD_ACMD);
-		retval = __sd_cmd(sdhci, SD_CMD_APP, SD_R1, sdhci->rca << 16, 0, NULL, NULL, 0);
-		// TODO: also check the response here?
-		if(retval < 0)
-			return retval;
-		cmd -= SD_CMD_ACMD;
-	}
-
-	__sd_write16(sdhci->reg_base + SDHC_ERROR_INTERRUPT_STATUS, 0);
-	__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, 0);
-
-	sdhc_debug(sdhci->reg_base, "__sd_cmd: cmd = %X, type = %X, arg = %X, blk_cnt = %d, rlen = %d", cmd, type, arg, blk_cnt, rlen);
-
-	if(blk_cnt > SDHC_BLOCKS_MAX)
-	{
-		sdhc_error(sdhci->reg_base, "%d blocks are too much...", blk_cnt);
-		return SDHC_EOVERFLOW;
-	}
-
-	caps = __sd_read32(sdhci->reg_base + SDHC_CAPABILITIES);
-	if(caps & SDHC_CAP_SDMA && ((u32)buffer % 32 == 0) && blk_cnt > 0 && buffer != NULL)
-		use_dma = 1;
-	else
-		use_dma = 0;
-
-	sdhc_debug(sdhci->reg_base, "enable DMA: %d (buffer mod 32: %d)", use_dma, (u32)buffer % 32);
-
-	mode = mask = 0;
-	command = (cmd & SDHC_CMD_MASK) << SDHC_CMD_SHIFT;
-	if(blk_cnt > 0)
-	{
-		if(use_dma == 1)
-			mode |= SDHC_CMDMODE_DMA_ENABLE;
-		mode |= SDHC_CMDMODE_MULTIBLOCK;
-		mode |= SDHC_CMDMODE_ACMD12_ENABLE;
-		mode |= SDHC_CMDMODE_BLOCKCNT_ENABLE;
-		if(type & SD_READ)
-		{
-			mask = SDHC_BFR_READ_ENABLE;
-			mode |= SDHC_CMDMODE_READ;
-		}
-		else
-		{
-			mask = SDHC_BFR_WRITE_ENABLE;
-			mode |= SDHC_CMDMODE_WRITE;
-		}
-
-		command |= SDHC_CMD_DATA;
-	}
-
-	if(!(type & SD_RSP_PRESENT))
-		command |= SDHC_CMD_NORESP;
-	else if(type & SD_RSP_136)
-		command |= SDHC_CMD_RESP_136;
-	else if(type & SD_RSP_BUSY)
-		command |= SDHC_CMD_RESP_BUSY;
-	else
-		command |= SDHC_CMD_RESP_48;
-	
-	if(type & SD_RSP_CRC)
-		command |= SDHC_CMD_CRC;
-	
-	if(type & SD_RSP_IDX)
-		command |= SDHC_CMD_IDXCHECK;
-	
-
-	sdhc_debug(sdhci->reg_base, "waiting for command inhibit bits to be cleared..");
-
-	retval = __sd_wait32_r(sdhci->reg_base + SDHC_PRESENT_STATE, SDHC_PRESENT_CMD_INHIBIT_BOTH);
-	if(retval < 0)
-	{
-		sdhc_error(sdhci->reg_base, "command inhibit bits were never cleared");
-		__sd_reset(sdhci, 0);
-		return retval;
-	}
-
-	sdhc_debug(sdhci->reg_base, "command inhibit bits cleared, sending command");
-
-	if(use_dma == 1 && blk_cnt > 0)
-	{
-		sdhc_debug(sdhci->reg_base, "preparing buffer for SDMA transfer");
-		if(mask == SDHC_BFR_WRITE_ENABLE) {
-			dc_flushrange(buffer, blk_cnt * BLOCK_SIZE);
-			ahb_flush_to(AHB_SDHC);
-		} else {
-			dc_invalidaterange(buffer, blk_cnt * BLOCK_SIZE);
-		}
-			
-		__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, 0);
-		__sd_write16(sdhci->reg_base + SDHC_ERROR_INTERRUPT_STATUS, 0);
-		__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE, INTERRUPT_ALL);
-		__sd_write16(sdhci->reg_base + SDHC_ERROR_INTERRUPT_ENABLE, EINTERRUPT_ALL);
-		__sd_write32(sdhci->reg_base + SDHC_SDMA_ADDR, dma_addr(buffer));
-	}
-
-	__sd_dumpregs(sdhci);
-
-	if(blk_cnt > 0)
-	{
-		__sd_write16(sdhci->reg_base + SDHC_BLOCK_SIZE, (BLOCK_SIZE_512K << 12) | BLOCK_SIZE);
-		__sd_write16(sdhci->reg_base + SDHC_BLOCK_COUNT, blk_cnt);
-	}
-
-	sdhc_debug(sdhci->reg_base, "writing mode = %x, arg = %x, cmd = %x", mode, arg, command);
-	__sd_write32(sdhci->reg_base + SDHC_CMD_ARG, arg);
-
-	__sd_write32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE,__sd_read32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE) | INTERRUPT_COMMAND_COMPLETE);
-	__sd_write32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, INTERRUPT_COMMAND_COMPLETE);
-	__sd_write32(sdhci->reg_base + SDHC_CMD_TRANSFER_MODE, ((u32)command << 16) | mode);
-
-	__sd_dumpregs(sdhci);
-	sdhc_debug(sdhci->reg_base, "waiting until command phase is done");
-	retval = __sd_wait32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS,
-			INTERRUPT_COMMAND_COMPLETE);
-//	retval = __sd_wait32_r(sdhci->reg_base + SDHC_PRESENT_STATE, SDHC_PRESENT_CMD_INHIBIT_CMD);
-	if(retval < 0)
-	{
-		__sd_write32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE,__sd_read32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE) & ~INTERRUPT_COMMAND_COMPLETE);
-		sdhc_error(sdhci->reg_base, "error: command phase not completed");
-		__sd_dumpregs(sdhci);
-		__sd_reset(sdhci, 0);
-		return retval;
-	}
-	sdhc_debug(sdhci->reg_base, "command phase is done");
-	__sd_write32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, INTERRUPT_COMMAND_COMPLETE);
-	__sd_write32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE,__sd_read32(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE) & ~INTERRUPT_COMMAND_COMPLETE);
-
-	__sd_dumpregs(sdhci);
-
-	for(i = 0; i < 4; i++)
-		sdhc_debug(sdhci->reg_base, "response %d: %08X", i, __sd_read32(sdhci->reg_base + SDHC_RESPONSE + 4*i));
-	if(rlen < 4 && type & SD_RSP_PRESENT)
-	{
-		sdhc_debug(sdhci->reg_base, "response buffer not big enough for response...");
-	}
-	else if(type & SD_RSP_PRESENT)
-	{
-		if(type & SD_RSP_136)
-		{
-			u8 *p = (u8 *)response;
-
-			imax = 15 > rlen ? rlen : 15;
-
-			for(i = 0; i < imax; i++)
-				*p++ = __sd_read8(sdhci->reg_base + SDHC_RESPONSE + i);
-
-			for(i = 0; i < 4; i++)
-				sdhc_debug(sdhci->reg_base, "response %d: %X", i, __sd_read32(sdhci->reg_base + SDHC_RESPONSE + 4*i));
-		}
-		else
-		{
-			response[0] = __sd_read32(sdhci->reg_base + SDHC_RESPONSE);
-			sdhc_debug(sdhci->reg_base, "response = %08X", response[0]);
-		}
-	}
-
-	// FIXME: check response and abort on errors?
-	
-	if(blk_cnt > 0)
-	{
-		sdhc_debug(sdhci->reg_base, "starting transfer of %d %d byte blocks", blk_cnt, BLOCK_SIZE);
-		if(use_dma == 0)
-		{
-			gecko_printf("sdhci: PIO mode is broken, align your buffer and use DMA.\n");
-			__sd_reset(sdhci, 0);
-			return SDHC_EIO;
-		}
-		else	/* SDMA; transfer data in 512 KB blocks (i.e. 1024 512 byte blocks */
-		{
-			u8 *ptr = (u8 *)buffer;
-			sdhc_debug(sdhci->reg_base, "using SDMA to transfer data");
-
-			while(1)
-			{
-				sdhc_debug(sdhci->reg_base, "waiting for interrupts...");
-				retval = __sd_wait16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, INTERRUPT_DMA | INTERRUPT_TRANSFER_COMPLETE);
-				if(retval < 0)
-				{
-					sdhc_error(sdhci->reg_base, "failed while waiting for transfer complete or DMA interrupts...");
-					__sd_reset(sdhci, 0);
-					return retval;
-				}
-
-				retval = __sd_read16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS);
-
-				if(retval & INTERRUPT_TRANSFER_COMPLETE)
-				{
-					__sd_dumpregs(sdhci);
-					sdhc_debug(sdhci->reg_base, "transfer completed. disabling interrupts again and returning.");
-					__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, INTERRUPT_TRANSFER_COMPLETE | INTERRUPT_DMA);
-					__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_ENABLE, 0);
-					if(mask == SDHC_BFR_READ_ENABLE)
-						ahb_flush_from(AHB_SDHC);
-					return 0;
-				}
-				else if(retval & INTERRUPT_DMA)
-				{
-					u32 blk_left = __sd_read16(sdhci->reg_base + SDHC_BLOCK_COUNT);
-					blk_left = blk_cnt - blk_left;
-					ptr = buffer + blk_cnt * SDHC_BLOCK_SIZE;
-					__sd_dumpregs(sdhci);
-					sdhc_debug(sdhci->reg_base, "DMA interrupt set, updating next SDMA address");
-					sdhc_debug(sdhci->reg_base, "sd blocks left: %d, addr: %p -> %p", blk_cnt, ptr, ptr + SDMA_BLOCK_SIZE);
-
-					if(blk_cnt == 0)
-					{
-						sdhc_error(sdhci->reg_base, "FATAL ERROR: hc wants to transfer more DMA data but no more blocks are left.");
-						__sd_reset(sdhci, 0);
-						return SDHC_EIO;
-					}
-
-					__sd_write16(sdhci->reg_base + SDHC_NORMAL_INTERRUPT_STATUS, INTERRUPT_DMA);
-					__sd_write32(sdhci->reg_base + SDHC_SDMA_ADDR, dma_addr(ptr));
-
-					sdhc_debug(sdhci->reg_base, "next DMA transfer started.");
-					__sd_dumpregs(sdhci);
-				}
-			}
-		}
-	}
-
-	return 0;
-}
-
-void __sd_print_status(sdhci_t *sdhci)
-{
 #ifdef SDHC_DEBUG
-	u32 status;
-	u32 state;
-	int retval;
+int sdhcdebug = 0;
+#define DPRINTF(n,s)	do { if ((n) <= sdhcdebug) gecko_printf s; } while (0)
+void	sdhc_dump_regs(struct sdhc_host *);
+#else
+#define DPRINTF(n,s)	do {} while(0)
+#endif
+
+struct sdmmc_chip_functions sdhc_functions = {
+	/* host controller reset */
+	sdhc_host_reset,
+	/* host controller capabilities */
+	sdhc_host_ocr,
+	sdhc_host_maxblklen,
+	/* card detection */
+	sdhc_card_detect,
+	/* bus power and clock frequency */
+	sdhc_bus_power,
+	sdhc_bus_clock,
+	/* command execution */
+	sdhc_exec_command,
+	/* card interrupt */
+	sdhc_card_intr_mask,
+	sdhc_card_intr_ack
+};
 
 #if 0
-	// FIXME: doesn't work for some reason ?!?
-	// sdhc0: Card status: 00000900 [|ò¦|ó¦L]
-	char *state_name[] = {
-		"IDLE",
-		"READY",
-		"IDENT",
-		"STANDBY",
-		"TRANSFER",
-		"DATA (SEND)",
-		"RECEIVE",
-		"PROGRAM",
-		"DISCONNECT"
-	};
-
-	sdhc_debug(sdhci->reg_base, "Card status %08x [%s]", status, state_name[state]);
+struct cfdriver sdhc_cd = {
+	NULL, "sdhc", DV_DULL
+};
 #endif
 
-
-	retval = __sd_cmd(sdhci, SD_CMD_SEND_STATUS, SD_R1, (u32)sdhci->rca << 16, 0, NULL, &status, sizeof(status));
-	state = (status >> 9) & 0x0f;
-	gecko_printf("sdhc%d: Card status: %08x [", ((sdhci->reg_base - SD_REG_BASE) / 0x100), status);
-
-	switch(state)
-	{
-		case 0:
-			gecko_printf("IDLE]\n");
-			break;
-		case 1:
-			gecko_printf("READY]\n");
-			break;
-		case 2:
-			gecko_printf("IDENT]\n");
-			break;
-		case 3:
-			gecko_printf("STANDBY]\n");
-			break;
-		case 4:
-			gecko_printf("TRANSFER]\n");
-			break;
-		case 5:
-			gecko_printf("DATA (SEND)]\n");
-			break;
-		case 6:
-			gecko_printf("DATA (RECEIVE)]\n");
-			break;
-		case 7:
-			gecko_printf("PROGRAM]\n");
-			break;
-		case 8:
-			gecko_printf("DISCONNECT]\n");
-			break;
-		default:
-			gecko_printf("Reserved]\n");
-	}
-
-#endif
-	return;
-}
-
-static int __sd_getcid(sdhci_t *sdhci) {
-	u32 resp[4];
-	u32 swapped[4];
-	sdhc_debug(sdhci->reg_base, "sending ALL_SEND_CID command to get connected card");
-	int retval = __sd_cmd(sdhci, SD_CMD_ALL_SEND_CID, SD_R2, 0, 0, NULL, resp, 16);
-	if(retval < 0)
-	{
-		sdhc_error(sdhci->reg_base, "__sd_cmd returned %d, resetting controller.", retval);
-		__sd_reset(sdhci, 1);
-		return SDHC_EIO;
-	}
-	swapped[0] = bswap32(resp[3]);
-	swapped[1] = bswap32(resp[2]);
-	swapped[2] = bswap32(resp[1]);
-	swapped[3] = bswap32(resp[0]);
-
-	memcpy(&sdhci->cid, swapped, sizeof swapped);
-
-	sdhc_error(sdhci->reg_base, "MID=%02x OID='%c%c' PNM='%c%c%c%c%c' PRV=%d.%d PSN=%08x MDT=200%d/%02d\n",
-					sdhci->cid.mid, sdhci->cid.oid[0], sdhci->cid.oid[1], 
-					sdhci->cid.pnm[0], sdhci->cid.pnm[1], sdhci->cid.pnm[2], sdhci->cid.pnm[3], sdhci->cid.pnm[4],
-					sdhci->cid.prv >> 4, sdhci->cid.prv & 0xf, sdhci->cid.psn, sdhci->cid.mdt >> 4, sdhci->cid.mdt & 0xf);
-	return 0;
-}
-
-static int __sd_getcsd(sdhci_t *sdhci) {
-	u8 resp[16];
-	sdhc_debug(sdhci->reg_base, "requesting CSD");
-	int retval = __sd_cmd(sdhci, SD_CMD_SEND_CSD, SD_R2, sdhci->rca << 16, 0, NULL, (u32 *)resp, 16);
-	if (retval < 0) {
-		sdhc_error(sdhci->reg_base, "failed to get CSD register (%d)", retval);
-		__sd_reset(sdhci, 1);
-		return SDHC_EIO;
-	}
-	sdhc_error(sdhci->reg_base, "CSD = %02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x %02x%02x%02x%02x",
-		resp[14], resp[13], resp[12], resp[11], resp[10], resp[9], resp[8],
-		resp[7], resp[6], resp[5], resp[4], resp[3], resp[2], resp[1], resp[0]);
-
-	if (resp[13] == 0xe) { // sdhc
-		unsigned int c_size = resp[7] << 16 | resp[6] << 8 | resp[5];
-		sdhc_error(sdhci->reg_base, "sdhc mode, c_size=%u, card size = %uk", c_size, (c_size + 1)* 512);
-		sdhci->timeout = 250 * 1000000; // spec says read timeout is 100ms and write/erase timeout is 250ms
-		sdhci->num_sectors = (c_size + 1) * 1024; // number of 512-byte sectors
-		}
-	else {
-		unsigned int taac, nsac, read_bl_len, c_size, c_size_mult;
-		taac = resp[13];
-		nsac = resp[12];
-		read_bl_len = resp[9] & 0xF;
-		
-		c_size = (resp[8] & 3) << 10;
-		c_size |= (resp[7] << 2);
-		c_size |= (resp[6] >> 6);
-		c_size_mult = (resp[5] & 3) << 1;
-		c_size_mult |= resp[4] >> 7;
-		sdhc_error(sdhci->reg_base, "taac=%u nsac=%u read_bl_len=%u c_size=%u c_size_mult=%u card size=%u bytes",
-			taac, nsac, read_bl_len, c_size, c_size_mult, (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len));
-		static const unsigned int time_unit[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000};
-		static const unsigned int time_value[] = {1, 10, 12, 13, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80}; // must div by 10
-		sdhci->timeout = time_unit[taac & 7] * time_value[(taac >> 3) & 0xf] / 10;
-		sdhc_error(sdhci->reg_base, "calculated timeout =  %uns", sdhci->timeout);
-		sdhci->num_sectors = (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len) / 512;
-	}
-	sdhc_error(sdhci->reg_base, "num sectors = %u", sdhci->num_sectors);
-	
-	return 0;
-}
-
-int sd_mount(sdhci_t *sdhci)
+/*
+ * Called by attachment driver.  For each SD card slot there is one SD
+ * host controller standard register set. (1.3)
+ */
+int
+sdhc_host_found(struct sdhc_softc *sc, bus_space_tag_t iot,
+    bus_space_handle_t ioh, int usedma)
 {
-	u32 caps;
-	s32 retval;
-	u32 resp[4];
-	int tries;
+	struct sdmmcbus_attach_args saa;
+	struct sdhc_host *hp;
+	u_int32_t caps;
+	int error = 1;
+#ifdef SDHC_DEBUG
+	u_int16_t version;
 
-	__sd_dumpregs(sdhci);
-	retval = __sd_reset(sdhci, 1);
-	if(retval < 0)
-		return retval;
+	version = bus_space_read_2(iot, ioh, SDHC_HOST_CTL_VERSION);
+	gecko_printf("%s: SD Host Specification/Vendor Version ",
+	    sc->sc_dev.dv_xname);
+	switch(SDHC_SPEC_VERSION(version)) {
+	case 0x00:
+		gecko_printf("1.0/%u\n", SDHC_VENDOR_VERSION(version));
+		break;
+	default:
+		gecko_printf(">1.0/%u\n", SDHC_VENDOR_VERSION(version));
+		break;
+	}
+#endif
 
-	if(!sd_inserted(sdhci))
-		return SDHC_ENOCARD;
-
-	caps = __sd_read32(sdhci->reg_base + SDHC_CAPABILITIES);
-
-	retval = __sd_power(sdhci, -1);
-	if(retval < 0)
-		return retval;
-
-	retval = __sd_clock(sdhci, 1, 25000);
-	if(retval < 0)
-		return retval;
-
-	retval = __sd_cmd(sdhci, SD_CMD_RESET_CARD, SD_R0, 0x0, 0, NULL, NULL, 0);
-	if(retval < 0)
-		return retval;
-	
-	// check for SDHC
-	retval = __sd_cmd(sdhci, SD_CMD_SEND_IF_COND, SD_R7, 0x1AA, 0, NULL, resp, 6);
-	if(retval < 0 || (resp[0] & 0xff) != 0xAA)
-	{
-		// SDv1 low-capacity card#
-		sdhc_error(sdhci->reg_base, "SDv1 low-capacity card deteced. resetting controller and card again.");
-
-		__sd_reset(sdhci, 1);
-		retval = __sd_power(sdhci, -1);
-		if(retval < 0)
-			return retval;
-
-		retval = __sd_clock(sdhci, 1, 25000);
-		if(retval < 0)
-			return retval;
-
-		retval = __sd_cmd(sdhci, SD_CMD_RESET_CARD, SD_R0, 0x0, 0, NULL, NULL, 0);
-		if(retval < 0)
-			return retval;
-
-		sdhci->is_sdhc = 0;
-		sdhci->ocr = 0;
+	/* Allocate one more host structure. */
+	if (sc->sc_nhosts < SDHC_MAX_HOSTS) {
+		sc->sc_nhosts++;
+		hp = sc->sc_host[sc->sc_nhosts - 1];
+		memset(hp, 0, sizeof(*hp));
 	}
 	else
-	{
-		// SDHC card deteced
-		sdhc_error(sdhci->reg_base, "SDv2 card detected.");
-		sdhci->is_sdhc = 1;
-		sdhci->ocr = OCR_HCS;
+		return -EINVAL;
+
+	/* Fill in the new host structure. */
+	hp->sc = sc;
+	hp->iot = iot;
+	hp->ioh = ioh;
+
+	/*
+	 * Reset the host controller and enable interrupts.
+	 */
+	(void)sdhc_host_reset(hp);
+
+	/* Determine host capabilities. */
+	caps = HREAD4(hp, SDHC_CAPABILITIES);
+
+	/* Use DMA if the host system and the controller support it. */
+	if (usedma && ISSET(caps, SDHC_DMA_SUPPORT))
+		SET(hp->flags, SHF_USE_DMA);
+
+	/*
+	 * Determine the base clock frequency. (2.2.24)
+	 */
+	if (SDHC_BASE_FREQ_KHZ(caps) != 0)
+		hp->clkbase = SDHC_BASE_FREQ_KHZ(caps);
+	if (hp->clkbase == 0) {
+		/* The attachment driver must tell us. */
+		gecko_printf("%s: base clock frequency unknown\n",
+		    sc->sc_dev.dv_xname);
+		goto err;
+	} else if (hp->clkbase < 10000 || hp->clkbase > 63000) {
+		/* SDHC 1.0 supports only 10-63 MHz. */
+		gecko_printf("%s: base clock frequency out of range: %u MHz\n",
+		    sc->sc_dev.dv_xname, hp->clkbase / 1000);
+		goto err;
 	}
 
+	/*
+	 * XXX Set the data timeout counter value according to
+	 * capabilities. (2.2.15)
+	 */
+
+	/*
+	 * Determine SD bus voltage levels supported by the controller.
+	 */
+	if (ISSET(caps, SDHC_VOLTAGE_SUPP_1_8V))
+		SET(hp->ocr, MMC_OCR_1_7V_1_8V | MMC_OCR_1_8V_1_9V);
+	if (ISSET(caps, SDHC_VOLTAGE_SUPP_3_0V))
+		SET(hp->ocr, MMC_OCR_2_9V_3_0V | MMC_OCR_3_0V_3_1V);
+	if (ISSET(caps, SDHC_VOLTAGE_SUPP_3_3V))
+		SET(hp->ocr, MMC_OCR_3_2V_3_3V | MMC_OCR_3_3V_3_4V);
+
+	/*
+	 * Determine the maximum block length supported by the host
+	 * controller. (2.2.24)
+	 */
+	switch((caps >> SDHC_MAX_BLK_LEN_SHIFT) & SDHC_MAX_BLK_LEN_MASK) {
+	case SDHC_MAX_BLK_LEN_512:
+		hp->maxblklen = 512;
+		break;
+	case SDHC_MAX_BLK_LEN_1024:
+		hp->maxblklen = 1024;
+		break;
+	case SDHC_MAX_BLK_LEN_2048:
+		hp->maxblklen = 2048;
+		break;
+	default:
+		hp->maxblklen = 1;
+		break;
+	}
+
+	/*
+	 * Attach the generic SD/MMC bus driver.  (The bus driver must
+	 * not invoke any chipset functions before it is attached.)
+	 */
+	bzero(&saa, sizeof(saa));
+	saa.saa_busname = "sdmmc";
+	saa.sct = &sdhc_functions;
+	saa.sch = hp;
+
+/*	hp->sdmmc = config_found(&sc->sc_dev, &saa, NULL);
+	if (hp->sdmmc == NULL) {
+		error = 0;
+		goto err;
+	}*/
 	
-	if(caps & SDHC_CAP_VOLTAGE_33)
-		sdhci->ocr |= MMC_VDD_32_33|MMC_VDD_33_34;
-	if(caps & SDHC_CAP_VOLTAGE_30)
-		sdhci->ocr |= MMC_VDD_29_30|MMC_VDD_30_31;
-	if(caps & SDHC_CAP_VOLTAGE_18)
-		sdhci->ocr |= MMC_VDD_165_195;
-
-	sdhc_debug(sdhci->reg_base, "waiting for card to finalize power up");
-	tries = 0;
-	resp[0] = 0;
-	while(tries++ <= SDHC_WAIT_TIMEOUT_OUTER_MULTIPLY)
-	{
-		retval = __sd_cmd(sdhci, SD_CMD_APP_SEND_OP_COND, SD_R3, sdhci->ocr, 0, NULL, resp, 6);
-		if(resp[0] & OCR_POWERUP_STATUS)
-		{
-			sdhc_error(sdhci->reg_base, "card power up is done.");
-			break;
-		}
-		udelay(SDHC_WAIT_TIMEOUT_OUTER);
-	}
-
-	if(!(resp[0] & OCR_POWERUP_STATUS))
-	{
-		sdhc_error(sdhci->reg_base, "powerup failed, resetting controller.");
-		__sd_reset(sdhci, 1);
-		return SDHC_EIO;
-	}
-
-	sdhci->ocr = resp[0];
-
-	if(sdhci->ocr & OCR_CCS)
-	{
-		sdhc_debug(sdhci->reg_base, "SDHC card detected, using block instead of byte offset address mode");
-		sdhci->is_sdhc = 1;
-	}
-	else
-	{
-		sdhc_debug(sdhci->reg_base, "low-capacity SD card detected. using byte offset address mode.");
-		sdhci->is_sdhc = 0;
-	}
-
-	retval = __sd_getcid(sdhci);
-	if (retval) return retval;
-	
-	retval = __sd_cmd(sdhci, SD_CMD_SEND_RELATIVE_ADDR, SD_R6, 0, 0, NULL, resp, 6);
-	if(retval < 0)
-	{
-		sdhc_error(sdhci->reg_base, "failed at getting RCA (%d), resetting controller.", retval);
-		__sd_reset(sdhci, 1);
-		return SDHC_EIO;
-	}
-
-	sdhci->rca = (resp[0] >> 16) & 0xffff;
-	sdhc_debug(sdhci->reg_base, "RCA: %04X", sdhci->rca);
-	retval = __sd_getcsd(sdhci);
-	if (retval) return retval;
-	
-	__sd_print_status(sdhci);
-
-	sd_select(sdhci);
-
-	__sd_print_status(sdhci);
-
-	retval = __sd_cmd(sdhci, SD_CMD_SET_BLOCKLEN, SD_R1, BLOCK_SIZE, 0, NULL, NULL, 0);
-	if(retval < 0)
-	{
-		sdhc_debug(sdhci->reg_base, "failed to set the block length to 512bytes (%d)", retval);
-		return retval;
-	}
-
-	__sd_print_status(sdhci);
-
-	sd_select(sdhci);
-
-	sdhc_debug(sdhci->reg_base, "setting bus width to 4");
-	__sd_write8(sdhci->reg_base + SDHC_HOST_CONTROL, __sd_read8(sdhci->reg_base + SDHC_HOST_CONTROL) | SDHC_HCR_BUSWIDTH_4);
-	retval = __sd_cmd(sdhci, SD_CMD_APP_SET_BUS_WIDTH, SD_R1, 2, 0, NULL, NULL, 0);
-	if(retval < 0)
-	{
-		sdhc_debug(sdhci->reg_base, "failed to set bus width to 4: %d", retval);
-		return retval;
-	}
-
-	sdhci->is_mounted = 1;
-
 	return 0;
+
+err:
+//	free(hp, M_DEVBUF);
+	sc->sc_host[sc->sc_nhosts - 1] = NULL;
+	sc->sc_nhosts--;
+	return (error);
 }
 
-int sd_inserted(sdhci_t *sdhci)
+#if 0
+/*
+ * Power hook established by or called from attachment driver.
+ */
+void
+sdhc_power(int why, void *arg)
 {
-	return (__sd_read32(sdhci->reg_base + SDHC_PRESENT_STATE) & SDHC_CARD_INSERTED) == SDHC_CARD_INSERTED;
+	struct sdhc_softc *sc = arg;
+	struct sdhc_host *hp;
+	int n, i;
+
+	switch(why) {
+	case PWR_STANDBY:
+	case PWR_SUSPEND:
+		/* XXX poll for command completion or suspend command
+		 * in progress */
+
+		/* Save the host controller state. */
+		for (n = 0; n < sc->sc_nhosts; n++) {
+			hp = sc->sc_host[n];
+			for (i = 0; i < sizeof hp->regs; i++)
+				hp->regs[i] = HREAD1(hp, i);
+		}
+		break;
+
+	case PWR_RESUME:
+		/* Restore the host controller state. */
+		for (n = 0; n < sc->sc_nhosts; n++) {
+			hp = sc->sc_host[n];
+			(void)sdhc_host_reset(hp);
+			for (i = 0; i < sizeof hp->regs; i++)
+				HWRITE1(hp, i, hp->regs[i]);
+		}
+		break;
+	}
 }
-
-#ifndef _READONLY
-
-int sd_protected(sdhci_t *sdhci)
-{
-	return (__sd_read32(sdhci->reg_base + SDHC_PRESENT_STATE) & SDHC_WRITE_PROTECT) == SDHC_WRITE_PROTECT;
-}
-
 #endif
 
-int sd_init(sdhci_t *sdhci, int slot)
+/*
+ * Shutdown hook established by or called from attachment driver.
+ */
+void
+sdhc_shutdown(void *arg)
 {
-	memset(sdhci, 0, sizeof *sdhci);
+	struct sdhc_softc *sc = arg;
+	struct sdhc_host *hp;
+	int i;
 
-	if(slot > 1)
-		return SDHC_EINVAL;
+	/* XXX chip locks up if we don't disable it before reboot. */
+	for (i = 0; i < sc->sc_nhosts; i++) {
+		hp = sc->sc_host[i];
+		(void)sdhc_host_reset(hp);
+	}
+}
 
-	sdhci->reg_base = SD_REG_BASE + slot * 0x100;
+/*
+ * Reset the host controller.  Called during initialization, when
+ * cards are removed, upon resume, and during error recovery.
+ */
+int
+sdhc_host_reset(sdmmc_chipset_handle_t sch)
+{
+	struct sdhc_host *hp = sch;
+	u_int16_t imask;
+	int error;
+	int s;
+
+	s = splsdmmc();
+
+	/* Disable all interrupts. */
+	HWRITE2(hp, SDHC_NINTR_SIGNAL_EN, 0);
+
+	/*
+	 * Reset the entire host controller and wait up to 100ms for
+	 * the controller to clear the reset bit.
+	 */
+	if ((error = sdhc_soft_reset(hp, SDHC_RESET_ALL)) != 0) {
+		splx(s);
+		return (error);
+	}	
+
+	/* Set data timeout counter value to max for now. */
+	HWRITE1(hp, SDHC_TIMEOUT_CTL, SDHC_TIMEOUT_MAX);
+
+	/* Enable interrupts. */
+	imask = SDHC_CARD_REMOVAL | SDHC_CARD_INSERTION |
+	    SDHC_BUFFER_READ_READY | SDHC_BUFFER_WRITE_READY |
+	    SDHC_DMA_INTERRUPT | SDHC_BLOCK_GAP_EVENT |
+	    SDHC_TRANSFER_COMPLETE | SDHC_COMMAND_COMPLETE;
+
+	HWRITE2(hp, SDHC_NINTR_STATUS_EN, imask);
+	HWRITE2(hp, SDHC_EINTR_STATUS_EN, SDHC_EINTR_STATUS_MASK);
+	HWRITE2(hp, SDHC_NINTR_SIGNAL_EN, imask);
+	HWRITE2(hp, SDHC_EINTR_SIGNAL_EN, SDHC_EINTR_SIGNAL_MASK);
+
+	splx(s);
 	return 0;
 }
 
-int sd_cmd(sdhci_t *sdhci, u32 cmd, u32 type, u32 arg, u32 blk_cnt, void *buffer, u32 *response, u8 rlen)
+u_int32_t
+sdhc_host_ocr(sdmmc_chipset_handle_t sch)
 {
-	return __sd_cmd(sdhci, cmd, type, arg, blk_cnt, buffer, response, rlen);
+	struct sdhc_host *hp = sch;
+	return hp->ocr;
 }
 
-int sd_select(sdhci_t *sdhci)
+int
+sdhc_host_maxblklen(sdmmc_chipset_handle_t sch)
 {
-	int retval;
+	struct sdhc_host *hp = sch;
+	return hp->maxblklen;
+}
 
-	if(sdhci->is_selected == 1)
+/*
+ * Return non-zero if the card is currently inserted.
+ */
+int
+sdhc_card_detect(sdmmc_chipset_handle_t sch)
+{
+	struct sdhc_host *hp = sch;
+	return ISSET(HREAD4(hp, SDHC_PRESENT_STATE), SDHC_CARD_INSERTED) ?
+	    1 : 0;
+}
+
+/*
+ * Set or change SD bus voltage and enable or disable SD bus power.
+ * Return zero on success.
+ */
+int
+sdhc_bus_power(sdmmc_chipset_handle_t sch, u_int32_t ocr)
+{
+	struct sdhc_host *hp = sch;
+	u_int8_t vdd;
+	int s;
+
+	s = splsdmmc();
+
+	/*
+	 * Disable bus power before voltage change.
+	 */
+	if (!(hp->sc->sc_flags & SDHC_F_NOPWR0))
+		HWRITE1(hp, SDHC_POWER_CTL, 0);
+
+	/* If power is disabled, reset the host and return now. */
+	if (ocr == 0) {
+		splx(s);
+		(void)sdhc_host_reset(hp);
 		return 0;
-
-	retval = __sd_cmd(sdhci, SD_CMD_SELECT_CARD, SD_R1B, (u32)sdhci->rca << 16, 0, NULL, NULL, 0);
-
-	if(retval < 0)
-	{
-		sdhc_debug(sdhci->reg_base, "selecting card failed with %d", retval);
-		return retval;
 	}
 
+	/*
+	 * Select the maximum voltage according to capabilities.
+	 */
+	ocr &= hp->ocr;
+	if (ISSET(ocr, MMC_OCR_3_2V_3_3V|MMC_OCR_3_3V_3_4V))
+		vdd = SDHC_VOLTAGE_3_3V;
+	else if (ISSET(ocr, MMC_OCR_2_9V_3_0V|MMC_OCR_3_0V_3_1V))
+		vdd = SDHC_VOLTAGE_3_0V;
+	else if (ISSET(ocr, MMC_OCR_1_7V_1_8V|MMC_OCR_1_8V_1_9V))
+		vdd = SDHC_VOLTAGE_1_8V;
+	else {
+		/* Unsupported voltage level requested. */
+		splx(s);
+		return EINVAL;
+	}
 
-	sdhci->is_selected = 1;
-	sdhc_debug(sdhci->reg_base, "card selected");
+	/*
+	 * Enable bus power.  Wait at least 1 ms (or 74 clocks) plus
+	 * voltage ramp until power rises.
+	 */
+	HWRITE1(hp, SDHC_POWER_CTL, (vdd << SDHC_VOLTAGE_SHIFT) |
+	    SDHC_BUS_POWER);
+	sdmmc_delay(10000);
 
+	/*
+	 * The host system may not power the bus due to battery low,
+	 * etc.  In that case, the host controller should clear the
+	 * bus power bit.
+	 */
+	if (!ISSET(HREAD1(hp, SDHC_POWER_CTL), SDHC_BUS_POWER)) {
+		splx(s);
+		return ENXIO;
+	}
+
+	splx(s);
 	return 0;
 }
 
-int sd_read(sdhci_t *sdhci, u32 start_block, u32 blk_cnt, void *buffer)
+/*
+ * Return the smallest possible base clock frequency divisor value
+ * for the CLOCK_CTL register to produce `freq' (KHz).
+ */
+static int
+sdhc_clock_divisor(struct sdhc_host *hp, u_int freq)
 {
-	int retval;
-	u32 response;
+	int div;
 
-	if(sdhci->is_mounted != 1)
-		return SDHC_EINVAL;
-
-	retval = sd_select(sdhci);
-	if(retval < 0)
-		return retval;
-
-	__sd_print_status(sdhci);
-	
-	if(sdhci->is_sdhc == 0)
-		start_block *= 512;
-
-	dc_invalidaterange(buffer, blk_cnt * 512);
-	retval = __sd_cmd(sdhci, SD_CMD_READ_MULTIPLE_BLOCK, SD_R1 | SD_READ, start_block, blk_cnt, buffer, &response, sizeof(response));
-
-	if(retval < 0)
-		sdhc_debug(sdhci->reg_base, "reading blocks failed with %d.", retval);
-	__sd_print_status(sdhci);
-
-
-	return retval;
+	for (div = 1; div <= 256; div *= 2)
+		if ((hp->clkbase / div) <= freq)
+			return (div / 2);
+	/* No divisor found. */
+	return -1;
 }
 
-#if _READONLY == 1
-
-int sd_write(sdhci_t *sdhci, u32 start_block, u32 blk_cnt, const void *buffer)
+/*
+ * Set or change SDCLK frequency or disable the SD clock.
+ * Return zero on success.
+ */
+int
+sdhc_bus_clock(sdmmc_chipset_handle_t sch, int freq)
 {
-	int retval;
-	u32 response;
+	struct sdhc_host *hp = sch;
+	int s;
+	int div;
+	int timo;
+	int error = 0;
 
-	if(sdhci->is_mounted != 1)
-		return SDHC_EINVAL;
+	s = splsdmmc();
 
-	retval = sd_select(sdhci);
-	if(retval < 0)
-		return retval;
-
-	__sd_print_status(sdhci);
-	
-	if(sdhci->is_sdhc == 0)
-		start_block *= 512;
-
-	dc_flushrange(buffer, blk_cnt * 512);
-	retval = __sd_cmd(sdhci, SD_CMD_WRITE_MULTIPLE_BLOCK, SD_R1, start_block, blk_cnt, (void *)buffer, &response, sizeof(response));
-
-	if(retval < 0)
-		sdhc_debug(sdhci->reg_base, "writing blocks failed with %d.", retval);
-	__sd_print_status(sdhci);
-
-	return retval;
-}
-
+#ifdef DIAGNOSTIC
+	/* Must not stop the clock if commands are in progress. */
+	if (ISSET(HREAD4(hp, SDHC_PRESENT_STATE), SDHC_CMD_INHIBIT_MASK) &&
+	    sdhc_card_detect(hp))
+		gecko_printf("sdhc_sdclk_frequency_select: command in progress\n");
 #endif
 
-void sd_initialize(void)
-{
-	ipc_code = ipc_tag = 0;
-    sd_init(&sdhci, 0);
-//	irq_enable(IRQ_NAND); ??
+	/*
+	 * Stop SD clock before changing the frequency.
+	 */
+	HWRITE2(hp, SDHC_CLOCK_CTL, 0);
+	if (freq == SDMMC_SDCLK_OFF)
+		goto ret;
+
+	/*
+	 * Set the minimum base clock frequency divisor.
+	 */
+	if ((div = sdhc_clock_divisor(hp, freq)) < 0) {
+		/* Invalid base clock frequency or `freq' value. */
+		error = EINVAL;
+		goto ret;
+	}
+	HWRITE2(hp, SDHC_CLOCK_CTL, div << SDHC_SDCLK_DIV_SHIFT);
+
+	/*
+	 * Start internal clock.  Wait 10ms for stabilization.
+	 */
+	HSET2(hp, SDHC_CLOCK_CTL, SDHC_INTCLK_ENABLE);
+	for (timo = 1000; timo > 0; timo--) {
+		if (ISSET(HREAD2(hp, SDHC_CLOCK_CTL), SDHC_INTCLK_STABLE))
+			break;
+		sdmmc_delay(10);
+	}
+	if (timo == 0) {
+		error = ETIMEDOUT;
+		goto ret;
+	}
+
+	/*
+	 * Enable SD clock.
+	 */
+	HSET2(hp, SDHC_CLOCK_CTL, SDHC_SDCLK_ENABLE);
+
+ret:
+	splx(s);
+	return error;
 }
 
-void sd_ipc(volatile ipc_request *req)
+void
+sdhc_card_intr_mask(sdmmc_chipset_handle_t sch, int enable)
 {
-	int retval = 0;
-	if (ipc_code != 0 || ipc_tag != 0) {
-		gecko_printf("SDHC: previous IPC request is not done yet.");
-		ipc_post(req->code, req->tag, 1, -1);
+	struct sdhc_host *hp = sch;
+
+	if (enable) {
+		HSET2(hp, SDHC_NINTR_STATUS_EN, SDHC_CARD_INTERRUPT);
+		HSET2(hp, SDHC_NINTR_SIGNAL_EN, SDHC_CARD_INTERRUPT);
+	} else {
+		HCLR2(hp, SDHC_NINTR_SIGNAL_EN, SDHC_CARD_INTERRUPT);
+		HCLR2(hp, SDHC_NINTR_STATUS_EN, SDHC_CARD_INTERRUPT);
+	}
+}
+
+void
+sdhc_card_intr_ack(sdmmc_chipset_handle_t sch)
+{
+	struct sdhc_host *hp = sch;
+
+	HSET2(hp, SDHC_NINTR_STATUS_EN, SDHC_CARD_INTERRUPT);
+}
+
+int
+sdhc_wait_state(struct sdhc_host *hp, u_int32_t mask, u_int32_t value)
+{
+	u_int32_t state;
+	int timeout;
+
+	for (timeout = 10; timeout > 0; timeout--) {
+		if (((state = HREAD4(hp, SDHC_PRESENT_STATE)) & mask)
+		    == value)
+			return 0;
+		sdmmc_delay(10000);
+	}
+	DPRINTF(0,("%s: timeout waiting for %x (state=%d)\n",
+	    HDEVNAME(hp), value, state));
+	return ETIMEDOUT;
+}
+
+void
+sdhc_exec_command(sdmmc_chipset_handle_t sch, struct sdmmc_command *cmd)
+{
+	struct sdhc_host *hp = sch;
+	int error;
+
+	/*
+	 * Start the MMC command, or mark `cmd' as failed and return.
+	 */
+	error = sdhc_start_command(hp, cmd);
+	if (error != 0) {
+		cmd->c_error = error;
+		SET(cmd->c_flags, SCF_ITSDONE);
 		return;
 	}
 
-	switch (req->req) {
-		case IPC_SD_MOUNT:
-			retval = sd_mount(&sdhci);
-			ipc_post(req->code, req->tag, 1, retval);
-			break;
-
-		case IPC_SD_SELECT:
-			retval = sd_select(&sdhci);
-			ipc_post(req->code, req->tag, 1, retval);
-			break;
-
-		case IPC_SD_GETSTATE:
-			retval = __sd_read32(sdhci.reg_base + SDHC_PRESENT_STATE);
-			ipc_post(req->code, req->tag, 1, retval);
-			break;
-			
-		case IPC_SD_READ:
-			retval = sd_read(&sdhci, req->args[0], req->args[1], 
-							(void *)req->args[2]);
-			ipc_post(req->code, req->tag, 1, retval);
-			break;
-
-		case IPC_SD_WRITE:
-			retval = sd_write(&sdhci, req->args[0], req->args[1], 
-							(void *)req->args[2]);
-			ipc_post(req->code, req->tag, 1, retval);
-			break;
-
-		case IPC_SD_GETSIZE:
-			ipc_post(req->code, req->tag, 1, sdhci.num_sectors);
-			break;
-
-		default:
-			gecko_printf("IPC: unknown SLOW SDHC request %04x\n",
-					req->req);
-
+	/*
+	 * Wait until the command phase is done, or until the command
+	 * is marked done for any other reason.
+	 */
+	if (!sdhc_wait_intr(hp, SDHC_COMMAND_COMPLETE,
+	    SDHC_COMMAND_TIMEOUT)) {
+		cmd->c_error = ETIMEDOUT;
+		SET(cmd->c_flags, SCF_ITSDONE);
+		return;
 	}
+
+	/*
+	 * The host controller removes bits [0:7] from the response
+	 * data (CRC) and we pass the data up unchanged to the bus
+	 * driver (without padding).
+	 */
+	if (cmd->c_error == 0 && ISSET(cmd->c_flags, SCF_RSP_PRESENT)) {
+		if (ISSET(cmd->c_flags, SCF_RSP_136)) {
+			u_char *p = (u_char *)cmd->c_resp;
+			int i;
+
+			for (i = 0; i < 15; i++)
+				*p++ = HREAD1(hp, SDHC_RESPONSE + i);
+		} else
+			cmd->c_resp[0] = HREAD4(hp, SDHC_RESPONSE);
+	}
+
+	/*
+	 * If the command has data to transfer in any direction,
+	 * execute the transfer now.
+	 */
+	if (cmd->c_error == 0 && cmd->c_data != NULL)
+		sdhc_transfer_data(hp, cmd);
+
+	/* Turn off the LED. */
+	HCLR1(hp, SDHC_HOST_CTL, SDHC_LED_ON);
+
+	DPRINTF(1,("%s: cmd %u done (flags=%#x error=%d)\n",
+	    HDEVNAME(hp), cmd->c_opcode, cmd->c_flags, cmd->c_error));
+	SET(cmd->c_flags, SCF_ITSDONE);
+}
+
+int
+sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
+{
+	u_int16_t blksize = 0;
+	u_int16_t blkcount = 0;
+	u_int16_t mode;
+	u_int16_t command;
+	int error;
+	int s;
+	
+	DPRINTF(1,("%s: start cmd %u arg=%#x data=%p dlen=%d flags=%#x "
+	    "proc=\"%s\"\n", HDEVNAME(hp), cmd->c_opcode, cmd->c_arg,
+	    cmd->c_data, cmd->c_datalen, cmd->c_flags, ""));
+
+	/*
+	 * The maximum block length for commands should be the minimum
+	 * of the host buffer size and the card buffer size. (1.7.2)
+	 */
+
+	/* Fragment the data into proper blocks. */
+	if (cmd->c_datalen > 0) {
+		blksize = MIN(cmd->c_datalen, cmd->c_blklen);
+		blkcount = cmd->c_datalen / blksize;
+		if (cmd->c_datalen % blksize > 0) {
+			/* XXX: Split this command. (1.7.4) */
+			gecko_printf("%s: data not a multiple of %d bytes\n",
+			    HDEVNAME(hp), blksize);
+			return EINVAL;
+		}
+	}
+
+	/* Check limit imposed by 9-bit block count. (1.7.2) */
+	if (blkcount > SDHC_BLOCK_COUNT_MAX) {
+		gecko_printf("%s: too much data\n", HDEVNAME(hp));
+		return EINVAL;
+	}
+
+	/* Prepare transfer mode register value. (2.2.5) */
+	mode = 0;
+	if (ISSET(cmd->c_flags, SCF_CMD_READ))
+		mode |= SDHC_READ_MODE;
+	if (blkcount > 0) {
+		mode |= SDHC_BLOCK_COUNT_ENABLE;
+		if (blkcount > 1) {
+			mode |= SDHC_MULTI_BLOCK_MODE;
+			/* XXX only for memory commands? */
+			mode |= SDHC_AUTO_CMD12_ENABLE;
+		}
+	}
+#ifdef notyet
+	if (ISSET(hp->flags, SHF_USE_DMA))
+		mode |= SDHC_DMA_ENABLE;
+#endif
+
+	/*
+	 * Prepare command register value. (2.2.6)
+	 */
+	command = (cmd->c_opcode & SDHC_COMMAND_INDEX_MASK) <<
+	    SDHC_COMMAND_INDEX_SHIFT;
+
+	if (ISSET(cmd->c_flags, SCF_RSP_CRC))
+		command |= SDHC_CRC_CHECK_ENABLE;
+	if (ISSET(cmd->c_flags, SCF_RSP_IDX))
+		command |= SDHC_INDEX_CHECK_ENABLE;
+	if (cmd->c_data != NULL)
+		command |= SDHC_DATA_PRESENT_SELECT;
+
+	if (!ISSET(cmd->c_flags, SCF_RSP_PRESENT))
+		command |= SDHC_NO_RESPONSE;
+	else if (ISSET(cmd->c_flags, SCF_RSP_136))
+		command |= SDHC_RESP_LEN_136;
+	else if (ISSET(cmd->c_flags, SCF_RSP_BSY))
+		command |= SDHC_RESP_LEN_48_CHK_BUSY;
+	else
+		command |= SDHC_RESP_LEN_48;
+
+	/* Wait until command and data inhibit bits are clear. (1.5) */
+	if ((error = sdhc_wait_state(hp, SDHC_CMD_INHIBIT_MASK, 0)) != 0)
+		return error;
+
+	s = splsdmmc();
+
+	/* Alert the user not to remove the card. */
+	HSET1(hp, SDHC_HOST_CTL, SDHC_LED_ON);
+
+	/* XXX: Set DMA start address if SHF_USE_DMA is set. */
+
+	DPRINTF(1,("%s: cmd=%#x mode=%#x blksize=%d blkcount=%d\n",
+	    HDEVNAME(hp), command, mode, blksize, blkcount));
+
+	/*
+	 * Start a CPU data transfer.  Writing to the high order byte
+	 * of the SDHC_COMMAND register triggers the SD command. (1.5)
+	 */
+	HWRITE2(hp, SDHC_TRANSFER_MODE, mode);
+	HWRITE2(hp, SDHC_BLOCK_SIZE, blksize);
+	if (blkcount > 1)
+		HWRITE2(hp, SDHC_BLOCK_COUNT, blkcount);
+	HWRITE4(hp, SDHC_ARGUMENT, cmd->c_arg);
+	HWRITE2(hp, SDHC_COMMAND, command);
+
+	splx(s);
+	return 0;
+}
+
+void
+sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
+{
+	u_char *datap = cmd->c_data;
+	int i, datalen;
+	int mask;
+	int error;
+
+	mask = ISSET(cmd->c_flags, SCF_CMD_READ) ?
+	    SDHC_BUFFER_READ_ENABLE : SDHC_BUFFER_WRITE_ENABLE;
+	error = 0;
+	datalen = cmd->c_datalen;
+
+	DPRINTF(1,("%s: resp=%#x datalen=%d\n", HDEVNAME(hp),
+	    MMC_R1(cmd->c_resp), datalen));
+
+#ifdef SDHC_DEBUG
+	/* XXX I forgot why I wanted to know when this happens :-( */
+	if ((cmd->c_opcode == 52 || cmd->c_opcode == 53) &&
+	    ISSET(MMC_R1(cmd->c_resp), 0xcb00))
+		gecko_printf("%s: CMD52/53 error response flags %#x\n",
+		    HDEVNAME(hp), MMC_R1(cmd->c_resp) & 0xff00);
+#endif
+
+	while (datalen > 0) {
+		if (!sdhc_wait_intr(hp, SDHC_BUFFER_READ_READY|
+		    SDHC_BUFFER_WRITE_READY, SDHC_BUFFER_TIMEOUT)) {
+			error = ETIMEDOUT;
+			break;
+		}
+
+		if ((error = sdhc_wait_state(hp, mask, mask)) != 0)
+			break;
+
+		i = MIN(datalen, cmd->c_blklen);
+		if (ISSET(cmd->c_flags, SCF_CMD_READ))
+			sdhc_read_data(hp, datap, i);
+		else
+			sdhc_write_data(hp, datap, i);
+
+		datap += i;
+		datalen -= i;
+	}
+
+	if (error == 0 && !sdhc_wait_intr(hp, SDHC_TRANSFER_COMPLETE,
+	    SDHC_TRANSFER_TIMEOUT))
+		error = ETIMEDOUT;
+
+	if (error != 0)
+		cmd->c_error = error;
+	SET(cmd->c_flags, SCF_ITSDONE);
+
+	DPRINTF(1,("%s: data transfer done (error=%d)\n",
+	    HDEVNAME(hp), cmd->c_error));
+}
+
+void
+sdhc_read_data(struct sdhc_host *hp, u_char *datap, int datalen)
+{
+	while (datalen > 3) {
+		*(u_int32_t *)datap = HREAD4(hp, SDHC_DATA);
+		datap += 4;
+		datalen -= 4;
+	}
+	if (datalen > 0) {
+		u_int32_t rv = HREAD4(hp, SDHC_DATA);
+		do {
+			*datap++ = rv & 0xff;
+			rv = rv >> 8;
+		} while (--datalen > 0);
+	}
+}
+
+void
+sdhc_write_data(struct sdhc_host *hp, u_char *datap, int datalen)
+{
+	while (datalen > 3) {
+		DPRINTF(3,("%08x\n", *(u_int32_t *)datap));
+		HWRITE4(hp, SDHC_DATA, *((u_int32_t *)datap));
+		datap += 4;
+		datalen -= 4;
+	}
+	if (datalen > 0) {
+		u_int32_t rv = *datap++;
+		if (datalen > 1)
+			rv |= *datap++ << 8;
+		if (datalen > 2)
+			rv |= *datap++ << 16;
+		DPRINTF(3,("rv %08x\n", rv));
+		HWRITE4(hp, SDHC_DATA, rv);
+	}
+}
+
+/* Prepare for another command. */
+int
+sdhc_soft_reset(struct sdhc_host *hp, int mask)
+{
+	int timo;
+
+	DPRINTF(1,("%s: software reset reg=%#x\n", HDEVNAME(hp), mask));
+
+	HWRITE1(hp, SDHC_SOFTWARE_RESET, mask);
+	for (timo = 10; timo > 0; timo--) {
+		if (!ISSET(HREAD1(hp, SDHC_SOFTWARE_RESET), mask))
+			break;
+		sdmmc_delay(10000);
+		HWRITE1(hp, SDHC_SOFTWARE_RESET, 0);
+	}
+	if (timo == 0) {
+		DPRINTF(1,("%s: timeout reg=%#x\n", HDEVNAME(hp),
+		    HREAD1(hp, SDHC_SOFTWARE_RESET)));
+		HWRITE1(hp, SDHC_SOFTWARE_RESET, 0);
+		return (ETIMEDOUT);
+	}
+
+	return (0);
+}
+
+int
+sdhc_wait_intr(struct sdhc_host *hp, int mask, int timo)
+{
+	int status;
+	int s;
+
+	mask |= SDHC_ERROR_INTERRUPT;
+
+	s = splsdmmc();
+	status = hp->intr_status & mask;
+
+
+	for (timo = 1000; timo > 0; timo--) {
+		if (hp->intr_status != 0) {
+			status = hp->intr_status & mask;
+			break;
+		}
+		sdmmc_delay(10);
+	}
+	if (timo == 0) {
+		status |= SDHC_ERROR_INTERRUPT;
+	}
+	hp->intr_status &= ~status;
+
+	DPRINTF(2,("%s: intr status %#x error %#x\n", HDEVNAME(hp), status,
+	    hp->intr_error_status));
+	
+	/* Command timeout has higher priority than command complete. */
+	if (ISSET(status, SDHC_ERROR_INTERRUPT)) {
+		hp->intr_error_status = 0;
+		(void)sdhc_soft_reset(hp, SDHC_RESET_DAT|SDHC_RESET_CMD);
+		status = 0;
+	}
+
+	splx(s);
+	return status;
+}
+
+/*
+ * Established by attachment driver at interrupt priority IPL_SDMMC.
+ */
+int
+sdhc_intr(void *arg)
+{
+	struct sdhc_softc *sc = arg;
+	int host;
+	int done = 0;
+
+	/* We got an interrupt, but we don't know from which slot. */
+	for (host = 0; host < sc->sc_nhosts; host++) {
+		struct sdhc_host *hp = sc->sc_host[host];
+		u_int16_t status;
+
+		if (hp == NULL)
+			continue;
+
+		/* Find out which interrupts are pending. */
+		status = HREAD2(hp, SDHC_NINTR_STATUS);
+		if (!ISSET(status, SDHC_NINTR_STATUS_MASK))
+			continue; /* no interrupt for us */
+
+		/* Acknowledge the interrupts we are about to handle. */
+		HWRITE2(hp, SDHC_NINTR_STATUS, status);
+		DPRINTF(2,("%s: interrupt status=%d\n", HDEVNAME(hp),
+		    status));
+
+		/* Claim this interrupt. */
+		done = 1;
+
+		/*
+		 * Service error interrupts.
+		 */
+		if (ISSET(status, SDHC_ERROR_INTERRUPT)) {
+			u_int16_t error;
+
+			/* Acknowledge error interrupts. */
+			error = HREAD2(hp, SDHC_EINTR_STATUS);
+			HWRITE2(hp, SDHC_EINTR_STATUS, error);
+			DPRINTF(2,("%s: error interrupt, status=%d\n",
+			    HDEVNAME(hp), error));
+
+			if (ISSET(error, SDHC_CMD_TIMEOUT_ERROR|
+			    SDHC_DATA_TIMEOUT_ERROR)) {
+				hp->intr_error_status |= error;
+				hp->intr_status |= status;
+				wakeup(&hp->intr_status);
+			}
+		}
+
+		/*
+		 * Wake up the sdmmc event thread to scan for cards.
+		 */
+/*		if (ISSET(status, SDHC_CARD_REMOVAL|SDHC_CARD_INSERTION))
+			sdmmc_needs_discover(hp->sdmmc);*/
+
+		/*
+		 * Wake up the blocking process to service command
+		 * related interrupt(s).
+		 */
+		if (ISSET(status, SDHC_BUFFER_READ_READY|
+		    SDHC_BUFFER_WRITE_READY|SDHC_COMMAND_COMPLETE|
+		    SDHC_TRANSFER_COMPLETE)) {
+			hp->intr_status |= status;
+			wakeup(&hp->intr_status);
+		}
+
+		/*
+		 * Service SD card interrupts.
+		 */
+		if (ISSET(status, SDHC_CARD_INTERRUPT)) {
+			DPRINTF(0,("%s: card interrupt\n", HDEVNAME(hp)));
+			HCLR2(hp, SDHC_NINTR_STATUS_EN, SDHC_CARD_INTERRUPT);
+//			sdmmc_card_intr(hp->sdmmc);
+		}
+	}
+	return done;
+}
+
+#ifdef SDHC_DEBUG
+void
+sdhc_dump_regs(struct sdhc_host *hp)
+{
+	gecko_printf("0x%02x PRESENT_STATE:    %x\n", SDHC_PRESENT_STATE,
+	    HREAD4(hp, SDHC_PRESENT_STATE));
+	gecko_printf("0x%02x POWER_CTL:        %x\n", SDHC_POWER_CTL,
+	    HREAD1(hp, SDHC_POWER_CTL));
+	gecko_printf("0x%02x NINTR_STATUS:     %x\n", SDHC_NINTR_STATUS,
+	    HREAD2(hp, SDHC_NINTR_STATUS));
+	gecko_printf("0x%02x EINTR_STATUS:     %x\n", SDHC_EINTR_STATUS,
+	    HREAD2(hp, SDHC_EINTR_STATUS));
+	gecko_printf("0x%02x NINTR_STATUS_EN:  %x\n", SDHC_NINTR_STATUS_EN,
+	    HREAD2(hp, SDHC_NINTR_STATUS_EN));
+	gecko_printf("0x%02x EINTR_STATUS_EN:  %x\n", SDHC_EINTR_STATUS_EN,
+	    HREAD2(hp, SDHC_EINTR_STATUS_EN));
+	gecko_printf("0x%02x NINTR_SIGNAL_EN:  %x\n", SDHC_NINTR_SIGNAL_EN,
+	    HREAD2(hp, SDHC_NINTR_SIGNAL_EN));
+	gecko_printf("0x%02x EINTR_SIGNAL_EN:  %x\n", SDHC_EINTR_SIGNAL_EN,
+	    HREAD2(hp, SDHC_EINTR_SIGNAL_EN));
+	gecko_printf("0x%02x CAPABILITIES:     %x\n", SDHC_CAPABILITIES,
+	    HREAD4(hp, SDHC_CAPABILITIES));
+	gecko_printf("0x%02x MAX_CAPABILITIES: %x\n", SDHC_MAX_CAPABILITIES,
+	    HREAD4(hp, SDHC_MAX_CAPABILITIES));
+}
+#endif
+
+#include "hollywood.h"
+static struct sdhc_softc __softc;
+
+void sdhc_irq(void)
+{
+	sdhc_intr(&__softc);
+}
+
+void sdhc_init(void)
+{
+	memset(&__softc, 0, sizeof(__softc));
+	sdhc_host_found(&__softc, 0, SDHC_REG_BASE, 1);
+//	sdhc_host_found(&__softc, 0, SDHC_REG_BASE + 0x100, 1);
+//	sdhc_host_found(&__softc, 0, 0x0d080000, 1);
 }

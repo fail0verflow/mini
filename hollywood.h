@@ -154,8 +154,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 /* SD Host Controller Registers */
 
-#define		SD_REG_BASE				0xd070000
+#define		SDHC_REG_BASE				0xd070000
 
+#if 0
 #define		SDHC_SDMA_ADDR				(0x000)
 #define		SDHC_BLOCK_SIZE				(0x004)
 #define		SDHC_BLOCK_COUNT			(0x006)
@@ -187,6 +188,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #define		SDHC_ADMA_SYSTEM_ADDR			(0x058)
 #define		SDHC_SLOT_INTERRUPT_STATUS		(0x0fc)
 #define		SDHC_VERSION				(0x0fe)
+#endif
 
 /* EXI Registers */
 

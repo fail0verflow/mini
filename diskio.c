@@ -7,13 +7,13 @@
 
 #include "diskio.h"
 #include "string.h"
-#include "sdhc.h"
+//#include "sdhc.h"
 
 #ifndef MEM2_BSS
 #define MEM2_BSS
 #endif
 
-static sdhci_t sdhci;
+//static sdhci_t sdhci;
 static u8 buffer[512] MEM2_BSS ALIGNED(32);
 
 /*-----------------------------------------------------------------------*/
@@ -25,8 +25,8 @@ DSTATUS disk_initialize (
 {
 	s32 ret;
 
-	sd_init(&sdhci, 0);
-	ret = sd_mount(&sdhci);
+//	sd_init(&sdhci, 0);
+//	ret = sd_mount(&sdhci);
 
 	if (ret < 0)
 		return STA_NOINIT;
@@ -43,8 +43,8 @@ DSTATUS disk_status (
 	BYTE drv		/* Physical drive nmuber (0..) */
 )
 {
-	if (sd_inserted(&sdhci) == 0)
-		return STA_NODISK;
+//	if (sd_inserted(&sdhci) == 0)
+//		return STA_NODISK;
 
 	return 0;
 }
@@ -66,10 +66,10 @@ DRESULT disk_read (
 
 	res = RES_OK;
 	for (i = 0; i < count; i++) {
-		if (sd_read(&sdhci, sector + i, 1, buffer) != 0) {
+/*		if (sd_read(&sdhci, sector + i, 1, buffer) != 0) {
 			res = RES_ERROR;
 			break;
-		}
+		}*/
 
 		memcpy(buff + i * 512, buffer, 512);
 	}
@@ -97,10 +97,10 @@ DRESULT disk_write (
 	for (i = 0; i < count; i++) {
 		memcpy(buffer, buff + i * 512, 512);
 
-		if(sd_write(&sdhci, sector + i, 1, buffer) != 0) {
+/*		if(sd_write(&sdhci, sector + i, 1, buffer) != 0) {
 			res = RES_ERROR;
 			break;
-		}
+		}*/
 	}
 
 	return res;

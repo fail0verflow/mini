@@ -30,7 +30,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "gecko.h"
 #include "ipc.h"
 #include "nand.h"
-#include "sdhc.h"
+//#include "sdhc.h"
 #include "crypto.h"
 #include "boot2.h"
 #include "powerpc.h"
@@ -150,7 +150,7 @@ static u32 process_slow(volatile ipc_request *req)
 			nand_ipc(req);
 			break;
 		case IPC_DEV_SD:
-			sd_ipc(req);
+//			sd_ipc(req);
 			break;
 		case IPC_DEV_KEYS:
 			crypto_ipc(req);
