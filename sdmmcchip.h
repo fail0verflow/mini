@@ -81,8 +81,10 @@ struct sdmmcbus_attach_args {
 	long	max_xfer;
 };
 
+#if 0
 void	sdmmc_needs_discover(struct device *);
 void	sdmmc_card_intr(struct device *);
+#endif
 void	sdmmc_delay(u_int);
 
 #endif

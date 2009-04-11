@@ -30,7 +30,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "gecko.h"
 #include "ipc.h"
 #include "nand.h"
-//#include "sdhc.h"
+#include "sdhcvar.h"
 #include "crypto.h"
 #include "boot2.h"
 #include "powerpc.h"
@@ -150,7 +150,7 @@ static u32 process_slow(volatile ipc_request *req)
 			nand_ipc(req);
 			break;
 		case IPC_DEV_SD:
-//			sd_ipc(req);
+			sdhc_ipc(req);
 			break;
 		case IPC_DEV_KEYS:
 			crypto_ipc(req);
@@ -169,6 +169,16 @@ static u32 process_slow(volatile ipc_request *req)
 	}
 
 	return 0;
+}
+
+void ipc_add_slow(volatile ipc_request *req)
+{
+	if(slow_queue_head == ((slow_queue_tail + 1)&(IPC_SLOW_SIZE-1))) {
+		gecko_printf("IPC: Slowqueue overrun\n");
+		panic2(0, PANIC_IPCOVF);
+	}
+	slow_queue[slow_queue_tail] = *req;
+	slow_queue_tail = (slow_queue_tail+1)&(IPC_SLOW_SIZE-1);
 }
 
 static void process_in(void)
@@ -245,12 +255,7 @@ static void process_in(void)
 				break;
 		}
 	} else {
-		if(slow_queue_head == ((slow_queue_tail + 1)&(IPC_SLOW_SIZE-1))) {
-			gecko_printf("IPC: Slowqueue overrun\n");
-			panic2(0, PANIC_IPCOVF);
-		}
-		slow_queue[slow_queue_tail] = *req;
-		slow_queue_tail = (slow_queue_tail+1)&(IPC_SLOW_SIZE-1);
+		ipc_add_slow(req);
 	}
 }
 

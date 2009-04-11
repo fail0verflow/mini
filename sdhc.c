@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2006 Uwe Stuehler <uwe@openbsd.org>
+ * Copyright (c) 2009 Sven Peter <svenpeter@gmail.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -37,30 +38,18 @@
 #include "sdmmcchip.h"
 #include "sdmmcreg.h"
 #include "sdmmcvar.h"
+#include "sdmmc.h"
 #include "gecko.h"
 #include "string.h"
 #include "irq.h"
 #include "utils.h"
+#include "ipc.h"
 
-#define SDHC_DEBUG	1
+#define SDHC_DEBUG	0
 
 #define SDHC_COMMAND_TIMEOUT	0
 #define SDHC_BUFFER_TIMEOUT	0
 #define SDHC_TRANSFER_TIMEOUT	0
-
-struct sdhc_host {
-	struct sdhc_softc *sc;		/* host controller device */
-	struct device *sdmmc;		/* generic SD/MMC device */
-	bus_space_tag_t iot;		/* host register set tag */
-	bus_space_handle_t ioh;		/* host register set handle */
-	u_int clkbase;			/* base clock frequency in KHz */
-	int maxblklen;			/* maximum block length */
-	int flags;			/* flags for this host */
-	u_int32_t ocr;			/* OCR value from capabilities */
-	u_int8_t regs[14];		/* host controller state */
-	u_int16_t intr_status;		/* soft interrupt status */
-	u_int16_t intr_error_status;	/* soft error status */
-};
 
 #define HDEVNAME(hp)	((hp)->sc->sc_dev.dv_xname)
 #define sdmmc_delay(t)	udelay(t)
@@ -119,13 +108,13 @@ static inline void bus_space_write_1(bus_space_tag_t iot, bus_space_handle_t ioh
 
 u32 splbio()
 {
-	irq_disable(IRQ_SDHC);
+//	irq_disable(IRQ_SDHC);
 	return 0;
 }
 
 void splx(u32 dummy)
 {
-	irq_enable(IRQ_SDHC);
+//	irq_enable(IRQ_SDHC);
 }
 
 /* flag values */
@@ -213,6 +202,8 @@ sdhc_host_found(struct sdhc_softc *sc, bus_space_tag_t iot,
 	struct sdhc_host *hp;
 	u_int32_t caps;
 	int error = 1;
+
+	strcpy(sc->sc_dev.dv_xname, "sdhc");
 #ifdef SDHC_DEBUG
 	u_int16_t version;
 
@@ -232,7 +223,7 @@ sdhc_host_found(struct sdhc_softc *sc, bus_space_tag_t iot,
 	/* Allocate one more host structure. */
 	if (sc->sc_nhosts < SDHC_MAX_HOSTS) {
 		sc->sc_nhosts++;
-		hp = sc->sc_host[sc->sc_nhosts - 1];
+		hp = &sc->sc_host[sc->sc_nhosts - 1];
 		memset(hp, 0, sizeof(*hp));
 	}
 	else
@@ -315,6 +306,7 @@ sdhc_host_found(struct sdhc_softc *sc, bus_space_tag_t iot,
 	saa.sct = &sdhc_functions;
 	saa.sch = hp;
 
+	hp->sdmmc = sdmmc_attach(&sdhc_functions, hp, "sdhc", ioh);
 /*	hp->sdmmc = config_found(&sc->sc_dev, &saa, NULL);
 	if (hp->sdmmc == NULL) {
 		error = 0;
@@ -325,7 +317,6 @@ sdhc_host_found(struct sdhc_softc *sc, bus_space_tag_t iot,
 
 err:
 //	free(hp, M_DEVBUF);
-	sc->sc_host[sc->sc_nhosts - 1] = NULL;
 	sc->sc_nhosts--;
 	return (error);
 }
@@ -380,7 +371,7 @@ sdhc_shutdown(void *arg)
 
 	/* XXX chip locks up if we don't disable it before reboot. */
 	for (i = 0; i < sc->sc_nhosts; i++) {
-		hp = sc->sc_host[i];
+		hp = &sc->sc_host[i];
 		(void)sdhc_host_reset(hp);
 	}
 }
@@ -967,7 +958,7 @@ sdhc_intr(void *arg)
 
 	/* We got an interrupt, but we don't know from which slot. */
 	for (host = 0; host < sc->sc_nhosts; host++) {
-		struct sdhc_host *hp = sc->sc_host[host];
+		struct sdhc_host *hp = &sc->sc_host[host];
 		u_int16_t status;
 
 		if (hp == NULL)
@@ -982,6 +973,7 @@ sdhc_intr(void *arg)
 		HWRITE2(hp, SDHC_NINTR_STATUS, status);
 		DPRINTF(2,("%s: interrupt status=%d\n", HDEVNAME(hp),
 		    status));
+
 
 		/* Claim this interrupt. */
 		done = 1;
@@ -1008,9 +1000,11 @@ sdhc_intr(void *arg)
 
 		/*
 		 * Wake up the sdmmc event thread to scan for cards.
+		 * TODO: move request to slow queue to make sure that
+		 *       we're not blocking other IRQs
 		 */
-/*		if (ISSET(status, SDHC_CARD_REMOVAL|SDHC_CARD_INSERTION))
-			sdmmc_needs_discover(hp->sdmmc);*/
+		if (ISSET(status, SDHC_CARD_REMOVAL|SDHC_CARD_INSERTION))
+			sdmmc_needs_discover(hp->sdmmc);
 
 		/*
 		 * Wake up the blocking process to service command
@@ -1067,13 +1061,21 @@ static struct sdhc_softc __softc;
 
 void sdhc_irq(void)
 {
+	ipc_request req;
 	sdhc_intr(&__softc);
 }
 
 void sdhc_init(void)
 {
+	irq_enable(IRQ_SDHC);
 	memset(&__softc, 0, sizeof(__softc));
 	sdhc_host_found(&__softc, 0, SDHC_REG_BASE, 1);
 //	sdhc_host_found(&__softc, 0, SDHC_REG_BASE + 0x100, 1);
 //	sdhc_host_found(&__softc, 0, 0x0d080000, 1);
+}
+
+void sdhc_ipc(volatile ipc_request *req)
+{
+	switch (req->req) {
+	}
 }

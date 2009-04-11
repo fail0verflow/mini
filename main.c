@@ -187,7 +187,7 @@ u32 _main(void *base)
 
 	irq_initialize();
 	irq_enable(IRQ_TIMER);
-	irq_enable(IRQ_GPIO1B);
+//	irq_enable(IRQ_GPIO1B);
 	irq_enable(IRQ_GPIO1);
 	irq_enable(IRQ_RESET);
 	gecko_timer_initialize();

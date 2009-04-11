@@ -73,7 +73,7 @@ struct sdmmc_task {
 #define sdmmc_task_pending(xtask) ((xtask)->onqueue)
 
 struct sdmmc_command {
-	struct sdmmc_task c_task;	/* task queue entry */
+//	struct sdmmc_task c_task;	/* task queue entry */
 	u_int16_t	 c_opcode;	/* SD or MMC command index */
 	u_int32_t	 c_arg;		/* SD/MMC command argument */
 	sdmmc_response	 c_resp;	/* response buffer */

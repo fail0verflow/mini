@@ -21,13 +21,26 @@
 #define _SDHCVAR_H_
 
 #include "bsdtypes.h"
+#include "ipc.h"
 #define SDHC_MAX_HOSTS	4
 
-struct sdhc_host;
+struct sdhc_host {
+	struct sdhc_softc *sc;		/* host controller device */
+	struct device *sdmmc;		/* generic SD/MMC device */
+	bus_space_tag_t iot;		/* host register set tag */
+	bus_space_handle_t ioh;		/* host register set handle */
+	u_int clkbase;			/* base clock frequency in KHz */
+	int maxblklen;			/* maximum block length */
+	int flags;			/* flags for this host */
+	u_int32_t ocr;			/* OCR value from capabilities */
+	u_int8_t regs[14];		/* host controller state */
+	u_int16_t intr_status;		/* soft interrupt status */
+	u_int16_t intr_error_status;	/* soft error status */
+};
 
 struct sdhc_softc {
 	struct device sc_dev;
-	struct sdhc_host *sc_host[SDHC_MAX_HOSTS];
+	struct sdhc_host sc_host[SDHC_MAX_HOSTS];
 	int sc_nhosts;
 	u_int sc_flags;
 };
@@ -41,6 +54,7 @@ void	sdhc_shutdown(void *);
 int	sdhc_intr(void *);
 void	sdhc_init(void);
 void	sdhc_irq(void);
+void	sdhc_ipc(volatile ipc_request *req);
 
 /* flag values */
 #define SDHC_F_NOPWR0		(1 << 0)

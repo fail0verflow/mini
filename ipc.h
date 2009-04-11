@@ -62,12 +62,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #define IPC_NAND_ERASE	0x0004
 #define IPC_NAND_STATUS	0x0005
 
-#define IPC_SD_MOUNT	0x0000
+/*#define IPC_SD_MOUNT	0x0000
 #define IPC_SD_SELECT	0x0001
 #define IPC_SD_GETSTATE	0x0002
-#define IPC_SD_READ		0x0003
+#define IPC_SD_READ	0x0003
 #define IPC_SD_WRITE	0x0004
-#define IPC_SD_GETSIZE	0x0005
+#define IPC_SD_GETSIZE	0x0005*/
 
 #define IPC_KEYS_GETOTP	0x0000
 #define IPC_KEYS_GETEEP	0x0001
@@ -119,5 +119,9 @@ void ipc_shutdown(void);
 void ipc_post(u32 code, u32 tag, u32 num_args, ...);
 void ipc_flush(void);
 u32 ipc_process_slow(void);
+
+// add an entry to the slow queue from the arm
+// (you probably want to use this in irq context)
+void ipc_add_slow(volatile ipc_request *req);
 
 #endif

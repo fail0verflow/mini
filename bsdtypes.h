@@ -24,6 +24,6 @@ struct device {
 
 #define bzero(mem, size) memset(mem, 0, size)
 
-#define ISSET(var, mask) (((var) & (mask)) == (mask) ? 1 : 0)
+#define ISSET(var, mask) (((var) & (mask)) ? 1 : 0)
 #define SET(var, mask) ((var) |= (mask))
 #endif
