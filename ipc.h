@@ -68,12 +68,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #define IPC_SDMMC_ACK	0x0000
 #define IPC_SDMMC_READ	0x0001
 #define IPC_SDMMC_WRITE	0x0002
-/*#define IPC_SD_MOUNT	0x0000
-#define IPC_SD_SELECT	0x0001
-#define IPC_SD_GETSTATE	0x0002
-#define IPC_SD_READ	0x0003
-#define IPC_SD_WRITE	0x0004
-#define IPC_SD_GETSIZE	0x0005*/
+#define IPC_SDMMC_STATE 0x0003
+#define IPC_SDMMC_SIZE	0x0004
 
 #define IPC_KEYS_GETOTP	0x0000
 #define IPC_KEYS_GETEEP	0x0001
