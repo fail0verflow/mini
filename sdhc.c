@@ -675,7 +675,7 @@ sdhc_exec_command(sdmmc_chipset_handle_t sch, struct sdmmc_command *cmd)
 	 * If the command has data to transfer in any direction,
 	 * execute the transfer now.
 	 */
-	if (cmd->c_error == 0 && cmd->c_data != NULL)
+	if (cmd->c_error == 0 && cmd->c_datalen > 0)
 		sdhc_transfer_data(hp, cmd);
 
 	/* Turn off the LED. */
@@ -789,7 +789,7 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 	 * Start a CPU data transfer.  Writing to the high order byte
 	 * of the SDHC_COMMAND register triggers the SD command. (1.5)
 	 */
-	HWRITE2(hp, SDHC_BLOCK_SIZE, blksize);
+	HWRITE2(hp, SDHC_BLOCK_SIZE, blksize | 7<<12);
 	if (blkcount > 0)
 		HWRITE2(hp, SDHC_BLOCK_COUNT, blkcount);
 	HWRITE4(hp, SDHC_ARGUMENT, cmd->c_arg);
@@ -804,8 +804,7 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 void
 sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 {
-	u_char *datap = cmd->c_data;
-	int i, datalen;
+	int datalen;
 	int mask;
 	int error;
 	int status;
@@ -815,7 +814,7 @@ sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 	    SDHC_BUFFER_READ_ENABLE : SDHC_BUFFER_WRITE_ENABLE;
 	error = 0;
 	datalen = cmd->c_datalen;
-	blkcnt = (cmd->c_datalen / 512);
+	blkcnt = (datalen / 512);
 
 	DPRINTF(1,("%s: resp=%#x datalen=%d\n", HDEVNAME(hp),
 	    MMC_R1(cmd->c_resp), datalen));
@@ -833,13 +832,13 @@ sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 				left = HREAD2(hp, SDHC_BLOCK_COUNT);
 				DPRINTF(2,("%s: dma left:%#x\n", HDEVNAME(hp),
 							left));
-				cmd->c_buf = cmd->c_data + (blkcnt - left)*512;
+				// FIXME: why do we need -0x200 here?
+				cmd->c_buf = cmd->c_data + cmd->c_datalen - left*512 - 0x200;
 				HWRITE4(hp, SDHC_DMA_ADDR,
 						dma_addr(cmd->c_buf));
 				continue;
 			}
 			if (ISSET(status, SDHC_TRANSFER_COMPLETE)) {
-				gecko_printf("transfer complete!\n");
 				break;
 			}
 		}
@@ -975,12 +974,12 @@ sdhc_wait_intr(struct sdhc_host *hp, int mask, int timo)
 	status = hp->intr_status & mask;
 
 
-	for (timo = 1000; timo > 0; timo--) {
+	for (timo = 500; timo > 0; timo--) {
 		if (hp->intr_status != 0) {
 			status = hp->intr_status & mask;
 			break;
 		}
-		sdmmc_delay(10);
+		sdmmc_delay(1000);
 	}
 	if (timo == 0) {
 		status |= SDHC_ERROR_INTERRUPT;
@@ -1063,7 +1062,7 @@ sdhc_intr(void *arg)
 			memset(&req, 0, sizeof(req));
 			req.device = IPC_DEV_SDHC;
 			req.req = IPC_SDHC_DISCOVER;
-			req.args[0] = hp->sdmmc;
+			req.args[0] = (u32)hp->sdmmc;
 			ipc_add_slow(&req);
 		}
 
@@ -1073,7 +1072,7 @@ sdhc_intr(void *arg)
 		 */
 		if (ISSET(status, SDHC_BUFFER_READ_READY|
 		    SDHC_BUFFER_WRITE_READY|SDHC_COMMAND_COMPLETE|
-		     SDHC_TRANSFER_COMPLETE)) {
+		     SDHC_TRANSFER_COMPLETE|SDHC_DMA_INTERRUPT)) {
 			hp->intr_status |= status;
 			wakeup(&hp->intr_status);
 		}
