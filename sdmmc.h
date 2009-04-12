@@ -22,12 +22,25 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #ifndef __SDMMC_H__
 #define __SDMMC_H__	1
 
-#include "sdmmcvar.h"
+#include "bsdtypes.h"
 #include "sdmmcchip.h"
+#include "sdmmcvar.h"
 
 #define SDMMC_DEFAULT_CLOCK		25000
+#define SDMMC_DEFAULT_BLOCKLEN		  512
+
+#define SDMMC_NO_CARD			    1
+#define SDMMC_NEW_CARD			    2
+#define SDMMC_INSERTED			    3
+
+// HACK
+#define SDMMC_DEFAULT_DEVICE	((struct device *)0)
 
 struct device *sdmmc_attach(struct sdmmc_chip_functions *functions,
 		sdmmc_chipset_handle_t handle, const char *name, int no);
 void sdmmc_needs_discover(struct device *dev);
+int sdmmc_select(struct device *dev);
+int sdmmc_check_card(struct device *dev);
+void sdmmc_ack_card(struct device *dev);
+int sdmmc_read(struct device *dev, u32 blk_start, u32 blk_count, void *data);
 #endif

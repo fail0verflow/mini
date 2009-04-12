@@ -47,12 +47,14 @@ struct sdmmc_card {
 	int no;
 	int inserted;
 	int sdhc_blockmode;
+	int selected;
+	int new_card; // set to 1 everytime a new card is inserted
 
 	u32 cid;
 	u16 rca;
 };
 
-static struct sdmmc_card cards[SDHC_MAX_HOSTS];
+static struct sdmmc_card cards[SDHC_MAX_HOSTS] MEM2_BSS;
 static int n_cards = 0;
 
 static inline int sdmmc_host_reset(struct sdmmc_card *card)
@@ -129,6 +131,7 @@ void sdmmc_needs_discover(struct device *dev)
 
 	DPRINTF(0, ("sdmmc: card %d needs discovery.\n", no));
 	sdmmc_host_reset(c);
+	c->new_card = 1;
 
 	if (!sdmmc_host_card_detect(c)) {
 		DPRINTF(1, ("sdmmc: card %d (no longer?) inserted.\n", no));
@@ -209,6 +212,11 @@ void sdmmc_needs_discover(struct device *dev)
 		goto out_power;
 	}
 
+	if (ISSET(MMC_R1(cmd.c_resp), SD_OCR_SDHC_CAP))
+		c->sdhc_blockmode = 1;
+	else
+		c->sdhc_blockmode = 0;
+
 	DPRINTF(2, ("sdmmc: MMC_ALL_SEND_CID\n"));
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.c_opcode = MMC_ALL_SEND_CID;
@@ -237,7 +245,23 @@ void sdmmc_needs_discover(struct device *dev)
 
 	c->rca = MMC_R1(cmd.c_resp)>>16;
 	DPRINTF(2, ("sdmmc: rca: %08x\n", c->rca));
+
+	c->selected = 0;
 	c->inserted = 1;
+
+	sdmmc_select(dev);
+	DPRINTF(2, ("sdmmc: MMC_SET_BLOCKLEN\n"));
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.c_opcode = MMC_SET_BLOCKLEN;
+	cmd.c_arg = SDMMC_DEFAULT_BLOCKLEN;
+	cmd.c_flags = SCF_RSP_R1;
+	sdmmc_host_exec_command(c, &cmd);
+	if (cmd.c_error) {
+		gecko_printf("sdmmc: MMC_SET_BLOCKLEN failed with %d for card %d\n",
+				cmd.c_error, no);
+		c->inserted = c->selected = 0;
+		goto out_clock;
+	}
 	return;
 
 out_clock:
@@ -286,3 +310,88 @@ out:
 #endif
 }
 
+int sdmmc_select(struct device *dev)
+{
+	int no = (int)dev;
+	struct sdmmc_card *c = &cards[no];
+	struct sdmmc_command cmd;
+
+	DPRINTF(2, ("sdmmc: MMC_SELECT_CARD\n"));
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.c_opcode = MMC_SELECT_CARD;
+	cmd.c_arg = ((u32)c->rca)<<16;;
+	cmd.c_flags = SCF_RSP_R1;
+	sdmmc_host_exec_command(c, &cmd);
+	if (cmd.c_error) {
+		gecko_printf("sdmmc: MMC_SELECT card failed with %d for	%d.\n",
+				cmd.c_error, no);
+		return -1;
+	}
+
+	c->selected = 1;
+	return 0;
+}
+
+int sdmmc_check_card(struct device *dev)
+{
+	int no = (int)dev;
+	struct sdmmc_card *c = &cards[no];
+	if (c->inserted == 0)
+		return SDMMC_NO_CARD;
+	if (c->new_card == 1)
+		return SDMMC_NEW_CARD;
+	return SDMMC_INSERTED;
+}
+
+void sdmmc_ack_card(struct device *dev)
+{
+	int no = (int)dev;
+	struct sdmmc_card *c = &cards[no];
+	c->new_card = 0;
+}
+
+int sdmmc_read(struct device *dev, u32 blk_start, u32 blk_count, void *data)
+{
+	int no = (int)dev;
+	struct sdmmc_card *c = &cards[no];
+	struct sdmmc_command cmd;
+
+	if (c->inserted == 0) {
+		gecko_printf("sdmmc: READ: no card inserted.\n");
+		return -1;
+	}
+
+	if (c->selected == 0) {
+		if (sdmmc_select(dev) < 0) {
+			gecko_printf("sdmmc: READ: cannot select card.\n");
+			return -1;
+		}
+	}
+
+	if (c->new_card == 1) {
+		gecko_printf("sdmmc: new card inserted but not acknowledged yet.\n");
+		return -1;
+	}
+
+	DPRINTF(2, ("sdmmc: MMC_READ_BLOCK_MULTIPLE\n"));
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.c_opcode = MMC_READ_BLOCK_MULTIPLE;
+	if (c->sdhc_blockmode)
+		cmd.c_arg = blk_start;
+	else
+		cmd.c_arg = blk_start * SDMMC_DEFAULT_BLOCKLEN;
+	cmd.c_data = data;
+	cmd.c_datalen = blk_count * SDMMC_DEFAULT_BLOCKLEN;
+	cmd.c_blklen = SDMMC_DEFAULT_BLOCKLEN;
+	cmd.c_flags = SCF_RSP_R1 | SCF_CMD_READ;
+	sdmmc_host_exec_command(c, &cmd);
+
+	if (cmd.c_error) {
+		gecko_printf("sdmmc: MMC_READ_BLOCK_MULTIPLE failed for "
+				"card %d with %d", no, cmd.c_error);
+		return -1;
+	}
+	gecko_printf("success!!\n");
+
+	return 0;
+}

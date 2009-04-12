@@ -7,6 +7,7 @@
 
 #include "diskio.h"
 #include "string.h"
+#include "sdmmc.h"
 //#include "sdhc.h"
 
 #ifndef MEM2_BSS
@@ -23,15 +24,11 @@ DSTATUS disk_initialize (
 	BYTE drv				/* Physical drive nmuber (0..) */
 )
 {
-	s32 ret;
-
-//	sd_init(&sdhci, 0);
-//	ret = sd_mount(&sdhci);
-
-	if (ret < 0)
+	if (sdmmc_check_card(SDMMC_DEFAULT_DEVICE) == SDMMC_NO_CARD)
 		return STA_NOINIT;
-	else
-		return disk_status(drv);
+
+	sdmmc_ack_card(SDMMC_DEFAULT_DEVICE);
+	return disk_status(drv);
 }
 
 
@@ -46,7 +43,10 @@ DSTATUS disk_status (
 //	if (sd_inserted(&sdhci) == 0)
 //		return STA_NODISK;
 
-	return 0;
+	if (sdmmc_check_card(SDMMC_DEFAULT_DEVICE) == SDMMC_INSERTED)
+		return 0;
+	else
+		return STA_NODISK;
 }
 
 
@@ -66,10 +66,10 @@ DRESULT disk_read (
 
 	res = RES_OK;
 	for (i = 0; i < count; i++) {
-/*		if (sd_read(&sdhci, sector + i, 1, buffer) != 0) {
+		if (sdmmc_read(SDMMC_DEFAULT_DEVICE, sector+i, 1, buffer) != 0){
 			res = RES_ERROR;
 			break;
-		}*/
+		}
 
 		memcpy(buff + i * 512, buffer, 512);
 	}

@@ -45,7 +45,7 @@
 #include "utils.h"
 #include "ipc.h"
 
-#define SDHC_DEBUG	0
+#define SDHC_DEBUG	1
 
 #define SDHC_COMMAND_TIMEOUT	0
 #define SDHC_BUFFER_TIMEOUT	0
@@ -159,7 +159,7 @@ void	sdhc_read_data(struct sdhc_host *, u_char *, int);
 void	sdhc_write_data(struct sdhc_host *, u_char *, int);
 
 #ifdef SDHC_DEBUG
-int sdhcdebug = 0;
+int sdhcdebug = 2;
 #define DPRINTF(n,s)	do { if ((n) <= sdhcdebug) gecko_printf s; } while (0)
 void	sdhc_dump_regs(struct sdhc_host *);
 #else
@@ -972,8 +972,8 @@ sdhc_intr(void *arg)
 
 		/* Acknowledge the interrupts we are about to handle. */
 		HWRITE2(hp, SDHC_NINTR_STATUS, status);
-		DPRINTF(2,("%s: interrupt status=%d\n", HDEVNAME(hp),
-		    status));
+//		DPRINTF(2,("%s: interrupt status=%d\n", HDEVNAME(hp),
+//		    status));
 
 
 		/* Claim this interrupt. */
@@ -988,11 +988,11 @@ sdhc_intr(void *arg)
 			/* Acknowledge error interrupts. */
 			error = HREAD2(hp, SDHC_EINTR_STATUS);
 			HWRITE2(hp, SDHC_EINTR_STATUS, error);
-			DPRINTF(2,("%s: error interrupt, status=%d\n",
-			    HDEVNAME(hp), error));
+//			DPRINTF(2,("%s: error interrupt, status=%d\n",
+//			    HDEVNAME(hp), error));
 
 			if (ISSET(error, SDHC_CMD_TIMEOUT_ERROR|
-			    SDHC_DATA_TIMEOUT_ERROR)) {
+		 	    SDHC_DATA_TIMEOUT_ERROR)) {
 				hp->intr_error_status |= error;
 				hp->intr_status |= status;
 				wakeup(&hp->intr_status);
@@ -1004,7 +1004,7 @@ sdhc_intr(void *arg)
 		 * TODO: move request to slow queue to make sure that
 		 *       we're not blocking other IRQs
 		 */
-		if (ISSET(status, SDHC_CARD_REMOVAL|SDHC_CARD_INSERTION)) {
+		 if (ISSET(status, SDHC_CARD_REMOVAL|SDHC_CARD_INSERTION)) {
 			ipc_request req;
 			memset(&req, 0, sizeof(req));
 			req.device = IPC_DEV_SD;
@@ -1019,7 +1019,7 @@ sdhc_intr(void *arg)
 		 */
 		if (ISSET(status, SDHC_BUFFER_READ_READY|
 		    SDHC_BUFFER_WRITE_READY|SDHC_COMMAND_COMPLETE|
-		    SDHC_TRANSFER_COMPLETE)) {
+		     SDHC_TRANSFER_COMPLETE)) {
 			hp->intr_status |= status;
 			wakeup(&hp->intr_status);
 		}
@@ -1027,8 +1027,8 @@ sdhc_intr(void *arg)
 		/*
 		 * Service SD card interrupts.
 		 */
-		if (ISSET(status, SDHC_CARD_INTERRUPT)) {
-			DPRINTF(0,("%s: card interrupt\n", HDEVNAME(hp)));
+		if  (ISSET(status, SDHC_CARD_INTERRUPT)) {
+//			DPRINTF(0,("%s: card interrupt\n", HDEVNAME(hp)));
 			HCLR2(hp, SDHC_NINTR_STATUS_EN, SDHC_CARD_INTERRUPT);
 //			sdmmc_card_intr(hp->sdmmc);
 		}
@@ -1064,7 +1064,7 @@ sdhc_dump_regs(struct sdhc_host *hp)
 #endif
 
 #include "hollywood.h"
-static struct sdhc_softc __softc;
+static struct sdhc_softc __softc MEM2_BSS;
 
 void sdhc_irq(void)
 {
