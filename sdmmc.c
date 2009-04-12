@@ -30,11 +30,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "gecko.h"
 #include "string.h"
 #include "utils.h"
+#include "memory.h"
 
 #define SDMMC_DEBUG	1
 
 #ifdef SDMMC_DEBUG
-static int sdmmcdebug = 5;
+static int sdmmcdebug = 0;
 #define DPRINTF(n,s)	do { if ((n) <= sdmmcdebug) gecko_printf s; } while (0)
 #else
 #define DPRINTF(n,s)	do {} while(0)
@@ -216,6 +217,7 @@ void sdmmc_needs_discover(struct device *dev)
 		c->sdhc_blockmode = 1;
 	else
 		c->sdhc_blockmode = 0;
+	DPRINTF(2, ("sdmmc: SDHC: %d\n", c->sdhc_blockmode));
 
 	DPRINTF(2, ("sdmmc: MMC_ALL_SEND_CID\n"));
 	memset(&cmd, 0, sizeof(cmd));
@@ -356,6 +358,8 @@ int sdmmc_read(struct device *dev, u32 blk_start, u32 blk_count, void *data)
 	struct sdmmc_card *c = &cards[no];
 	struct sdmmc_command cmd;
 
+	gecko_printf("reading %d bytes to %p\n", blk_count*512,data);
+
 	if (c->inserted == 0) {
 		gecko_printf("sdmmc: READ: no card inserted.\n");
 		return -1;
@@ -375,7 +379,10 @@ int sdmmc_read(struct device *dev, u32 blk_start, u32 blk_count, void *data)
 
 	DPRINTF(2, ("sdmmc: MMC_READ_BLOCK_MULTIPLE\n"));
 	memset(&cmd, 0, sizeof(cmd));
-	cmd.c_opcode = MMC_READ_BLOCK_MULTIPLE;
+	if (blk_count == 1)
+		cmd.c_opcode = MMC_READ_BLOCK_MULTIPLE;
+	else
+		cmd.c_opcode = MMC_READ_BLOCK_MULTIPLE;
 	if (c->sdhc_blockmode)
 		cmd.c_arg = blk_start;
 	else
@@ -386,12 +393,89 @@ int sdmmc_read(struct device *dev, u32 blk_start, u32 blk_count, void *data)
 	cmd.c_flags = SCF_RSP_R1 | SCF_CMD_READ;
 	sdmmc_host_exec_command(c, &cmd);
 
+	gecko_printf("arg: %08x %08x\n", cmd.c_arg, blk_start);
+
 	if (cmd.c_error) {
 		gecko_printf("sdmmc: MMC_READ_BLOCK_MULTIPLE failed for "
 				"card %d with %d", no, cmd.c_error);
 		return -1;
 	}
-	gecko_printf("success!!\n");
+	DPRINTF(2, ("sdmmc: MMC_READ_BLOCK_MULTIPLE done\n"));
 
 	return 0;
 }
+
+int sdmmc_write(struct device *dev, u32 blk_start, u32 blk_count, void *data)
+{
+	int no = (int)dev;
+	struct sdmmc_card *c = &cards[no];
+	struct sdmmc_command cmd;
+
+	if (c->inserted == 0) {
+		gecko_printf("sdmmc: READ: no card inserted.\n");
+		return -1;
+	}
+
+	if (c->selected == 0) {
+		if (sdmmc_select(dev) < 0) {
+			gecko_printf("sdmmc: READ: cannot select card.\n");
+			return -1;
+		}
+	}
+
+	if (c->new_card == 1) {
+		gecko_printf("sdmmc: new card inserted but not acknowledged yet.\n");
+		return -1;
+	}
+
+	DPRINTF(2, ("sdmmc: MMC_WRITE_BLOCK_MULTIPLE\n"));
+	memset(&cmd, 0, sizeof(cmd));
+	if (blk_count == 1)
+		cmd.c_opcode = MMC_WRITE_BLOCK_SINGLE;
+	else
+		cmd.c_opcode = MMC_WRITE_BLOCK_MULTIPLE;
+	if (c->sdhc_blockmode)
+		cmd.c_arg = blk_start;
+	else
+		cmd.c_arg = blk_start * SDMMC_DEFAULT_BLOCKLEN;
+	cmd.c_data = data;
+	cmd.c_datalen = blk_count * SDMMC_DEFAULT_BLOCKLEN;
+	cmd.c_blklen = SDMMC_DEFAULT_BLOCKLEN;
+	cmd.c_flags = SCF_RSP_R1;
+	sdmmc_host_exec_command(c, &cmd);
+
+	if (cmd.c_error) {
+		gecko_printf("sdmmc: MMC_READ_BLOCK_MULTIPLE failed for "
+				"card %d with %d", no, cmd.c_error);
+		return -1;
+	}
+	DPRINTF(2, ("sdmmc: MMC_WRITE_BLOCK_MULTIPLE done\n"));
+
+	return 0;
+}
+
+void sdmmc_ipc(volatile ipc_request *req)
+{
+	int ret;
+	switch (req->req) {
+	case IPC_SDMMC_ACK:
+		sdmmc_ack_card(SDMMC_DEFAULT_DEVICE);
+		ipc_post(req->code, req->tag, 1);
+		break;
+	case IPC_SDMMC_READ:
+		ret = sdmmc_read(SDMMC_DEFAULT_DEVICE, req->args[0],
+				req->args[1], (void *)req->args[2]);
+		dc_flushrange((void *)req->args[2],
+				req->args[1]*SDMMC_DEFAULT_BLOCKLEN);
+		ipc_post(req->code, req->tag, 1);
+		break;
+	case IPC_SDMMC_WRITE:
+		dc_invalidaterange((void *)req->args[2],
+				req->args[1]*SDMMC_DEFAULT_BLOCKLEN);
+		ret = sdmmc_write(SDMMC_DEFAULT_DEVICE, req->args[0],
+				req->args[1], (void *)req->args[2]);
+		ipc_post(req->code, req->tag, 1);
+		break;
+	}
+}
+

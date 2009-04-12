@@ -149,8 +149,11 @@ static u32 process_slow(volatile ipc_request *req)
 		case IPC_DEV_NAND:
 			nand_ipc(req);
 			break;
-		case IPC_DEV_SD:
+		case IPC_DEV_SDHC:
 			sdhc_ipc(req);
+			break;
+		case IPC_DEV_SDMMC:
+			sdmmc_ipc(req);
 			break;
 		case IPC_DEV_KEYS:
 			crypto_ipc(req);

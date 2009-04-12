@@ -25,6 +25,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "bsdtypes.h"
 #include "sdmmcchip.h"
 #include "sdmmcvar.h"
+#include "ipc.h"
 
 #define SDMMC_DEFAULT_CLOCK		25000
 #define SDMMC_DEFAULT_BLOCKLEN		  512
@@ -43,4 +44,5 @@ int sdmmc_select(struct device *dev);
 int sdmmc_check_card(struct device *dev);
 void sdmmc_ack_card(struct device *dev);
 int sdmmc_read(struct device *dev, u32 blk_start, u32 blk_count, void *data);
+void sdmmc_ipc(volatile ipc_request *req);
 #endif

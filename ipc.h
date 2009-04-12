@@ -31,11 +31,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #define IPC_DEV_SYS	0x00
 #define IPC_DEV_NAND	0x01
-#define IPC_DEV_SD	0x02
+#define IPC_DEV_SDHC	0x02
 #define IPC_DEV_KEYS	0x03
 #define IPC_DEV_AES	0x04
 #define IPC_DEV_BOOT2	0x05
 #define IPC_DEV_PPC	0x06
+#define IPC_DEV_SDMMC	0x07
 
 #define IPC_SYS_PING	0x0000
 #define IPC_SYS_JUMP	0x0001
@@ -62,7 +63,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #define IPC_NAND_ERASE	0x0004
 #define IPC_NAND_STATUS	0x0005
 
-#define IPC_SD_DISCOVER 0x0000
+#define IPC_SDHC_DISCOVER 0x0000
+
+#define IPC_SDMMC_ACK	0x0000
+#define IPC_SDMMC_READ	0x0001
+#define IPC_SDMMC_WRITE	0x0002
 /*#define IPC_SD_MOUNT	0x0000
 #define IPC_SD_SELECT	0x0001
 #define IPC_SD_GETSTATE	0x0002

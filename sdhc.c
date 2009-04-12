@@ -44,8 +44,9 @@
 #include "irq.h"
 #include "utils.h"
 #include "ipc.h"
+#include "memory.h"
 
-#define SDHC_DEBUG	1
+//#define SDHC_DEBUG	1
 
 #define SDHC_COMMAND_TIMEOUT	0
 #define SDHC_BUFFER_TIMEOUT	0
@@ -728,16 +729,14 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 		mode |= SDHC_READ_MODE;
 	if (blkcount > 0) {
 		mode |= SDHC_BLOCK_COUNT_ENABLE;
-		if (blkcount > 1) {
+//		if (blkcount > 1) {
 			mode |= SDHC_MULTI_BLOCK_MODE;
 			/* XXX only for memory commands? */
 			mode |= SDHC_AUTO_CMD12_ENABLE;
-		}
+//		}
 	}
-#ifdef notyet
 	if (ISSET(hp->flags, SHF_USE_DMA))
 		mode |= SDHC_DMA_ENABLE;
-#endif
 
 	/*
 	 * Prepare command register value. (2.2.6)
@@ -770,7 +769,18 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 	/* Alert the user not to remove the card. */
 	HSET1(hp, SDHC_HOST_CTL, SDHC_LED_ON);
 
-	/* XXX: Set DMA start address if SHF_USE_DMA is set. */
+	if (ISSET(hp->flags, SHF_USE_DMA) && cmd->c_datalen > 0) {
+		cmd->c_resid = blkcount;
+		cmd->c_buf = cmd->c_data;
+
+		if (ISSET(cmd->c_flags, SCF_CMD_READ)) {
+			dc_invalidaterange(cmd->c_data, cmd->c_datalen);
+		} else {
+			dc_flushrange(cmd->c_data, cmd->c_datalen);
+			ahb_flush_to(AHB_SDHC);
+		}
+		HWRITE4(hp, SDHC_DMA_ADDR, dma_addr(cmd->c_data));
+	}
 
 	DPRINTF(1,("%s: cmd=%#x mode=%#x blksize=%d blkcount=%d\n",
 	    HDEVNAME(hp), command, mode, blksize, blkcount));
@@ -780,7 +790,7 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 	 * of the SDHC_COMMAND register triggers the SD command. (1.5)
 	 */
 	HWRITE2(hp, SDHC_BLOCK_SIZE, blksize);
-	if (blkcount > 1)
+	if (blkcount > 0)
 		HWRITE2(hp, SDHC_BLOCK_COUNT, blkcount);
 	HWRITE4(hp, SDHC_ARGUMENT, cmd->c_arg);
 	HWRITE4(hp, SDHC_TRANSFER_MODE, ((u32)command<<16)|mode);
@@ -798,14 +808,45 @@ sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 	int i, datalen;
 	int mask;
 	int error;
+	int status;
+	int left, blkcnt;
 
 	mask = ISSET(cmd->c_flags, SCF_CMD_READ) ?
 	    SDHC_BUFFER_READ_ENABLE : SDHC_BUFFER_WRITE_ENABLE;
 	error = 0;
 	datalen = cmd->c_datalen;
+	blkcnt = (cmd->c_datalen / 512);
 
 	DPRINTF(1,("%s: resp=%#x datalen=%d\n", HDEVNAME(hp),
 	    MMC_R1(cmd->c_resp), datalen));
+	if (ISSET(hp->flags, SHF_USE_DMA)) {
+		for(;;) {
+			status = sdhc_wait_intr(hp, SDHC_TRANSFER_COMPLETE |
+					SDHC_DMA_INTERRUPT,
+					SDHC_TRANSFER_TIMEOUT);
+			if (!status) {
+				error = ETIMEDOUT;
+				break;
+			}
+
+			if (ISSET(status, SDHC_DMA_INTERRUPT)) {
+				left = HREAD2(hp, SDHC_BLOCK_COUNT);
+				DPRINTF(2,("%s: dma left:%#x\n", HDEVNAME(hp),
+							left));
+				cmd->c_buf = cmd->c_data + (blkcnt - left)*512;
+				HWRITE4(hp, SDHC_DMA_ADDR,
+						dma_addr(cmd->c_buf));
+				continue;
+			}
+			if (ISSET(status, SDHC_TRANSFER_COMPLETE)) {
+				gecko_printf("transfer complete!\n");
+				break;
+			}
+		}
+	} else
+		gecko_printf("fail.\n");
+
+	
 
 #ifdef SDHC_DEBUG
 	/* XXX I forgot why I wanted to know when this happens :-( */
@@ -814,7 +855,17 @@ sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 		gecko_printf("%s: CMD52/53 error response flags %#x\n",
 		    HDEVNAME(hp), MMC_R1(cmd->c_resp) & 0xff00);
 #endif
+	if (ISSET(cmd->c_flags, SCF_CMD_READ))
+			ahb_flush_from(AHB_SDHC);
 
+	if (error != 0)
+		cmd->c_error = error;
+	SET(cmd->c_flags, SCF_ITSDONE);
+
+	DPRINTF(1,("%s: data transfer done (error=%d)\n",
+	    HDEVNAME(hp), cmd->c_error));
+	return;
+#if 0
 	while (datalen > 0) {
 		if (!sdhc_wait_intr(hp, SDHC_BUFFER_READ_READY|
 		    SDHC_BUFFER_WRITE_READY, SDHC_BUFFER_TIMEOUT)) {
@@ -845,6 +896,7 @@ sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 
 	DPRINTF(1,("%s: data transfer done (error=%d)\n",
 	    HDEVNAME(hp), cmd->c_error));
+#endif
 }
 
 void
@@ -852,8 +904,10 @@ sdhc_read_data(struct sdhc_host *hp, u_char *datap, int datalen)
 {
 	while (datalen > 3) {
 		*(u_int32_t *)datap = HREAD4(hp, SDHC_DATA);
+		gecko_printf("next_data: %08x\n", *datap);
 		datap += 4;
 		datalen -= 4;
+		udelay(1000);
 	}
 	if (datalen > 0) {
 		u_int32_t rv = HREAD4(hp, SDHC_DATA);
@@ -1007,8 +1061,8 @@ sdhc_intr(void *arg)
 		 if (ISSET(status, SDHC_CARD_REMOVAL|SDHC_CARD_INSERTION)) {
 			ipc_request req;
 			memset(&req, 0, sizeof(req));
-			req.device = IPC_DEV_SD;
-			req.req = IPC_SD_DISCOVER;
+			req.device = IPC_DEV_SDHC;
+			req.req = IPC_SDHC_DISCOVER;
 			req.args[0] = hp->sdmmc;
 			ipc_add_slow(&req);
 		}
@@ -1083,7 +1137,7 @@ void sdhc_init(void)
 void sdhc_ipc(volatile ipc_request *req)
 {
 	switch (req->req) {
-	case IPC_SD_DISCOVER:
+	case IPC_SDHC_DISCOVER:
 		sdmmc_needs_discover((struct device *)req->args[0]);
 		break;
 	}
