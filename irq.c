@@ -100,7 +100,7 @@ void irq_handler(void)
 		write32(HW_ARMIRQFLAG, IRQF_AES);
 	}
 	if (flags & IRQF_SDHC) {
-		gecko_printf("IRQ: SDHC\n");
+//		gecko_printf("IRQ: SDHC\n");
 		write32(HW_ARMIRQFLAG, IRQF_SDHC);
 		sdhc_irq();
 	}

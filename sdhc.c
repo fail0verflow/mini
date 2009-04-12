@@ -1004,8 +1004,14 @@ sdhc_intr(void *arg)
 		 * TODO: move request to slow queue to make sure that
 		 *       we're not blocking other IRQs
 		 */
-		if (ISSET(status, SDHC_CARD_REMOVAL|SDHC_CARD_INSERTION))
-			sdmmc_needs_discover(hp->sdmmc);
+		if (ISSET(status, SDHC_CARD_REMOVAL|SDHC_CARD_INSERTION)) {
+			ipc_request req;
+			memset(&req, 0, sizeof(req));
+			req.device = IPC_DEV_SD;
+			req.req = IPC_SD_DISCOVER;
+			req.args[0] = hp->sdmmc;
+			ipc_add_slow(&req);
+		}
 
 		/*
 		 * Wake up the blocking process to service command
@@ -1062,7 +1068,6 @@ static struct sdhc_softc __softc;
 
 void sdhc_irq(void)
 {
-	ipc_request req;
 	sdhc_intr(&__softc);
 }
 
@@ -1078,5 +1083,8 @@ void sdhc_init(void)
 void sdhc_ipc(volatile ipc_request *req)
 {
 	switch (req->req) {
+	case IPC_SD_DISCOVER:
+		sdmmc_needs_discover((struct device *)req->args[0]);
+		break;
 	}
 }

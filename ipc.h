@@ -62,6 +62,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #define IPC_NAND_ERASE	0x0004
 #define IPC_NAND_STATUS	0x0005
 
+#define IPC_SD_DISCOVER 0x0000
 /*#define IPC_SD_MOUNT	0x0000
 #define IPC_SD_SELECT	0x0001
 #define IPC_SD_GETSTATE	0x0002

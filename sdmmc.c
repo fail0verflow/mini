@@ -47,6 +47,9 @@ struct sdmmc_card {
 	int no;
 	int inserted;
 	int sdhc_blockmode;
+
+	u32 cid;
+	u16 rca;
 };
 
 static struct sdmmc_card cards[SDHC_MAX_HOSTS];
@@ -125,6 +128,7 @@ void sdmmc_needs_discover(struct device *dev)
 	u32 ocr;
 
 	DPRINTF(0, ("sdmmc: card %d needs discovery.\n", no));
+	sdmmc_host_reset(c);
 
 	if (!sdmmc_host_card_detect(c)) {
 		DPRINTF(1, ("sdmmc: card %d (no longer?) inserted.\n", no));
@@ -167,20 +171,16 @@ void sdmmc_needs_discover(struct device *dev)
 	cmd.c_flags = SCF_RSP_R7;
 	sdmmc_host_exec_command(c, &cmd);
 
-	gecko_printf("response: %08x %08x %08x %08x\n", cmd.c_resp[0],
-			cmd.c_resp[1], cmd.c_resp[2], cmd.c_resp[3]);
-
 	ocr = sdmmc_host_ocr(c);
 	if (cmd.c_error || (cmd.c_resp[0] & 0xff) != 0xaa)
 		ocr &= ~SD_OCR_SDHC_CAP;
 	else
 		ocr |= SD_OCR_SDHC_CAP;
-	gecko_printf("-----> ocr: %x\n", ocr);
 	DPRINTF(2, ("sdmmc: SEND_IF_COND ocr: %x\n", ocr));
 
 	int tries;
-	for (tries = 10; tries > 0; tries--) {
-		udelay(10000);
+	for (tries = 100; tries > 0; tries--) {
+		udelay(100000);
 	
 		memset(&cmd, 0, sizeof(cmd));
 		cmd.c_opcode = MMC_APP_CMD;
@@ -199,8 +199,9 @@ void sdmmc_needs_discover(struct device *dev)
 		if (cmd.c_error)
 			continue;
 
-		gecko_printf("response: %08x\n", cmd.c_resp[0]);
-		if (ISSET(cmd.c_resp[0], MMC_OCR_MEM_READY))
+		DPRINTF(3, ("sdmmc: response for SEND_IF_COND: %08x\n",
+					MMC_R1(cmd.c_resp)));
+		if (ISSET(MMC_R1(cmd.c_resp), MMC_OCR_MEM_READY))
 			break;
 	}
 	if (!ISSET(cmd.c_resp[0], MMC_OCR_MEM_READY)) {
@@ -208,6 +209,35 @@ void sdmmc_needs_discover(struct device *dev)
 		goto out_power;
 	}
 
+	DPRINTF(2, ("sdmmc: MMC_ALL_SEND_CID\n"));
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.c_opcode = MMC_ALL_SEND_CID;
+	cmd.c_arg = 0;
+	cmd.c_flags = SCF_RSP_R2;
+	sdmmc_host_exec_command(c, &cmd);
+	if (cmd.c_error) {
+		gecko_printf("sdmmc: MMC_ALL_SEND_CID failed with %d for card %d\n",
+				cmd.c_error, no);
+		goto out_clock;
+	}
+
+	c->cid = MMC_R1(cmd.c_resp);
+
+	DPRINTF(2, ("sdmmc: SD_SEND_RELATIVE_ADDRESS\n"));
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.c_opcode = SD_SEND_RELATIVE_ADDR;
+	cmd.c_arg = 0;
+	cmd.c_flags = SCF_RSP_R6;
+	sdmmc_host_exec_command(c, &cmd);
+	if (cmd.c_error) {
+		gecko_printf("sdmmc: SD_SEND_RCA failed with %d for card %d\n",
+				cmd.c_error, no);
+		goto out_clock;
+	}
+
+	c->rca = MMC_R1(cmd.c_resp)>>16;
+	DPRINTF(2, ("sdmmc: rca: %08x\n", c->rca));
+	c->inserted = 1;
 	return;
 
 out_clock:
