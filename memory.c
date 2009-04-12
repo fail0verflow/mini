@@ -40,6 +40,10 @@ extern u32 __page_table[4096];
 #define LINESIZE 0x20
 #define CACHESIZE 0x4000
 
+#define CR_MMU		(1 << 0)
+#define CR_DCACHE	(1 << 2)
+#define CR_ICACHE	(1 << 12)
+
 // TODO: move to hollywood.h once we figure out WTF
 #define		HW_100			(HW_REG_BASE + 0x100)
 #define		HW_104			(HW_REG_BASE + 0x104)
@@ -189,6 +193,7 @@ void ahb_flush_from(enum AHBDEV dev)
 			break;
 		default:
 			gecko_printf("ahb_flush(%d): Invalid device\n", dev);
+			irq_restore(cookie);
 			return;
 	}
 
@@ -265,7 +270,6 @@ void mem_setswap(int enable)
 		write32(HW_MEMMIRR, d & ~0x20);
 	if((!(d & 0x20)) && enable)
 		write32(HW_MEMMIRR, d | 0x20);
-
 }
 
 u32 dma_addr(void *p)
@@ -347,12 +351,12 @@ void mem_initialize(void)
 #ifndef NO_CACHES
 	gecko_printf("MEM: enabling caches\n");
 
-	cr |= 0x1004; //ICACHE/DCACHE and MMU enable
+	cr |= CR_DCACHE | CR_ICACHE;
 	set_cr(cr);
 
 	gecko_printf("MEM: enabling MMU\n");
 
-	cr |= 0x0001; //ICACHE/DCACHE and MMU enable
+	cr |= CR_MMU;
 	set_cr(cr);
 #endif
 
@@ -367,7 +371,7 @@ void mem_shutdown(void)
 	_dc_flush();
 	_drain_write_buffer();
 	u32 cr = get_cr();
-	cr &= ~0x1005; //disable ICACHE, DCACHE, MMU
+	cr &= ~(CR_MMU | CR_DCACHE | CR_ICACHE); //disable ICACHE, DCACHE, MMU
 	set_cr(cr);
 	_ic_inval();
 	_dc_inval();
