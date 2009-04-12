@@ -51,6 +51,8 @@ struct sdmmc_card {
 	int selected;
 	int new_card; // set to 1 everytime a new card is inserted
 
+
+	int num_sectors;
 	u32 cid;
 	u16 rca;
 };
@@ -251,6 +253,47 @@ void sdmmc_needs_discover(struct device *dev)
 	c->selected = 0;
 	c->inserted = 1;
 
+	u8 *resp;
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.c_opcode = MMC_SEND_CSD;
+	cmd.c_arg = ((u32)c->rca)<<16;
+	cmd.c_flags = SCF_RSP_R2;
+	sdmmc_host_exec_command(c, &cmd);
+	if (cmd.c_error) {
+		gecko_printf("sdmmc: MMC_SEND_CSD failed for "
+				"card %d with %d", no, cmd.c_error);
+		goto out_power;
+	}
+
+	resp = (u8 *)cmd.c_resp;
+
+	if (resp[13] == 0xe) { // sdhc
+		unsigned int c_size = resp[7] << 16 | resp[6] << 8 | resp[5];
+//		sdhc_error(sdhci->reg_base, "sdhc mode, c_size=%u, card size = %uk", c_size, (c_size + 1)* 512);
+//		sdhci->timeout = 250 * 1000000; // spec says read timeout is 100ms and write/erase timeout is 250ms
+		c->num_sectors = (c_size + 1) * 1024; // number of 512-byte sectors
+	}
+	else {
+		unsigned int taac, nsac, read_bl_len, c_size, c_size_mult;
+		taac = resp[13];
+		nsac = resp[12];
+		read_bl_len = resp[9] & 0xF;
+		
+		c_size = (resp[8] & 3) << 10;
+		c_size |= (resp[7] << 2);
+		c_size |= (resp[6] >> 6);
+		c_size_mult = (resp[5] & 3) << 1;
+		c_size_mult |= resp[4] >> 7;
+//		sdhc_error(sdhci->reg_base, "taac=%u nsac=%u read_bl_len=%u c_size=%u c_size_mult=%u card size=%u bytes",
+//			taac, nsac, read_bl_len, c_size, c_size_mult, (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len));
+//		static const unsigned int time_unit[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000};
+//		static const unsigned int time_value[] = {1, 10, 12, 13, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80}; // must div by 10
+//		sdhci->timeout = time_unit[taac & 7] * time_value[(taac >> 3) & 0xf] / 10;
+//		sdhc_error(sdhci->reg_base, "calculated timeout =  %uns", sdhci->timeout);
+		c->num_sectors = (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len) / 512;
+	}
+
+
 	sdmmc_select(dev);
 	DPRINTF(2, ("sdmmc: MMC_SET_BLOCKLEN\n"));
 	memset(&cmd, 0, sizeof(cmd));
@@ -448,19 +491,10 @@ int sdmmc_get_sectors(struct device *dev)
 {
 	int no = (int)dev;
 	struct sdmmc_card *c = &cards[no];
-	struct sdmmc_command cmd;
-	u8 *resp;
 
 	if (c->inserted == 0) {
 		gecko_printf("sdmmc: READ: no card inserted.\n");
 		return -1;
-	}
-
-	if (c->selected == 0) {
-		if (sdmmc_select(dev) < 0) {
-			gecko_printf("sdmmc: READ: cannot select card.\n");
-			return -1;
-		}
 	}
 
 	if (c->new_card == 1) {
@@ -468,49 +502,9 @@ int sdmmc_get_sectors(struct device *dev)
 		return -1;
 	}
 
-	memset(&cmd, 0, sizeof(cmd));
-	cmd.c_opcode = MMC_SEND_CSD;
-	cmd.c_arg = ((u32)c->rca)<<16;
-	cmd.c_flags = SCF_RSP_R2;
-	sdmmc_host_exec_command(c, &cmd);
-	if (cmd.c_error) {
-		gecko_printf("sdmmc: MMC_SEND_CSD failed for "
-				"card %d with %d", no, cmd.c_error);
-		return -1;
-	}
-
-	resp = (u8 *)cmd.c_resp;
-
-	int num_sectors;
-
-	if (resp[13] == 0xe) { // sdhc
-		unsigned int c_size = resp[7] << 16 | resp[6] << 8 | resp[5];
-//		sdhc_error(sdhci->reg_base, "sdhc mode, c_size=%u, card size = %uk", c_size, (c_size + 1)* 512);
-//		sdhci->timeout = 250 * 1000000; // spec says read timeout is 100ms and write/erase timeout is 250ms
-		num_sectors = (c_size + 1) * 1024; // number of 512-byte sectors
-		}
-	else {
-		unsigned int taac, nsac, read_bl_len, c_size, c_size_mult;
-		taac = resp[13];
-		nsac = resp[12];
-		read_bl_len = resp[9] & 0xF;
-		
-		c_size = (resp[8] & 3) << 10;
-		c_size |= (resp[7] << 2);
-		c_size |= (resp[6] >> 6);
-		c_size_mult = (resp[5] & 3) << 1;
-		c_size_mult |= resp[4] >> 7;
-//		sdhc_error(sdhci->reg_base, "taac=%u nsac=%u read_bl_len=%u c_size=%u c_size_mult=%u card size=%u bytes",
-//			taac, nsac, read_bl_len, c_size, c_size_mult, (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len));
-//		static const unsigned int time_unit[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000};
-//		static const unsigned int time_value[] = {1, 10, 12, 13, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80}; // must div by 10
-//		sdhci->timeout = time_unit[taac & 7] * time_value[(taac >> 3) & 0xf] / 10;
-//		sdhc_error(sdhci->reg_base, "calculated timeout =  %uns", sdhci->timeout);
-		num_sectors = (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len) / 512;
-	}
 //	sdhc_error(sdhci->reg_base, "num sectors = %u", sdhci->num_sectors);
 	
-	return num_sectors;
+	return c->num_sectors;
 }
 
 void sdmmc_ipc(volatile ipc_request *req)
