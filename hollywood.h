@@ -154,47 +154,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 /* SD Host Controller Registers */
 
-#ifdef OLD_SDHC
-
-#define		SD_REG_BASE				0xd070000
-
-#define		SDHC_SDMA_ADDR				(0x000)
-#define		SDHC_BLOCK_SIZE				(0x004)
-#define		SDHC_BLOCK_COUNT			(0x006)
-#define		SDHC_CMD_ARG				(0x008)
-#define		SDHC_CMD_TRANSFER_MODE			(0x00c)
-#define		SDHC_CMD				(0x00e)
-#define		SDHC_RESPONSE				(0x010)
-#define		SDHC_DATA				(0x020)
-#define		SDHC_PRESENT_STATE			(0x024)
-#define		SDHC_HOST_CONTROL			(0x028)
-#define		SDHC_POWER_CONTROL			(0x029)
-#define		SDHC_BLOCK_GAP_CONTROL			(0x02a)
-#define		SDHC_WAKEUP_CONTROL			(0x02b)
-#define		SDHC_CLOCK_CONTROL			(0x02c)
-#define		SDHC_TIMEOUT_CONTROL			(0x02e)
-#define		SDHC_SOFTWARE_RESET			(0x02f)
-#define		SDHC_NORMAL_INTERRUPT_STATUS		(0x030)
-#define		SDHC_ERROR_INTERRUPT_STATUS		(0x032)
-#define		SDHC_NORMAL_INTERRUPT_ENABLE		(0x034)
-#define		SDHC_ERROR_INTERRUPT_ENABLE		(0x036)
-#define		SDHC_NORMAL_INTERRUPT_SIGNAL_ENABLE	(0x038)
-#define		SDHC_ERROR_INTERRUPT_SIGNAL_ENABLE	(0x03a)
-#define		SDHC_AMCD12_ERROR_STATUS		(0x03c)
-#define		SDHC_CAPABILITIES			(0x040)
-#define		SDHC_MAX_CAPABILITIES			(0x048)
-#define		SDHC_FORCE_ERROR_EVENT_ACMD12		(0x050)
-#define		SDHC_FORCE_ERROR_EVENT_INTERRUPT	(0x052)
-#define		SDHC_ADMA_ERROR_STATUS			(0x054)
-#define		SDHC_ADMA_SYSTEM_ADDR			(0x058)
-#define		SDHC_SLOT_INTERRUPT_STATUS		(0x0fc)
-#define		SDHC_VERSION				(0x0fe)
-
-#else
-
 #define		SDHC_REG_BASE				0xd070000
-
-#endif
 
 /* EXI Registers */
 
