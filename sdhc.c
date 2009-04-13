@@ -55,12 +55,12 @@
 #define HDEVNAME(hp)	((hp)->sc->sc_dev.dv_xname)
 #define sdmmc_delay(t)	udelay(t)
 
-static inline u32 bus_space_read_4(bus_space_tag_t iot, bus_space_handle_t ioh, u32 reg)
+static inline u32 bus_space_read_4(bus_space_handle_t ioh, u32 reg)
 {
 	return read32(ioh + reg);
 }
 
-static inline u16 bus_space_read_2(bus_space_tag_t iot, bus_space_handle_t ioh, u32 reg)
+static inline u16 bus_space_read_2(bus_space_handle_t ioh, u32 reg)
 {
 	if(reg & 3)
 		return (read32((ioh + reg) & ~3) & 0xffff0000) >> 16;
@@ -68,7 +68,7 @@ static inline u16 bus_space_read_2(bus_space_tag_t iot, bus_space_handle_t ioh, 
 		return (read32(ioh + reg) & 0xffff);
 }
 
-static inline u8 bus_space_read_1(bus_space_tag_t iot, bus_space_handle_t ioh, u32 reg)
+static inline u8 bus_space_read_1(bus_space_handle_t ioh, u32 reg)
 {
 	u32 mask;
 	u32 addr;
@@ -81,12 +81,12 @@ static inline u8 bus_space_read_1(bus_space_tag_t iot, bus_space_handle_t ioh, u
 	return (read32(addr & ~3) & mask) >> shift;
 }
 
-static inline void bus_space_write_4(bus_space_tag_t iot, bus_space_handle_t ioh, u32 r, u32 v)
+static inline void bus_space_write_4(bus_space_handle_t ioh, u32 r, u32 v)
 {
 	write32(ioh + r, v);
 }
 
-static inline void bus_space_write_2(bus_space_tag_t iot, bus_space_handle_t ioh, u32 r, u16 v)
+static inline void bus_space_write_2(bus_space_handle_t ioh, u32 r, u16 v)
 {
 	if(r & 3)
 		mask32((ioh + r) & ~3, 0xffff0000, v << 16);
@@ -94,7 +94,7 @@ static inline void bus_space_write_2(bus_space_tag_t iot, bus_space_handle_t ioh
 		mask32((ioh + r), 0xffff, ((u32)v));
 }
 
-static inline void bus_space_write_1(bus_space_tag_t iot, bus_space_handle_t ioh, u32 r, u8 v)
+static inline void bus_space_write_1(bus_space_handle_t ioh, u32 r, u8 v)
 {
 	u32 mask;
 	u32 addr;
@@ -107,7 +107,7 @@ static inline void bus_space_write_1(bus_space_tag_t iot, bus_space_handle_t ioh
 	mask32(addr & ~3, mask, v << shift);
 }
 
-u32 splbio()
+u32 splbio(void)
 {
 //	irq_disable(IRQ_SDHC);
 	return 0;
@@ -115,6 +115,7 @@ u32 splbio()
 
 void splx(u32 dummy)
 {
+	(void)dummy;
 //	irq_enable(IRQ_SDHC);
 }
 
@@ -122,17 +123,17 @@ void splx(u32 dummy)
 #define SHF_USE_DMA		0x0001
 
 #define HREAD1(hp, reg)							\
-	(bus_space_read_1((hp)->iot, (hp)->ioh, (reg)))
+	(bus_space_read_1((hp)->ioh, (reg)))
 #define HREAD2(hp, reg)							\
-	(bus_space_read_2((hp)->iot, (hp)->ioh, (reg)))
+	(bus_space_read_2((hp)->ioh, (reg)))
 #define HREAD4(hp, reg)							\
-	(bus_space_read_4((hp)->iot, (hp)->ioh, (reg)))
+	(bus_space_read_4((hp)->ioh, (reg)))
 #define HWRITE1(hp, reg, val)						\
-	bus_space_write_1((hp)->iot, (hp)->ioh, (reg), (val))
+	bus_space_write_1((hp)->ioh, (reg), (val))
 #define HWRITE2(hp, reg, val)						\
-	bus_space_write_2((hp)->iot, (hp)->ioh, (reg), (val))
+	bus_space_write_2((hp)->ioh, (reg), (val))
 #define HWRITE4(hp, reg, val)						\
-	bus_space_write_4((hp)->iot, (hp)->ioh, (reg), (val))
+	bus_space_write_4((hp)->ioh, (reg), (val))
 #define HCLR1(hp, reg, bits)						\
 	HWRITE1((hp), (reg), HREAD1((hp), (reg)) & ~(bits))
 #define HCLR2(hp, reg, bits)						\

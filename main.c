@@ -171,7 +171,8 @@ u32 _main(void *base)
 	FRESULT fres;
 	int res;
 	u32 vector;
-
+	(void)base;
+	
 	gecko_init();
 	gecko_printf("mini v0.2 loading\n");
 

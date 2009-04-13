@@ -46,6 +46,7 @@ DSTATUS disk_initialize (BYTE drv) {
 // Return Disk Status
 
 DSTATUS disk_status (BYTE drv) {
+	(void)drv;
 	if (sdmmc_check_card(SDMMC_DEFAULT_DEVICE) == SDMMC_INSERTED)
 		return 0;
 	else
@@ -58,7 +59,7 @@ DSTATUS disk_status (BYTE drv) {
 
 DRESULT disk_read (BYTE drv, BYTE *buff, DWORD sector, BYTE count) {
 	int i;
-
+	(void)drv;
 	for (i = 0; i < count; i++) {
 		if (sdmmc_read(SDMMC_DEFAULT_DEVICE, sector+i, 1, buffer) != 0)
 			return RES_ERROR;
