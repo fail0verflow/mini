@@ -1,7 +1,7 @@
 /*
 	mini - a Free Software replacement for the Nintendo/BroadOn IOS.
 
-	BSD types
+	BSD types compatibility layer for the SD host controller driver.
 
 Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
 
