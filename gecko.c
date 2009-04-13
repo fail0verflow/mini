@@ -33,18 +33,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 static u8 gecko_console_enabled = 0;
 
-// These two don't really seem to be needed
-// Maybe only for boot buffer or some PPC stuff
-static inline void _gecko_get(void)
-{
-	//set32(HW_EXICTRL, 1);
-}
-
-static inline void _gecko_release(void)
-{
-	//clear32(HW_EXICTRL, 1);
-}
-
 static u32 _gecko_command(u32 command)
 {
 	u32 i;
@@ -110,26 +98,24 @@ static int gecko_isalive(void)
 	return 0;
 }
 
-#if 0
 static void gecko_flush(void)
 {
-	char tmp;
+	u8 tmp;
 	while(_gecko_recvbyte(&tmp));
 }
 
+#if 0
 static int gecko_recvbuffer(void *buffer, u32 size)
 {
 	u32 left = size;
 	char *ptr = (char*)buffer;
 
-	_gecko_get();
 	while(left>0) {
 		if(!_gecko_recvbyte(ptr))
 			break;
 		ptr++;
 		left--;
 	}
-	_gecko_release();
 	return (size - left);
 }
 #endif
@@ -139,14 +125,12 @@ static int gecko_sendbuffer(const void *buffer, u32 size)
 	u32 left = size;
 	char *ptr = (char*)buffer;
 
-	_gecko_get();
 	while(left>0) {
 		if(!_gecko_sendbyte(*ptr))
 			break;
 		ptr++;
 		left--;
 	}
-	_gecko_release();
 	return (size - left);
 }
 
@@ -156,7 +140,6 @@ static int gecko_recvbuffer_safe(void *buffer, u32 size)
 	u32 left = size;
 	char *ptr = (char*)buffer;
 	
-	_gecko_get();
 	while(left>0) {
 		if(_gecko_checkrecv()) {
 			if(!_gecko_recvbyte(ptr))
@@ -165,7 +148,6 @@ static int gecko_recvbuffer_safe(void *buffer, u32 size)
 			left--;
 		}
 	}
-	_gecko_release();
 	return (size - left);
 }
 
@@ -177,7 +159,6 @@ static int gecko_sendbuffer_safe(const void *buffer, u32 size)
 	if((read32(HW_EXICTRL) & EXICTRL_ENABLE_EXI) == 0)
 		return left;
 	
-	_gecko_get();
 	while(left>0) {
 		if(_gecko_checksend()) {
 			if(!_gecko_sendbyte(*ptr))
@@ -186,7 +167,6 @@ static int gecko_sendbuffer_safe(const void *buffer, u32 size)
 			left--;
 		}
 	}
-	_gecko_release();
 	return (size - left);
 }
 #endif
@@ -203,6 +183,7 @@ void gecko_init(void)
 	if (!gecko_isalive())
 		return;
 
+	gecko_flush();
 	gecko_console_enabled = 1;
 }
 
@@ -309,7 +290,9 @@ void gecko_timer(void) {
 			_gecko_state = GECKO_STATE_RECEIVE_BUFFER;
 			_gecko_receive_left = _gecko_receive_len;
 
+			// sorry pal, that memory is mine now
 			powerpc_hang();
+			gecko_printf("MINI/GECKO: PPC halted, receiving data...\n");
 		}
 
 		return;
@@ -329,7 +312,7 @@ void gecko_timer(void) {
 		return;
 
 	default:
-		gecko_printf("GECKOTIMER: statelolwtf?\n");
+		gecko_printf("MINI/GECKO: internal error\n");
 		return;
 	}
 
@@ -337,7 +320,8 @@ void gecko_timer(void) {
 	switch (_gecko_cmd) {
 	case 0x43524150:
 		if (powerpc_boot_mem((u8 *) 0x10100000, _gecko_receive_len))
-			gecko_printf("GECKOTIMER: elflolwtf?\n");
+			gecko_printf("MINI/GECKO: the received binary is not a valid "
+						"PPC ELF. Broadway is dead now.\n");
 		break;
 
 	case 0x5a4f4d47:
@@ -347,6 +331,8 @@ void gecko_timer(void) {
 	}
 
 cleanup:
+	gecko_flush();
+
 	irq_set_alarm(20, 0);
 
 	_gecko_cmd = 0;

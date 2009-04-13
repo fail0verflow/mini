@@ -35,13 +35,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 static Elf32_Ehdr elfhdr;
 static Elf32_Phdr phdrs[PHDR_MAX];
-static FIL fd;
 
 int powerpc_boot_file(const char *path)
 {
 	u32 read;
+	FIL fd;
 	FRESULT fres;
-	gecko_printf("%s: %08x\n", __FUNCTION__, read32(HW_TIMER));
+
 	fres = f_open(&fd, path, FA_READ);
 	if(fres != FR_OK)
 		return -fres;
@@ -133,7 +133,7 @@ int powerpc_boot_mem(const u8 *addr, u32 len)
 
 	if (ehdr->e_phnum > PHDR_MAX) {
 		gecko_printf("ELF has too many (%d) program headers!\n",
-						elfhdr.e_phnum);
+						ehdr->e_phnum);
 		return -102;
 	}
 
@@ -169,3 +169,4 @@ int powerpc_boot_mem(const u8 *addr, u32 len)
 
 	return 0;
 }
+
