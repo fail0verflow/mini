@@ -4,7 +4,7 @@
 	inter-processor communications
 
 Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
-Copyright (C) 2008, 2009	Haxx Enterprises
+Copyright (C) 2008, 2009	Haxx Enterprises <bushing@gmail.com
 Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
@@ -26,6 +26,21 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #include "types.h"
 
+
+/* For the sake of interface compatibility between mini and powerpc code,
+   you should try to commit any enhancements you make back upstream so
+   that they can be assigned a standard request number.  Otherwise, if
+   you are creating a new device, you MUST assign it a device ID >= 0x80.
+
+   Likewise, if you add functionality to any of the existing drivers,
+   your must assign it to a request ID >= 0x8000.  This will prevent
+   problems if a mismatch between ARM and PPC code occurs.  Similarly,
+   if you add functions, you should always add them to the end, to
+   prevent someone from calling the wrong function.
+
+   Even still, you are encouraged to add in sanity checks and version
+   checking to prevent strange bugs or even data loss.  --bushing */
+
 #define IPC_FAST	0x01
 #define IPC_SLOW	0x00
 
@@ -38,8 +53,12 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #define IPC_DEV_PPC	0x06
 #define IPC_DEV_SDMMC	0x07
 
+//#define IPC_DEV_USER0 0x80
+//#define IPC_DEV_USER1 0x81
+
 #define IPC_SYS_PING	0x0000
 #define IPC_SYS_JUMP	0x0001
+#define IPC_SYS_GETVERS 0x0002
 #define IPC_SYS_WRITE32	0x0100
 #define IPC_SYS_WRITE16	0x0101
 #define IPC_SYS_WRITE8	0x0102
@@ -62,6 +81,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #define IPC_NAND_WRITE	0x0003
 #define IPC_NAND_ERASE	0x0004
 #define IPC_NAND_STATUS	0x0005
+//#define IPC_NAND_USER0 0x8000
+//#define IPC_NAND_USER1 0x8001
+// etc.
 
 #define IPC_SDHC_DISCOVER 0x0000
 
@@ -84,9 +106,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #define IPC_PPC_BOOT	0x0000
 
+//#define IPC_USER0_OHAI 0x8000     <- your code goez here
+
 #define IPC_CODE (f,d,r) (((f)<<24)|((d)<<16)|(r))
 
-#define IPC_IN_SIZE		32
+#define IPC_IN_SIZE	32
 #define IPC_OUT_SIZE	32
 #define IPC_SLOW_SIZE	128
 
@@ -120,7 +144,7 @@ void ipc_initialize(void);
 void ipc_shutdown(void);
 void ipc_post(u32 code, u32 tag, u32 num_args, ...);
 void ipc_flush(void);
-u32 ipc_process_slow(void);
+u32  ipc_process_slow(void);
 
 // add an entry to the slow queue from the arm
 // (you probably want to use this in irq context)

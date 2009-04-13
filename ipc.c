@@ -37,6 +37,9 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "powerpc.h"
 #include "panic.h"
 
+#define MINI_VERSION_MAJOR 1
+#define MINI_VERSION_MINOR 0
+
 static volatile ipc_request in_queue[IPC_IN_SIZE] ALIGNED(32) MEM2_BSS;
 static volatile ipc_request out_queue[IPC_OUT_SIZE] ALIGNED(32) MEM2_BSS;
 static volatile ipc_request slow_queue[IPC_SLOW_SIZE];
@@ -82,6 +85,7 @@ static inline void poke_outtail(u16 num)
 {
 	mask32(HW_IPC_ARMMSG, 0xFFFF, num);
 }
+
 static inline void poke_inhead(u16 num)
 {
 	mask32(HW_IPC_ARMMSG, 0xFFFF0000, num<<16);
@@ -91,6 +95,7 @@ static inline u16 peek_intail(void)
 {
 	return read32(HW_IPC_PPCMSG) & 0xFFF;
 }
+
 static inline u16 peek_outhead(void)
 {
 	return read32(HW_IPC_PPCMSG) >> 16;
@@ -143,6 +148,9 @@ static u32 process_slow(volatile ipc_request *req)
 					break;
 				case IPC_SYS_JUMP:
 					return req->args[0];
+				case IPC_SYS_GETVERS:
+					ipc_post(req->code, req->tag, 1, MINI_VERSION_MAJOR << 16 | MINI_VERSION_MINOR);
+					break;
 				default:
 					gecko_printf("IPC: unknown SLOW SYS request %04x\n", req->req);
 			}
