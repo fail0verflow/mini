@@ -62,6 +62,7 @@
 /                   Changed result code of critical errors.
 /                   Renamed string functions to avoid name collision.
 /---------------------------------------------------------------------------*/
+// original source: http://elm-chan.org/fsw/ff/00index_e.html
 
 #include "ff.h"			/* FatFs configurations and declarations */
 #include "diskio.h"		/* Declarations of low level disk I/O functions */
