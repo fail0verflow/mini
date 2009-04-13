@@ -1055,8 +1055,6 @@ sdhc_intr(void *arg)
 
 		/*
 		 * Wake up the sdmmc event thread to scan for cards.
-		 * TODO: move request to slow queue to make sure that
-		 *       we're not blocking other IRQs
 		 */
 		 if (ISSET(status, SDHC_CARD_REMOVAL|SDHC_CARD_INSERTION)) {
 			ipc_request req;
