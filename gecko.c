@@ -293,7 +293,6 @@ void gecko_timer(void) {
 
 			// sorry pal, that memory is mine now
 			powerpc_hang();
-			gecko_printf("MINI/GECKO: PPC halted, receiving data...\n");
 		}
 
 		return;
