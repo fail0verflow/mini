@@ -94,7 +94,7 @@ static inline void poke_inhead(u16 num)
 
 static inline u16 peek_intail(void)
 {
-	return read32(HW_IPC_PPCMSG) & 0xFFF;
+	return read32(HW_IPC_PPCMSG) & 0xFFFF;
 }
 
 static inline u16 peek_outhead(void)

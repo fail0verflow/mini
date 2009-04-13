@@ -1,7 +1,7 @@
 /*
 	mini - a Free Software replacement for the Nintendo/BroadOn IOS.
 
-	exception handling
+	IRQ support
 
 Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
 
