@@ -80,3 +80,4 @@ void irq_set_alarm(u32 ms, u8 enable);
 #endif
 
 #endif
+

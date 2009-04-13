@@ -58,3 +58,4 @@ void panic2(int mode, ...)
 		udelay(PANIC_INTER);
 	}
 }
+

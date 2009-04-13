@@ -66,3 +66,4 @@ enum {
 #define GP_PPC_DEFAULT_ON (GP_DEFAULT_ON & GP_OWNER_PPC)
 
 #endif
+

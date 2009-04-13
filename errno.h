@@ -1,6 +1,3 @@
-/*	$OpenBSD: errno.h,v 1.20 2007/09/03 14:37:52 millert Exp $	*/
-/*	$NetBSD: errno.h,v 1.10 1996/01/20 01:33:53 jtc Exp $	*/
-
 /*
  * Copyright (c) 1982, 1986, 1989, 1993
  *	The Regents of the University of California.  All rights reserved.

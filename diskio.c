@@ -3,8 +3,8 @@
 
 	glue layer for FatFs
 
-Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
-Copyright (C) 2008, 2009 	Haxx Enterprises <bushing@gmail.com>
+Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
+Copyright (C) 2008, 2009	Haxx Enterprises <bushing@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -96,3 +96,4 @@ DRESULT disk_ioctl (BYTE drv, BYTE ctrl, void *buff) {
 	return RES_PARERR;
 }
 #endif /* _USE_IOCTL */
+

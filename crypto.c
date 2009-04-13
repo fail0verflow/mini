@@ -4,7 +4,7 @@
 	crypto support
 
 Copyright (C) 2008, 2009	Haxx Enterprises <bushing@gmail.com>
-Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
+Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -62,7 +62,6 @@ void crypto_initialize()
 
 void crypto_ipc(volatile ipc_request *req)
 {
-
 	switch (req->req) {
 		case IPC_KEYS_GETOTP:
 			memcpy((void *)req->args[0], &otp, sizeof(otp));
@@ -176,3 +175,4 @@ void aes_ipc(volatile ipc_request *req)
 	}
 	ipc_post(req->code, req->tag, 0);
 }
+

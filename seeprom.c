@@ -3,7 +3,7 @@
 
 	SEEPROM support
 
-Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
+Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -83,3 +83,4 @@ int seeprom_read(void *dst, int offset, int size)
 
 	return size;
 }
+

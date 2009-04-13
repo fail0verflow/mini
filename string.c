@@ -3,7 +3,6 @@
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
  */
-
 #include "string.h"
 
 size_t strnlen(const char *s, size_t count)
@@ -112,3 +111,4 @@ char *strchr(const char *s, int c)
 	} while(*s++ != 0);
 	return NULL;
 }
+

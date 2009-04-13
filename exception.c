@@ -121,3 +121,4 @@ void exc_handler(u32 type, u32 spsr, u32 *regs)
 	}
 	panic2(0, PANIC_EXCEPTION);
 }
+

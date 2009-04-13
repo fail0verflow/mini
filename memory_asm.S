@@ -69,3 +69,4 @@ _tlb_inval:
 	mov		r0, #0
 	mcr		p15, 0, r0, c8, c7
 	bx		lr
+

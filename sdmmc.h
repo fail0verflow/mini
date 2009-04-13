@@ -3,7 +3,7 @@
 
 	SD/MMC interface
 
-Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
+Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 */
 #ifndef __SDMMC_H__
-#define __SDMMC_H__	1
+#define __SDMMC_H__
 
 #include "bsdtypes.h"
 #include "sdmmcchip.h"
@@ -45,4 +45,6 @@ int sdmmc_check_card(struct device *dev);
 void sdmmc_ack_card(struct device *dev);
 int sdmmc_read(struct device *dev, u32 blk_start, u32 blk_count, void *data);
 void sdmmc_ipc(volatile ipc_request *req);
+
 #endif
+

@@ -17,8 +17,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program; if not, write to the Free Software
 Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
-*/#ifndef __TYPES_H__
+*/
+#ifndef __TYPES_H__
 #define __TYPES_H__
 
 typedef unsigned char u8;
@@ -68,3 +68,4 @@ typedef s32 size_t;
 #define ULLONG_MAX ((unsigned long long)0xffffffffffffffff)
 
 #endif
+

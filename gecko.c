@@ -4,7 +4,8 @@
 	boot2 chainloader
 
 Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
-Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
+Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
+Copyright (C) 2009			Andre Heider "dhewg" <dhewg@wiibrew.org>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -292,7 +293,6 @@ void gecko_timer(void) {
 
 			// sorry pal, that memory is mine now
 			powerpc_hang();
-			gecko_printf("MINI/GECKO: PPC halted, receiving data...\n");
 		}
 
 		return;

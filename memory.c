@@ -378,3 +378,4 @@ void mem_shutdown(void)
 	_tlb_inval();
 	irq_restore(cookie);
 }
+

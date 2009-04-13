@@ -1,10 +1,10 @@
 /*
 	mini - a Free Software replacement for the Nintendo/BroadOn IOS.
 
-Copyright (C) 2008, 2009	Haxx Enterprises <bushing@gmail.com
-Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
+Copyright (C) 2008, 2009	Haxx Enterprises <bushing@gmail.com>
+Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
 Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
-TODO add yourself here, kthx
+Copyright (C) 2009			Andre Heider "dhewg" <dhewg@wiibrew.org>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -48,7 +48,7 @@ u32 _main(void *base)
 	int res;
 	u32 vector;
 	(void)base;
-	
+
 	gecko_init();
 	gecko_printf("mini v0.2 loading\n");
 
@@ -83,7 +83,6 @@ u32 _main(void *base)
 
 	gecko_printf("Initializing SDHC...\n");
 	sdhc_init();
-//	sd_initialize();
 
 	gecko_printf("Mounting SD...\n");
 	fres = f_mount(0, &fatfs);
@@ -122,3 +121,4 @@ shutdown:
 	gecko_printf("Vectoring to 0x%08x...\n", vector);
 	return vector;
 }
+

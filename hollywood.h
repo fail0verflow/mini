@@ -3,8 +3,8 @@
 
 	Hollywood register definitions
 
-Copyright (C) 2008, 2009	Haxx Enterprises
-Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
+Copyright (C) 2008, 2009	Haxx Enterprises <bushing@gmail.com>
+Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
 Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
 
 This program is free software; you can redistribute it and/or modify
@@ -195,3 +195,4 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #define		MEM_FLUSHACK			(MEM_REG_BASE+0x22a)
 
 #endif
+

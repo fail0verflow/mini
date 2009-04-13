@@ -3,8 +3,8 @@
 
 	crypto support
 
-Copyright (C) 2008, 2009	Haxx Enterprises
-Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
+Copyright (C) 2008, 2009	Haxx Enterprises <bushing@gmail.com>
+Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,7 +21,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 */
 #ifndef __CRYPTO_H__
-#define __CRYPTO_H__	1
+#define __CRYPTO_H__
 
 #include "types.h"
 #include "ipc.h"
@@ -88,3 +88,4 @@ void aes_decrypt(u8 *src, u8 *dst, u32 blocks, u8 keep_iv);
 void aes_ipc(volatile ipc_request *req);
 
 #endif
+

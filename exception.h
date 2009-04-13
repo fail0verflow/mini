@@ -4,7 +4,7 @@
 	exception handling
 
 Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
-Copyright (C) 2008, 2009	Haxx Enterprises
+Copyright (C) 2008, 2009	Haxx Enterprises <bushing@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

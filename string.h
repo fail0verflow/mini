@@ -1,5 +1,10 @@
-#ifndef _STRING_H_
-#define _STRING_H_
+/*
+ *  linux/lib/string.c
+ *
+ *  Copyright (C) 1991, 1992  Linus Torvalds
+ */
+#ifndef __STRING_H__
+#define __STRING_H__
 
 #include "types.h"
 
@@ -15,3 +20,4 @@ void *memcpy(void *, const void *, size_t);
 int memcmp(const void *s1, const void *s2, size_t n);
 
 #endif
+
