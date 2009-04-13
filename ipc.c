@@ -4,7 +4,7 @@
 	inter-processor communications
 
 Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
-Copyright (C) 2008, 2009	Haxx Enterprises
+Copyright (C) 2008, 2009	Haxx Enterprises <bushing@gmail.com>
 Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
 
 This program is free software; you can redistribute it and/or modify
@@ -31,6 +31,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "ipc.h"
 #include "nand.h"
 #include "sdhcvar.h"
+#include "sdmmc.h"
 #include "crypto.h"
 #include "boot2.h"
 #include "powerpc.h"
