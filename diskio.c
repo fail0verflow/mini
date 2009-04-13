@@ -1,29 +1,39 @@
-/*-----------------------------------------------------------------------*/
-/* Low level disk I/O module skeleton for FatFs     (C)ChaN, 2007        */
-/*-----------------------------------------------------------------------*/
-/* This is a stub disk I/O module that acts as front end of the existing */
-/* disk I/O modules and attach it to FatFs module with common interface. */
-/*-----------------------------------------------------------------------*/
+/*
+	mini - a Free Software replacement for the Nintendo/BroadOn IOS.
+
+	glue layer for FatFs
+
+Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
+Copyright (C) 2008, 2009 	Haxx Enterprises <bushing@gmail.com>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, version 2.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+*/
 
 #include "diskio.h"
 #include "string.h"
 #include "sdmmc.h"
-//#include "sdhc.h"
 
 #ifndef MEM2_BSS
 #define MEM2_BSS
 #endif
 
-//static sdhci_t sdhci;
 static u8 buffer[512] MEM2_BSS ALIGNED(32);
 
-/*-----------------------------------------------------------------------*/
-/* Inidialize a Drive                                                    */
+// Initialize a Drive
 
-DSTATUS disk_initialize (
-	BYTE drv				/* Physical drive nmuber (0..) */
-)
-{
+DSTATUS disk_initialize (BYTE drv) {
 	if (sdmmc_check_card(SDMMC_DEFAULT_DEVICE) == SDMMC_NO_CARD)
 		return STA_NOINIT;
 
@@ -33,16 +43,9 @@ DSTATUS disk_initialize (
 
 
 
-/*-----------------------------------------------------------------------*/
-/* Return Disk Status                                                    */
+// Return Disk Status
 
-DSTATUS disk_status (
-	BYTE drv		/* Physical drive nmuber (0..) */
-)
-{
-//	if (sd_inserted(&sdhci) == 0)
-//		return STA_NODISK;
-
+DSTATUS disk_status (BYTE drv) {
 	if (sdmmc_check_card(SDMMC_DEFAULT_DEVICE) == SDMMC_INSERTED)
 		return 0;
 	else
@@ -51,76 +54,44 @@ DSTATUS disk_status (
 
 
 
-/*-----------------------------------------------------------------------*/
-/* Read Sector(s)                                                        */
+// Read Sector(s)
 
-DRESULT disk_read (
-	BYTE drv,		/* Physical drive nmuber (0..) */
-	BYTE *buff,		/* Data buffer to store read data */
-	DWORD sector,	/* Sector address (LBA) */
-	BYTE count		/* Number of sectors to read (1..255) */
-)
-{
+DRESULT disk_read (BYTE drv, BYTE *buff, DWORD sector, BYTE count) {
 	int i;
-	DRESULT res;
 
-	res = RES_OK;
 	for (i = 0; i < count; i++) {
-		if (sdmmc_read(SDMMC_DEFAULT_DEVICE, sector+i, 1, buffer) != 0){
-			res = RES_ERROR;
-			break;
-		}
-
+		if (sdmmc_read(SDMMC_DEFAULT_DEVICE, sector+i, 1, buffer) != 0)
+			return RES_ERROR;
 		memcpy(buff + i * 512, buffer, 512);
 	}
 
-	return res;
+	return RES_OK;
 }
 
 
 
-/*-----------------------------------------------------------------------*/
-/* Write Sector(s)                                                       */
+// Write Sector(s)
 
 #if _READONLY == 0
-DRESULT disk_write (
-	BYTE drv,			/* Physical drive nmuber (0..) */
-	const BYTE *buff,	/* Data to be written */
-	DWORD sector,		/* Sector address (LBA) */
-	BYTE count			/* Number of sectors to write (1..255) */
-)
-{
+DRESULT disk_write (BYTE drv, const BYTE *buff, DWORD sector, BYTE count) {
 	int i;
-	DRESULT res;
 
-	res = RES_OK;
 	for (i = 0; i < count; i++) {
 		memcpy(buffer, buff + i * 512, 512);
 
-/*		if(sd_write(&sdhci, sector + i, 1, buffer) != 0) {
-			res = RES_ERROR;
-			break;
-		}*/
+		if(sdmmc_write(SDMMC_DEFAULT_DEVICE, sector + i, 1, buffer) != 0)
+			return RES_ERROR;
 	}
 
-	return res;
+	return RES_OK;
 }
 #endif /* _READONLY */
 
-
-
-/*-----------------------------------------------------------------------*/
-/* Miscellaneous Functions                                               */
-
-DRESULT disk_ioctl (
-	BYTE drv,		/* Physical drive nmuber (0..) */
-	BYTE ctrl,		/* Control code */
-	void *buff		/* Buffer to send/receive control data */
-)
-{
+#if _USE_IOCTL == 1
+DRESULT disk_ioctl (BYTE drv, BYTE ctrl, void *buff) {
 	if (ctrl == CTRL_SYNC)
 		return RES_OK;
 
 	return RES_PARERR;
 }
-
+#endif /* _USE_IOCTL */

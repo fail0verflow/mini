@@ -3,7 +3,7 @@
 
 	crypto support
 
-Copyright (C) 2008, 2009	Haxx Enterprises
+Copyright (C) 2008, 2009	Haxx Enterprises <bushing@gmail.com>
 Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
 
 This program is free software; you can redistribute it and/or modify

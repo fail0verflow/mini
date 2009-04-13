@@ -1,6 +1,19 @@
 /*-----------------------------------------------------------------------
 /  Low level disk interface modlue include file  R0.07   (C)ChaN, 2009
-/-----------------------------------------------------------------------*/
+/-----------------------------------------------------------------------
+/ FatFs module is an open source project to implement FAT file system to small
+/ embedded systems. It is opened for education, research and development under
+/ license policy of following trems.
+/
+/  Copyright (C) 2009, ChaN, all right reserved.
+/
+/ * The FatFs module is a free software and there is no warranty.
+/ * You can use, modify and/or redistribute it for personal, non-profit or
+/   commercial use without any restriction under your responsibility.
+/ * Redistributions of source code must retain the above copyright notice.
+/
+/----------------------------------------------------------------------------*/
+// original source: http://elm-chan.org/fsw/ff/00index_e.html
 
 #ifndef _DISKIO
 
@@ -8,7 +21,6 @@
 #define _USE_IOCTL	1
 
 #include "integer.h"
-
 
 /* Status of Disk Functions */
 typedef BYTE	DSTATUS;
@@ -26,15 +38,15 @@ typedef enum {
 /*---------------------------------------*/
 /* Prototypes for disk control functions */
 
-BOOL assign_drives (int argc, char *argv[]);
 DSTATUS disk_initialize (BYTE);
 DSTATUS disk_status (BYTE);
 DRESULT disk_read (BYTE, BYTE*, DWORD, BYTE);
 #if	_READONLY == 0
 DRESULT disk_write (BYTE, const BYTE*, DWORD, BYTE);
 #endif
+#if     _USE_IOCTL == 1
 DRESULT disk_ioctl (BYTE, BYTE, void*);
-
+#endif
 
 
 /* Disk Status Bits (DSTATUS) */
@@ -44,27 +56,10 @@ DRESULT disk_ioctl (BYTE, BYTE, void*);
 #define STA_PROTECT		0x04	/* Write protected */
 
 
-/* Command code for disk_ioctrl() */
-
-/* Generic command */
-#define CTRL_SYNC			0	/* Mandatory for write functions */
-#define GET_SECTOR_COUNT	1	/* Mandatory for only f_mkfs() */
-#define GET_SECTOR_SIZE		2
-#define GET_BLOCK_SIZE		3	/* Mandatory for only f_mkfs() */
-#define CTRL_POWER			4
-#define CTRL_LOCK			5
-#define CTRL_EJECT			6
-/* MMC/SDC command */
-#define MMC_GET_TYPE		10
-#define MMC_GET_CSD			11
-#define MMC_GET_CID			12
-#define MMC_GET_OCR			13
-#define MMC_GET_SDSTAT		14
-/* ATA/CF command */
-#define ATA_GET_REV			20
-#define ATA_GET_MODEL		21
-#define ATA_GET_SN			22
-
+#if _USE_IOCTL == 1
+/* Command code for disk_ioctl() */
+#define CTRL_SYNC	0	/* Mandatory for write functions */
+#endif
 
 #define _DISKIO
 #endif
