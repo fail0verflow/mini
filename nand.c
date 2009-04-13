@@ -1,8 +1,9 @@
 /*
 	mini - a Free Software replacement for the Nintendo/BroadOn IOS.
 
-	NAND support
+	low-level NAND support
 
+Copyright (C) 2008, 2009 	Haxx Enterprises <bushing@gmail.com>
 Copyright (C) 2008, 2009 	Sven Peter <svenpeter@gmail.com>
 Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
 
@@ -51,18 +52,18 @@ type *name = (type*)(((u32)(_al__##name)) + ((alignment) - (( \
 (u32)(_al__##name))&((alignment)-1))))
 
 
-#define NAND_RESET 0xff
-#define NAND_CHIPID 0x90
-#define NAND_GETSTATUS 0x70
-#define NAND_ERASE_PRE 0x60
+#define NAND_RESET      0xff
+#define NAND_CHIPID     0x90
+#define NAND_GETSTATUS  0x70
+#define NAND_ERASE_PRE  0x60
 #define NAND_ERASE_POST 0xd0
-#define NAND_READ_PRE 0x00
-#define NAND_READ_POST 0x30
-#define NAND_WRITE_PRE 0x80
+#define NAND_READ_PRE   0x00
+#define NAND_READ_POST  0x30
+#define NAND_WRITE_PRE  0x80
 #define NAND_WRITE_POST 0x10
 
-#define NAND_BUSY_MASK 0x80000000
-#define NAND_ERROR 0x20000000
+#define NAND_BUSY_MASK  0x80000000
+#define NAND_ERROR      0x20000000
 
 #define NAND_FLAGS_IRQ 	0x40000000
 #define NAND_FLAGS_WAIT 0x8000
@@ -159,10 +160,9 @@ void __nand_setup_dma(u8 *data, u8 *spare) {
 	}
 }
 
-int nand_reset(void)
-{
+int nand_reset(void) {
 	NAND_debug("nand_reset()\n");
-	// IOS actually uses NAND_FLAGS_IRQ | NAND_FLAGS_WAIT here
+// IOS actually uses NAND_FLAGS_IRQ | NAND_FLAGS_WAIT here
 	nand_send_command(NAND_RESET, 0, NAND_FLAGS_WAIT, 0);
 	__nand_wait();
 // enable NAND controller
@@ -206,8 +206,8 @@ void nand_read_page(u32 pageno, void *data, void *ecc) {
 	nand_send_command(NAND_READ_POST, 0, NAND_FLAGS_IRQ | NAND_FLAGS_WAIT | NAND_FLAGS_RD | NAND_FLAGS_ECC, 0x840);
 }
 
-void nand_wait() {
-	// power-saving IRQ wait
+void nand_wait(void) {
+// power-saving IRQ wait
 	while(!irq_flag) {
 		u32 cookie = irq_kill();
 		if(!irq_flag)
@@ -220,6 +220,8 @@ void nand_wait() {
 void nand_write_page(u32 pageno, void *data, void *ecc) {
 	irq_flag = 0;
 	NAND_debug("nand_write_page(%u, %p, %p)\n", pageno, data, ecc);
+
+// this is a safety check to prevent you from accidentally wiping out boot1 or boot2.
 	if ((pageno < 0x200) || (pageno >= NAND_MAX_PAGE)) {
 		gecko_printf("Error: nand_write to page %d forbidden\n", pageno);
 		return;
@@ -239,6 +241,8 @@ void nand_write_page(u32 pageno, void *data, void *ecc) {
 void nand_erase_block(u32 pageno) {
 	irq_flag = 0;
 	NAND_debug("nand_erase_block(%d)\n", pageno);
+
+// this is a safety check to prevent you from accidentally wiping out boot1 or boot2.
 	if ((pageno < 0x200) || (pageno >= NAND_MAX_PAGE)) {
 		gecko_printf("Error: nand_erase to page %d forbidden\n", pageno);
 		return;
@@ -248,7 +252,6 @@ void nand_erase_block(u32 pageno) {
 	__nand_wait();
 	nand_send_command(NAND_ERASE_POST, 0, NAND_FLAGS_IRQ | NAND_FLAGS_WAIT, 0);
 	NAND_debug("nand_erase_block(%d) done\n", pageno);
-
 }
 #endif
 
