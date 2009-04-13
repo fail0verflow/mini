@@ -251,22 +251,15 @@ void gecko_timer_initialize(void)
 	if (!gecko_isalive())
 		return;
 
-	irq_set_alarm(100, 1);
+	irq_set_alarm(20, 1);
 }
 
 void gecko_timer(void) {
 	u8 b;
 
 	if (_gecko_cmd_start_time && read32(HW_TIMER) >
-			(_gecko_cmd_start_time + IRQ_ALARM_MS2REG(5000))) {
-		// time's over, bitch
-		irq_set_alarm(100, 0);
-		_gecko_cmd = 0;
-		_gecko_cmd_start_time = 0;
-		_gecko_state = GECKO_STATE_NONE;
-
-		return;
-	}
+			(_gecko_cmd_start_time + IRQ_ALARM_MS2REG(5000)))
+		goto cleanup;
 
 	switch (_gecko_state) {
 	case GECKO_STATE_NONE:
@@ -353,7 +346,8 @@ void gecko_timer(void) {
 		break;
 	}
 
-	irq_set_alarm(100, 0);
+cleanup:
+	irq_set_alarm(20, 0);
 
 	_gecko_cmd = 0;
 	_gecko_cmd_start_time = 0;
