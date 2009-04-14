@@ -79,17 +79,17 @@ void irq_handler(void)
 		nand_irq();
 	}
 	if(flags & IRQF_GPIO1B) {
-		gecko_printf("IRQ: GPIO1B\n");
+//		gecko_printf("IRQ: GPIO1B\n");
 		write32(HW_GPIO1BINTFLAG, 0xFFFFFF); // shut it up
 		write32(HW_ARMIRQFLAG, IRQF_GPIO1B);
 	}
 	if(flags & IRQF_GPIO1) {
-		gecko_printf("IRQ: GPIO1\n");
+//		gecko_printf("IRQ: GPIO1\n");
 		write32(HW_GPIO1INTFLAG, 0xFFFFFF); // shut it up
 		write32(HW_ARMIRQFLAG, IRQF_GPIO1);
 	}
 	if(flags & IRQF_RESET) {
-		gecko_printf("IRQ: RESET\n");
+//		gecko_printf("IRQ: RESET\n");
 		write32(HW_ARMIRQFLAG, IRQF_RESET);
 	}
 	if(flags & IRQF_IPC) {
@@ -98,7 +98,7 @@ void irq_handler(void)
 		write32(HW_ARMIRQFLAG, IRQF_IPC);
 	}
 	if(flags & IRQF_AES) {
-		gecko_printf("IRQ: AES\n");
+//		gecko_printf("IRQ: AES\n");
 		write32(HW_ARMIRQFLAG, IRQF_AES);
 	}
 	if (flags & IRQF_SDHC) {

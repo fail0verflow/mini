@@ -1057,7 +1057,11 @@ sdhc_intr(void *arg)
 		 * Wake up the sdmmc event thread to scan for cards.
 		 */
 		 if (ISSET(status, SDHC_CARD_REMOVAL|SDHC_CARD_INSERTION)) {
-			ipc_request req;
+			 // this pushed a request to the slow queue so that we
+			 // don't block other IRQs.
+			 // this is also static because we are in IRQ context
+			 // here and want to save stack space
+			static ipc_request req;
 			memset(&req, 0, sizeof(req));
 			req.device = IPC_DEV_SDHC;
 			req.req = IPC_SDHC_DISCOVER;
