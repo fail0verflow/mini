@@ -162,7 +162,7 @@ static int read_to(u32 bytes)
 		gecko_printf("tried to read %d boot2 bytes (%d pages), but only %d blocks (%d pages) are valid!\n", bytes, (bytes+(PAGE_SIZE-1)) / PAGE_SIZE, valid_blocks, valid_blocks * BLOCK_SIZE);
 		return -1;
 	}
-	while(bytes > pages_read * PAGE_SIZE) {
+	while(bytes > ((u32)pages_read * PAGE_SIZE)) {
 		u32 page = boot2_page_translate(pages_read);
 		nand_read_page(page, page_ptr, ecc_buf);
 		nand_wait();
@@ -334,7 +334,7 @@ static u32 patch[] = {
 
 u32 boot2_run(u32 tid_hi, u32 tid_lo) {
 	u8 *ptr;
-	int i;
+	u32 i;
 	ioshdr *hdr;
 
 	patch[2] = tid_hi;
