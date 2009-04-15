@@ -200,6 +200,7 @@ u8 gecko_enable_console(const u8 enable)
 	return gecko_console_enabled;
 }
 
+#ifndef NDEBUG
 int gecko_printf(const char *fmt, ...)
 {
 	if (!gecko_console_enabled)
@@ -215,6 +216,7 @@ int gecko_printf(const char *fmt, ...)
 
 	return gecko_sendbuffer(buffer, i);
 }
+#endif
 
 // irq context
 

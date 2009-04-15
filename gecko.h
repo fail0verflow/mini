@@ -29,7 +29,13 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 void gecko_init(void);
 u8 gecko_enable_console(const u8 enable);
+
+#ifdef NDEBUG
+#define gecko_printf(...) do { } while(0)
+#else
 int gecko_printf(const char *fmt, ...) __attribute__((format (printf, 1, 2)));
+#endif
+
 void gecko_timer_initialize(void);
 void gecko_timer(void);
 
