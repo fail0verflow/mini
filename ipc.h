@@ -108,8 +108,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #define IPC_PPC_BOOT	0x0000
 
-//#define IPC_USER0_OHAI 0x8000     <- your code goez here
-
 #define IPC_CODE (f,d,r) (((f)<<24)|((d)<<16)|(r))
 
 #define IPC_IN_SIZE	32
@@ -140,7 +138,6 @@ typedef const struct {
 } ipc_infohdr;
 
 void ipc_irq(void);
-void ipc_queue_slow_jump(u32 addr); // only call this from irq context
 
 void ipc_initialize(void);
 void ipc_shutdown(void);
@@ -148,9 +145,8 @@ void ipc_post(u32 code, u32 tag, u32 num_args, ...);
 void ipc_flush(void);
 u32  ipc_process_slow(void);
 
-// add an entry to the slow queue from the arm
-// (you probably want to use this in irq context)
-void ipc_add_slow(volatile ipc_request *req);
+// Enqueues a request in the slow in_queue, use this in IRQ context only.
+void ipc_enqueue_slow(u8 device, u16 req, u32 num_args, ...);
 
 #endif
 

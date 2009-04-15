@@ -81,10 +81,16 @@ void powerpc_ipc(volatile ipc_request *req)
 {
 	switch (req->req) {
 		case IPC_PPC_BOOT:
-			dc_invalidaterange((void *) req->args[0], (u32) req->args[1]);
-			int res = powerpc_boot_mem((u8 *) req->args[0], (u32) req->args[1]);
-			if (res)
-				ipc_post(req->code, req->tag, 1, res);
+			if (req->args[0]) {
+				// Enqueued from ARM side, do not invalidate mem nor ipc_post
+				powerpc_boot_mem((u8 *) req->args[1], req->args[2]);
+			} else {
+				dc_invalidaterange((void *) req->args[1], req->args[2]);
+				int res = powerpc_boot_mem((u8 *) req->args[1], req->args[2]);
+				if (res)
+					ipc_post(req->code, req->tag, 1, res);
+			}
+
 			break;
 		default:
 			gecko_printf("IPC: unknown SLOW PPC request %04X\n", req->req);

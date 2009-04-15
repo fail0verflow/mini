@@ -320,14 +320,13 @@ void gecko_timer(void) {
 	// done receiving, handle the command
 	switch (_gecko_cmd) {
 	case 0x43524150:
-		if (powerpc_boot_mem((u8 *) 0x10100000, _gecko_receive_len))
-			gecko_printf("MINI/GECKO: the received binary is not a valid "
-						"PPC ELF. Broadway is dead now.\n");
+		ipc_enqueue_slow(IPC_DEV_PPC, IPC_PPC_BOOT, 3,
+							1, (u32) 0x10100000, _gecko_receive_len);
 		break;
 
 	case 0x5a4f4d47:
 		// skip headerlen, which is stored at u32[0]
-		ipc_queue_slow_jump(((u32 *) 0x0)[0]);
+		ipc_enqueue_slow(IPC_DEV_SYS, IPC_SYS_JUMP, 1, ((u32 *) 0x0)[0]);
 		break;
 	}
 

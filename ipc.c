@@ -185,13 +185,28 @@ static u32 process_slow(volatile ipc_request *req)
 	return 0;
 }
 
-void ipc_add_slow(volatile ipc_request *req)
+void ipc_enqueue_slow(u8 device, u16 req, u32 num_args, ...)
 {
+	int arg = 0;
+	va_list ap;
+
 	if(slow_queue_head == ((slow_queue_tail + 1)&(IPC_SLOW_SIZE-1))) {
 		gecko_printf("IPC: Slowqueue overrun\n");
 		panic2(0, PANIC_IPCOVF);
 	}
-	slow_queue[slow_queue_tail] = *req;
+
+	slow_queue[slow_queue_tail].flags = IPC_SLOW;
+	slow_queue[slow_queue_tail].device = device;
+	slow_queue[slow_queue_tail].req = req;
+	slow_queue[slow_queue_tail].tag = 0;
+
+	if(num_args) {
+		va_start(ap, num_args);
+		while(num_args--)
+			slow_queue[slow_queue_tail].args[arg++] = va_arg(ap, u32);
+		va_end(ap);
+	}
+
 	slow_queue_tail = (slow_queue_tail+1)&(IPC_SLOW_SIZE-1);
 }
 
@@ -269,7 +284,13 @@ static void process_in(void)
 				break;
 		}
 	} else {
-		ipc_add_slow(req);
+		if(slow_queue_head == ((slow_queue_tail + 1)&(IPC_SLOW_SIZE-1))) {
+			gecko_printf("IPC: Slowqueue overrun\n");
+			panic2(0, PANIC_IPCOVF);
+		}
+
+		slow_queue[slow_queue_tail] = *req;
+		slow_queue_tail = (slow_queue_tail+1)&(IPC_SLOW_SIZE-1);
 	}
 }
 
@@ -287,26 +308,6 @@ void ipc_irq(void)
 	}
 	if(!donebell)
 		gecko_printf("IPC: IRQ but no bell!\n");
-}
-
-void ipc_queue_slow_jump(u32 addr)
-{
-	volatile ipc_request *req = &in_queue[in_head];
-
-	if(slow_queue_head == ((slow_queue_tail + 1)&(IPC_SLOW_SIZE-1))) {
-		gecko_printf("IPC: Slowqueue overrun\n");
-		panic2(0, PANIC_IPCOVF);
-	}
-
-	req->flags = IPC_SLOW;
-	req->device = IPC_DEV_SYS;
-	req->req = IPC_SYS_JUMP;
-
-	req->tag = 0;
-	req->args[0] = addr;
-
-	slow_queue[slow_queue_tail] = *req;
-	slow_queue_tail = (slow_queue_tail+1)&(IPC_SLOW_SIZE-1);
 }
 
 void ipc_initialize(void)

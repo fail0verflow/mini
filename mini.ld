@@ -24,7 +24,7 @@ EXTERN(__ipc_info)
 ENTRY(_start)
 
 __stack_size = 0x800;
-__irqstack_size = 0x400;  /* blame the bsd's sdhc_intr function */
+__irqstack_size = 0x100;
 __excstack_size = 0x100;
 
 MEMORY {
