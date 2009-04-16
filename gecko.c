@@ -42,8 +42,22 @@ static u32 _gecko_command(u32 command)
 	write32(EXI1_CSR, 0xd0);
 	write32(EXI1_DATA, command);
 	write32(EXI1_CR, 0x19);
-	i = 1000;
-	while ((read32(EXI1_CR) & 1) && (i--));
+	while (read32(EXI1_CR) & 1);
+	i = read32(EXI1_DATA);
+	write32(EXI1_CSR, 0);
+	return i;
+}
+
+static u32 _gecko_getid(void)
+{
+	u32 i;
+	// Memory Card Port B (Channel 1, Device 0, Frequency 3 (32Mhz Clock))
+	write32(EXI1_CSR, 0xd0);
+	write32(EXI1_DATA, 0);
+	write32(EXI1_CR, 0x19);
+	while (read32(EXI1_CR) & 1);
+	write32(EXI1_CR, 0x39);
+	while (read32(EXI1_CR) & 1);
 	i = read32(EXI1_DATA);
 	write32(EXI1_CSR, 0);
 	return i;
@@ -93,11 +107,17 @@ static u32 _gecko_checkrecv(void)
 
 static int gecko_isalive(void)
 {
-	u32 i = 0;
+	u32 i;
+
+	i = _gecko_getid();
+	if (i != 0x00000000)
+		return 0;
+
 	i = _gecko_command(0x90000000);
-	if (i&0x04700000)
-		return 1;
-	return 0;
+	if ((i & 0xFFFF0000) != 0x04700000)
+		return 0;
+
+	return 1;
 }
 
 static void gecko_flush(void)
