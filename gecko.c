@@ -246,6 +246,9 @@ int gecko_printf(const char *fmt, ...)
 
 #define GECKO_BUFFER_MAX (20 * 1024 * 1024)
 
+#define GECKO_CMD_BIN_ARM 0x4241524d
+#define GECKO_CMD_BIN_PPC 0x42505043
+
 static u32 _gecko_cmd = 0;
 static u32 _gecko_cmd_start_time = 0;
 static u32 _gecko_state = GECKO_STATE_NONE;
@@ -277,24 +280,22 @@ void gecko_timer(void) {
 		_gecko_cmd |= b;
 
 		switch (_gecko_cmd) {
-		// upload powerpc ELF
-		case 0x43524150:
+		case GECKO_CMD_BIN_ARM:
 			_gecko_state = GECKO_STATE_RECEIVE_BUFFER_SIZE;
 			_gecko_receive_len = 0;
 			_gecko_receive_left = 4;
-			_gecko_receive_buffer = (u8 *) 0x10100000;
+			_gecko_receive_buffer = (u8 *) 0x0; // yarly
 
 			irq_set_alarm(1, 0);
 			_gecko_cmd_start_time = read32(HW_TIMER);
 
 			break;
 
-		// upload ARM ELF
-		case 0x5a4f4d47:
+		case GECKO_CMD_BIN_PPC:
 			_gecko_state = GECKO_STATE_RECEIVE_BUFFER_SIZE;
 			_gecko_receive_len = 0;
 			_gecko_receive_left = 4;
-			_gecko_receive_buffer = (u8 *) 0x0; // yarly
+			_gecko_receive_buffer = (u8 *) 0x10100000;
 
 			irq_set_alarm(1, 0);
 			_gecko_cmd_start_time = read32(HW_TIMER);
@@ -346,14 +347,14 @@ void gecko_timer(void) {
 
 	// done receiving, handle the command
 	switch (_gecko_cmd) {
-	case 0x43524150:
-		ipc_enqueue_slow(IPC_DEV_PPC, IPC_PPC_BOOT, 3,
-							1, (u32) 0x10100000, _gecko_receive_len);
-		break;
-
-	case 0x5a4f4d47:
+	case GECKO_CMD_BIN_ARM:
 		// skip headerlen, which is stored at u32[0]
 		ipc_enqueue_slow(IPC_DEV_SYS, IPC_SYS_JUMP, 1, ((u32 *) 0x0)[0]);
+		break;
+
+	case GECKO_CMD_BIN_PPC:
+		ipc_enqueue_slow(IPC_DEV_PPC, IPC_PPC_BOOT, 3,
+							1, (u32) 0x10100000, _gecko_receive_len);
 		break;
 	}
 
