@@ -244,6 +244,8 @@ int gecko_printf(const char *fmt, ...)
 #define GECKO_STATE_RECEIVE_BUFFER_SIZE 1
 #define GECKO_STATE_RECEIVE_BUFFER 2
 
+#define GECKO_BUFFER_MAX (20 * 1024 * 1024)
+
 static u32 _gecko_cmd = 0;
 static u32 _gecko_cmd_start_time = 0;
 static u32 _gecko_state = GECKO_STATE_NONE;
@@ -311,6 +313,9 @@ void gecko_timer(void) {
 		_gecko_receive_left--;
 
 		if (!_gecko_receive_left) {
+			if (_gecko_receive_len > GECKO_BUFFER_MAX)
+				goto cleanup;
+
 			_gecko_state = GECKO_STATE_RECEIVE_BUFFER;
 			_gecko_receive_left = _gecko_receive_len;
 
