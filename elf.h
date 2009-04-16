@@ -46,8 +46,8 @@ typedef struct {
 typedef struct {
 	u32 p_type;
 	u32 p_offset;
-	void *p_vaddr;
-	void *p_paddr;
+	u32 p_vaddr;
+	u32 p_paddr;
 	u32 p_filesz;
 	u32 p_memsz;
 	u32 p_flags;
