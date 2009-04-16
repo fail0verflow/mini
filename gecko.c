@@ -286,7 +286,6 @@ void gecko_timer(void) {
 			_gecko_receive_left = 4;
 			_gecko_receive_buffer = (u8 *) 0x0; // yarly
 
-			irq_set_alarm(1, 0);
 			_gecko_cmd_start_time = read32(HW_TIMER);
 
 			break;
@@ -297,7 +296,6 @@ void gecko_timer(void) {
 			_gecko_receive_left = 4;
 			_gecko_receive_buffer = (u8 *) 0x10100000;
 
-			irq_set_alarm(1, 0);
 			_gecko_cmd_start_time = read32(HW_TIMER);
 
 			break;
@@ -360,8 +358,6 @@ void gecko_timer(void) {
 
 cleanup:
 	gecko_flush();
-
-	irq_set_alarm(20, 0);
 
 	_gecko_cmd = 0;
 	_gecko_cmd_start_time = 0;
