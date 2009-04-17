@@ -62,5 +62,12 @@ typedef struct {
 #define PT_SHLIB    5
 #define PT_PHDR     6
 
+typedef struct {
+	u32 hdrsize;
+	u32 loadersize;
+	u32 elfsize;
+	u32 argument;
+} ioshdr;
+
 #endif
 

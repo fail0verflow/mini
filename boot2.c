@@ -22,6 +22,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 */
 #include "types.h"
+#include "elf.h"
 #include "nand.h"
 #include "memory.h"
 #include "crypto.h"
@@ -48,13 +49,6 @@ typedef struct {
 	u32 tmd_len;
 	u32 padding[3];
 } boot2header;
-
-typedef struct {
-	u32 hdrsize;
-	u32 loadersize;
-	u32 elfsize;
-	u32 argument;
-} ioshdr;
 
 typedef struct {
 	u64 signature;

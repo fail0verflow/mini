@@ -29,6 +29,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "string.h"
 #include "utils.h"
 #include "hollywood.h"
+#include "elf.h"
 #include "powerpc.h"
 #include "powerpc_elf.h"
 #include "gecko.h"
@@ -343,11 +344,21 @@ void gecko_timer(void) {
 		return;
 	}
 
+	ioshdr *h;
+
 	// done receiving, handle the command
 	switch (_gecko_cmd) {
 	case GECKO_CMD_BIN_ARM:
-		// skip headerlen, which is stored at u32[0]
-		ipc_enqueue_slow(IPC_DEV_SYS, IPC_SYS_JUMP, 1, ((u32 *) 0x0)[0]);
+		h = (ioshdr *) (u32 *) 0x0;
+
+		if (h->hdrsize != sizeof (ioshdr))
+			goto cleanup;
+
+		if (memcmp("\x7F" "ELF\x01\x02\x01",
+					(void *) (h->hdrsize + h->loadersize), 7))
+			goto cleanup;
+
+		ipc_enqueue_slow(IPC_DEV_SYS, IPC_SYS_JUMP, 1, h->hdrsize);
 		break;
 
 	case GECKO_CMD_BIN_PPC:
