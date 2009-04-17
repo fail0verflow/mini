@@ -109,7 +109,7 @@ struct device *sdmmc_attach(struct sdmmc_chip_functions *functions,
 	c->functions = functions;
 	c->handle = handle;
 	c->no = no;
-	strncpy(c->name, name, sizeof(c->name));
+	strlcpy(c->name, name, sizeof(c->name));
 
 	DPRINTF(0, ("sdmmc: attached new SD/MMC card %d for host [%s:%d]\n",
 				n_cards-1, c->name, c->no));

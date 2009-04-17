@@ -50,17 +50,6 @@ void hexdump(void *d, int len) {
   }
 }
 
-int sprintf(char *str, const char *fmt, ...)
-{
-	va_list args;
-	int i;
-
-	va_start(args, fmt);
-	i = vsprintf(str, fmt, args);
-	va_end(args);
-	return i;
-}
-
 void udelay(u32 d)
 {
 	// should be good to max .2% error

@@ -1,114 +1,157 @@
-/*
- *  linux/lib/string.c
- *
- *  Copyright (C) 1991, 1992  Linus Torvalds
- */
+/*  string.c -- standard C string-manipulation functions.
+
+Copyright (C) 2008		Segher Boessenkool <segher@kernel.crashing.org>
+Copyright (C) 2009		Haxx Enterprises <bushing@gmail.com>
+
+Portions taken from the Public Domain C Library (PDCLib).
+https://negix.net/trac/pdclib
+
+# This code is licensed to you under the terms of the GNU GPL, version 2;
+# see file COPYING or http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
+*/
+
 #include "string.h"
-
-size_t strnlen(const char *s, size_t count)
-{
-	const char *sc;
-
-	for (sc = s; count-- && *sc != '\0'; ++sc)
-		/* nothing */;
-	return sc - s;
-}
 
 size_t strlen(const char *s)
 {
-	const char *sc;
+	size_t len;
 
-	for (sc = s; *sc != '\0'; ++sc)
-		/* nothing */;
-	return sc - s;
-}
-
-char *strncpy(char *dst, const char *src, size_t n)
-{
-	char *ret = dst;
-
-	while (n && (*dst++ = *src++))
-		n--;
-
-	while (n--)
-		*dst++ = 0;
-
-	return ret;
-}
-
-char *strcpy(char *dst, const char *src)
-{
-	char *ret = dst;
-
-	while ((*dst++ = *src++))
+	for (len = 0; s[len]; len++)
 		;
 
-	return ret;
+	return len;
 }
 
-int strcmp(const char *p, const char *q)
+size_t strnlen(const char *s, size_t count)
 {
-	for (;;) {
-		unsigned char a, b;
-		a = *p++;
-		b = *q++;
-		if (a == 0 || a != b)
-			return a - b;
-	}
+	size_t len;
+
+	for (len = 0; s[len] && len < count; len++)
+		;
+
+	return len;
 }
 
-int strncmp(const char *p, const char *q, size_t n)
+void *memset(void *b, int c, size_t len)
 {
-	while (n-- != 0) {
-		unsigned char a, b;
-		a = *p++;
-		b = *q++;
-		if (a == 0 || a != b)
-			return a - b;
-	}
-	return 0;
+	size_t i;
+
+	for (i = 0; i < len; i++)
+		((unsigned char *)b)[i] = c;
+
+	return b;
 }
 
-void *memset(void *dst, int x, size_t n)
+void *memcpy(void *dst, const void *src, size_t len)
 {
-	unsigned char *p;
+	size_t i;
 
-	for (p = dst; n; n--)
-		*p++ = x;
+	for (i = 0; i < len; i++)
+		((unsigned char *)dst)[i] = ((unsigned char *)src)[i];
 
 	return dst;
 }
 
-void *memcpy(void *dst, const void *src, size_t n)
+int memcmp(const void *s1, const void *s2, size_t len)
 {
-	unsigned char *p;
-	const unsigned char *q;
+	size_t i;
+	const unsigned char * p1 = (const unsigned char *) s1;
+	const unsigned char * p2 = (const unsigned char *) s2;
 
-	for (p = dst, q = src; n; n--)
-		*p++ = *q++;
-
-	return dst;
-}
-
-int memcmp(const void *s1, const void *s2, size_t n)
-{
-	unsigned char *us1 = (unsigned char *) s1;
-	unsigned char *us2 = (unsigned char *) s2;
-	while (n-- != 0) {
-		if (*us1 != *us2)
-			return (*us1 < *us2) ? -1 : +1;
-		us1++;
-		us2++;
-	}
+	for (i = 0; i < len; i++)
+		if (p1[i] != p2[i]) return p1[i] - p2[i];
+	
 	return 0;
 }
 
-char *strchr(const char *s, int c)
+int strcmp(const char *s1, const char *s2)
 {
-	do {
-		if(*s == c)
-			return (char *)s;
-	} while(*s++ != 0);
+	size_t i;
+
+	for (i = 0; s1[i] && s1[i] == s2[i]; i++)
+		;
+	
+	return s1[i] - s2[i];
+}
+
+int strncmp(const char *s1, const char *s2, size_t n)
+{
+	size_t i;
+
+	for (i = 0; i < n && s1[i] && s1[i] == s2[i]; i++)
+		;
+	if (i == n) return 0;
+	return s1[i] - s2[i];
+}
+
+size_t strlcpy(char *dest, const char *src, size_t maxlen)
+{
+	size_t len,needed;
+
+	len = needed = strnlen(src, maxlen-1) + 1;
+	if (len >= maxlen)
+		len = maxlen-1;
+
+	memcpy(dest, src, len);
+	dest[len]='\0';
+
+	return needed-1;
+}
+
+size_t strlcat(char *dest, const char *src, size_t maxlen)
+{
+	size_t used;
+
+    used = strnlen(dest, maxlen-1);
+	return used + strlcpy(dest + used, src, maxlen - used);
+}
+
+char * strchr(const char *s, int c)
+{
+	size_t i;
+	
+	for (i = 0; s[i]; i++)
+		if (s[i] == (char)c) return (char *)s + i;
+
 	return NULL;
+}
+
+size_t strspn(const char *s1, const char *s2)
+{
+	size_t len = 0;
+	const char *p;
+
+	while (s1[len]) {
+		p = s2;
+		while (*p) {
+			if (s1[len] == *p)
+				break;
+
+			++p;
+		}
+		if (!*p)
+			return len;
+
+		++len;
+	}
+
+	return len;
+}
+
+size_t strcspn(const char *s1, const char *s2)
+{
+	size_t len = 0;
+	const char *p;
+
+	while (s1[len]) {
+		p = s2;
+		while (*p)
+			if (s1[len] == *p++)
+				return len;
+
+		++len;
+	}
+
+	return len;
 }
 

@@ -205,7 +205,7 @@ sdhc_host_found(struct sdhc_softc *sc, bus_space_tag_t iot,
 	u_int32_t caps;
 	int error = 1;
 
-	strcpy(sc->sc_dev.dv_xname, "sdhc");
+	strlcpy(sc->sc_dev.dv_xname, "sdhc", 5);
 #ifdef SDHC_DEBUG
 	u_int16_t version;
 

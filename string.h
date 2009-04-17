@@ -1,23 +1,29 @@
-/*
- *  linux/lib/string.c
- *
- *  Copyright (C) 1991, 1992  Linus Torvalds
- */
-#ifndef __STRING_H__
-#define __STRING_H__
+/*  string.c -- standard C string-manipulation functions.
+
+Copyright (C) 2008		Segher Boessenkool <segher@kernel.crashing.org>
+Copyright (C) 2009		Haxx Enterprises <bushing@gmail.com>
+
+# This code is licensed to you under the terms of the GNU GPL, version 2;
+# see file COPYING or http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
+*/
+
+#ifndef _STRING_H
+#define _STRING_H
 
 #include "types.h"
 
-char *strcpy(char *, const char *);
-char *strncpy(char *, const char *, size_t);
-int strcmp(const char *, const char *);
-int strncmp(const char *p, const char *q, size_t n);
 size_t strlen(const char *);
 size_t strnlen(const char *, size_t);
-char *strchr(const char *s, int c);
 void *memset(void *, int, size_t);
 void *memcpy(void *, const void *, size_t);
-int memcmp(const void *s1, const void *s2, size_t n);
+int memcmp(const void *, const void *, size_t);
+int strcmp(const char *, const char *);
+int strncmp(const char *, const char *, size_t);
+size_t strlcpy(char *, const char *, size_t);
+size_t strlcat(char *, const char *, size_t);
+char *strchr(const char *, int);
+size_t strspn(const char *, const char *);
+size_t strcspn(const char *, const char *);
 
 #endif
 
