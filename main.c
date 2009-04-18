@@ -39,7 +39,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "nand.h"
 #include "boot2.h"
 
-#define PPC_BOOT_FILE "/system/ppcboot.elf"
+#define PPC_BOOT_FILE "/bootmii/ppcboot.elf"
 
 FATFS fatfs;
 
