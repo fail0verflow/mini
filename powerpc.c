@@ -67,7 +67,8 @@ void powerpc_hang()
 
 void powerpc_reset()
 {
-	write32(0xD800034, 0x40000000);
+	// enable the broadway IPC interrupt
+	write32(HW_PPCIRQMASK, (1<<30));
 	clear32(HW_RESETS, 0x30);
 	udelay(100);
 	set32(HW_RESETS, 0x20);
