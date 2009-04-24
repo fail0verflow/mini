@@ -110,7 +110,7 @@ void _ahb_flush_to(enum AHBDEV dev) {
 	}
 	//NOTE: 0xd8b000x, not 0xd8b400x!
 	u32 val = _mc_read32(0xd8b0008);
-	if(val & mask) {
+	if(!(val & mask)) {
 		switch(dev) {
 			// 2 to 10 in IOS, add more
 			case AHB_NAND:
