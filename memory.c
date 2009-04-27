@@ -272,6 +272,15 @@ void mem_setswap(int enable)
 		write32(HW_MEMMIRR, d | 0x20);
 }
 
+void mem_setswap_bc(void)
+{
+	u32 hw_vers = read32(HW_VERSION);
+	u32 memmirr = read32(HW_MEMMIRR);
+	gecko_printf("%s: hw_vers=%08x memmirr=%08x\n", hw_vers, memmirr);
+	if (hw_vers & 0xf0) write32(HW_MEMMIRR, 0x27);  // hw major version > 0
+	else write32(HW_MEMMIRR, 0x67);
+}
+
 u32 dma_addr(void *p)
 {
 	u32 addr = (u32)p;
