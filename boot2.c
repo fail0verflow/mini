@@ -193,7 +193,7 @@ int boot2_load(int copy)
 		nand_wait();
 		// boot1 doesn't actually do this, but it's probably a good idea to try to correct 1-bit errors anyway
 		if(nand_correct(page, sector_buf, ecc_buf) < 0) {
-			gecko_printf("boot2 map candidate page %d is uncorrectable, trying anyway\n", page);
+			gecko_printf("boot2 map candidate page 0x%x is uncorrectable, trying anyway\n", page);
 		}
 		mapno = find_valid_map(maps);
 		if(mapno >= 0) {

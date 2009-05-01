@@ -34,6 +34,8 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "powerpc_elf.h"
 #include "gecko.h"
 
+//#define GECKO_SAFE
+
 static u8 gecko_console_enabled = 0;
 
 static u32 _gecko_command(u32 command)
@@ -86,7 +88,7 @@ static u32 _gecko_recvbyte(u8 *recvbyte)
 	return 0;
 }
 
-#if 0
+#ifdef GECKO_SAFE
 static u32 _gecko_checksend(void)
 {
 	u32 i = 0;
@@ -143,6 +145,7 @@ static int gecko_recvbuffer(void *buffer, u32 size)
 }
 #endif
 
+#ifndef GECKO_SAFE
 static int gecko_sendbuffer(const void *buffer, u32 size)
 {
 	u32 left = size;
@@ -156,6 +159,7 @@ static int gecko_sendbuffer(const void *buffer, u32 size)
 	}
 	return (size - left);
 }
+#endif
 
 #if 0
 static int gecko_recvbuffer_safe(void *buffer, u32 size)
@@ -173,7 +177,9 @@ static int gecko_recvbuffer_safe(void *buffer, u32 size)
 	}
 	return (size - left);
 }
+#endif
 
+#ifdef GECKO_SAFE
 static int gecko_sendbuffer_safe(const void *buffer, u32 size)
 {
 	u32 left = size;
@@ -235,7 +241,11 @@ int gecko_printf(const char *fmt, ...)
 	i = vsprintf(buffer, fmt, args);
 	va_end(args);
 
+#ifdef GECKO_SAFE
+	return gecko_sendbuffer_safe(buffer, i);
+#else
 	return gecko_sendbuffer(buffer, i);
+#endif
 }
 #endif
 
