@@ -70,15 +70,10 @@ static u8 ipc_ecc[ECC_BUFFER_ALLOC] MEM2_BSS ALIGNED(128); //128 alignment REQUI
 
 static volatile int irq_flag;
 
-static inline u32 __nand_read32(u32 addr)
-{
-	return read32(addr);
-}
-
 void nand_irq(void)
 {
 	int code, tag, err = 0;
-	if(__nand_read32(NAND_CMD) & NAND_ERROR) {
+	if(read32(NAND_CMD) & NAND_ERROR) {
 		gecko_printf("NAND: Error on IRQ\n");
 		err = -1;
 	}
@@ -109,14 +104,9 @@ void nand_irq(void)
 	irq_flag = 1;
 }
 
-inline void __nand_write32(u32 addr, u32 data)
-{
-	write32(addr, data);
-}
-
 inline void __nand_wait(void) {
-	while(__nand_read32(NAND_CMD) & NAND_BUSY_MASK);
-	if(__nand_read32(NAND_CMD) & NAND_ERROR)
+	while(read32(NAND_CMD) & NAND_BUSY_MASK);
+	if(read32(NAND_CMD) & NAND_ERROR)
 		gecko_printf("NAND: Error on wait\n");
 	ahb_flush_from(AHB_NAND);
 	ahb_flush_to(AHB_STARLET);
@@ -128,27 +118,27 @@ void nand_send_command(u32 command, u32 bitmask, u32 flags, u32 num_bytes) {
 	NAND_debug("nand_send_command(%x, %x, %x, %x) -> %x\n",
 		command, bitmask, flags, num_bytes, cmd);
 
-	__nand_write32(NAND_CMD, 0x7fffffff);
-	__nand_write32(NAND_CMD, 0);
-	__nand_write32(NAND_CMD, cmd);
+	write32(NAND_CMD, 0x7fffffff);
+	write32(NAND_CMD, 0);
+	write32(NAND_CMD, cmd);
 }
 
 void __nand_set_address(s32 page_off, s32 pageno) {
 //	NAND_debug("nand_set_address: %d, %d\n", page_off, pageno);
-	if (page_off != -1) __nand_write32(NAND_ADDR0, page_off);
-	if (pageno != -1) __nand_write32(NAND_ADDR1, pageno);
+	if (page_off != -1) write32(NAND_ADDR0, page_off);
+	if (pageno != -1)   write32(NAND_ADDR1, pageno);
 }
 
 void __nand_setup_dma(u8 *data, u8 *spare) {
 //	NAND_debug("nand_setup_dma: %p, %p\n", data, spare);
 	if (((s32)data) != -1) {
-		__nand_write32(NAND_DATA, dma_addr(data));
+		write32(NAND_DATA, dma_addr(data));
 	}
 	if (((s32)spare) != -1) {
 		u32 addr = dma_addr(spare);
 		if(addr & 0x7f)
 			gecko_printf("NAND: Spare buffer 0x%08x is not aligned, data will be corrupted\n", addr);
-		__nand_write32(NAND_ECC, addr);
+		write32(NAND_ECC, addr);
 	}
 }
 
@@ -158,9 +148,9 @@ int nand_reset(void) {
 	nand_send_command(NAND_RESET, 0, NAND_FLAGS_WAIT, 0);
 	__nand_wait();
 // enable NAND controller
-	__nand_write32(NAND_CONF, 0x08000000);
+	write32(NAND_CONF, 0x08000000);
 // set configuration parameters for 512MB flash chips
-	__nand_write32(NAND_CONF, 0x4b3e0e7f);
+	write32(NAND_CONF, 0x4b3e0e7f);
 	return 0;
 }
 
