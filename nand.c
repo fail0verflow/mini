@@ -44,14 +44,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #	define	NAND_debug(f, arg...)
 #endif
 
-#define STACK_ALIGN(type, name, cnt, alignment)         \
-u8 _al__##name[((sizeof(type)*(cnt)) + (alignment) + \
-(((sizeof(type)*(cnt))%(alignment)) > 0 ? ((alignment) - \
-((sizeof(type)*(cnt))%(alignment))) : 0))]; \
-type *name = (type*)(((u32)(_al__##name)) + ((alignment) - (( \
-(u32)(_al__##name))&((alignment)-1))))
-
-
 #define NAND_RESET      0xff
 #define NAND_CHIPID     0x90
 #define NAND_GETSTATUS  0x70
