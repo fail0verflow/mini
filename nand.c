@@ -103,8 +103,8 @@ void nand_irq(void)
 					dc_flushrange((void*)current_request.args[1], PAGE_SIZE);
 				}
 				if (current_request.args[2] != 0xFFFFFFFF) {
-					memcpy32((void*)current_request.args[2], ipc_ecc, ECC_BUFFER_SIZE);
-					dc_flushrange((void*)current_request.args[2], ECC_BUFFER_SIZE);
+					memcpy32((void*)current_request.args[2], ipc_ecc, PAGE_SPARE_SIZE);
+					dc_flushrange((void*)current_request.args[2], PAGE_SPARE_SIZE);
 				}
 				break;
 			default:
