@@ -74,6 +74,7 @@ static u8 ipc_data[PAGE_SIZE] MEM2_BSS ALIGNED(32);
 static u8 ipc_ecc[ECC_BUFFER_ALLOC] MEM2_BSS ALIGNED(128); //128 alignment REQUIRED
 
 static volatile int irq_flag;
+static u32 last_page_read = 0;
 
 void nand_irq(void)
 {
@@ -95,10 +96,11 @@ void nand_irq(void)
 				dc_flushrange((void*)current_request.args[0], 0x40);
 				break;
 			case IPC_NAND_READ:
+				err = nand_correct(last_page_read, ipc_data, ipc_ecc);
 				memcpy32((void*)current_request.args[1], ipc_data, PAGE_SIZE);
 				memcpy32((void*)current_request.args[2], ipc_ecc, ECC_BUFFER_SIZE);
 				dc_flushrange((void*)current_request.args[1], PAGE_SIZE);
-				dc_flushrange((void*)current_request.args[2], ECC_BUFFER_SIZE);
+				dc_flushrange((void*)current_request.args[2], ECC_BUFFER_SIZE);				
 				break;
 			default:
 				gecko_printf("Got IRQ for unknown NAND req %d\n", current_request.req);
@@ -181,6 +183,7 @@ void nand_get_status(u8 *status_buf) {
 
 void nand_read_page(u32 pageno, void *data, void *ecc) {
 	irq_flag = 0;
+	last_page_read = pageno;  // needed for error reporting
 	__nand_set_address(0, pageno);
 	nand_send_command(NAND_READ_PRE, 0x1f, 0, 0);
 
