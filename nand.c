@@ -263,7 +263,8 @@ int nand_correct(u32 pageno, void *data, void *ecc)
 	
 	for(i=0;i<4;i++) {
 		u32 syndrome = *ecc_read ^ *ecc_calc; //calculate ECC syncrome
-		if(syndrome) {
+		// don't try to correct unformatted pages (all FF)
+		if ((*ecc_read != 0xFFFFFFFF) && syndrome) {
 			if(!((syndrome-1)&syndrome)) {
 				// single-bit error in ECC
 				corrected++;
