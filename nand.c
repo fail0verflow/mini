@@ -100,6 +100,8 @@ void nand_irq(void)
 				dc_flushrange((void*)current_request.args[1], PAGE_SIZE);
 				dc_flushrange((void*)current_request.args[2], ECC_BUFFER_SIZE);
 				break;
+			default:
+				gecko_printf("Got IRQ for unknown NAND req %d\n", current_request.req);
 		}
 		code = current_request.code;
 		tag = current_request.tag;
@@ -234,6 +236,7 @@ void nand_erase_block(u32 pageno) {
 	__nand_set_address(0, pageno);
 	nand_send_command(NAND_ERASE_PRE, 0x1c, 0, 0);
 	__nand_wait();
+	// should we really be using NAND_FLAGS_IRQ here?
 	nand_send_command(NAND_ERASE_POST, 0, NAND_FLAGS_IRQ | NAND_FLAGS_WAIT, 0);
 	NAND_debug("nand_erase_block(%d) done\n", pageno);
 }
