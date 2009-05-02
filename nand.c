@@ -33,7 +33,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "gecko.h"
 #include "types.h"
 
-//#define	NAND_DEBUG	1
+// #define	NAND_DEBUG	1
 #define NAND_SUPPORT_WRITE 1
 #define NAND_SUPPORT_ERASE 1
 #ifdef ALLOW_BOOT2_WRITES
@@ -97,10 +97,15 @@ void nand_irq(void)
 				break;
 			case IPC_NAND_READ:
 				err = nand_correct(last_page_read, ipc_data, ipc_ecc);
-				memcpy32((void*)current_request.args[1], ipc_data, PAGE_SIZE);
-				memcpy32((void*)current_request.args[2], ipc_ecc, ECC_BUFFER_SIZE);
-				dc_flushrange((void*)current_request.args[1], PAGE_SIZE);
-				dc_flushrange((void*)current_request.args[2], ECC_BUFFER_SIZE);				
+
+				if (current_request.args[1] != 0xFFFFFFFF) {
+					memcpy32((void*)current_request.args[1], ipc_data, PAGE_SIZE);
+					dc_flushrange((void*)current_request.args[1], PAGE_SIZE);
+				}
+				if (current_request.args[2] != 0xFFFFFFFF) {
+					memcpy32((void*)current_request.args[2], ipc_ecc, ECC_BUFFER_SIZE);
+					dc_flushrange((void*)current_request.args[2], ECC_BUFFER_SIZE);
+				}
 				break;
 			default:
 				gecko_printf("Got IRQ for unknown NAND req %d\n", current_request.req);
@@ -187,8 +192,8 @@ void nand_read_page(u32 pageno, void *data, void *ecc) {
 	__nand_set_address(0, pageno);
 	nand_send_command(NAND_READ_PRE, 0x1f, 0, 0);
 
-	dc_invalidaterange(data, PAGE_SIZE);
-	dc_invalidaterange(ecc, ECC_BUFFER_SIZE);
+	if (((s32)data) != -1) dc_invalidaterange(data, PAGE_SIZE);
+	if (((s32)ecc) != -1)  dc_invalidaterange(ecc, ECC_BUFFER_SIZE);
 
 	__nand_wait();
 	__nand_setup_dma(data, ecc);
@@ -215,8 +220,8 @@ void nand_write_page(u32 pageno, void *data, void *ecc) {
 		gecko_printf("Error: nand_write to page %d forbidden\n", pageno);
 		return;
 	}
-	dc_flushrange(data, PAGE_SIZE);
-	dc_flushrange(ecc, PAGE_SPARE_SIZE);
+	if (((s32)data) != -1) dc_flushrange(data, PAGE_SIZE);
+	if (((s32)ecc) != -1)  dc_flushrange(ecc, PAGE_SPARE_SIZE);
 	ahb_flush_to(AHB_NAND);
 	__nand_set_address(0, pageno);
 	__nand_setup_dma(data, ecc);
