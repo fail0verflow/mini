@@ -124,13 +124,11 @@ void nand_send_command(u32 command, u32 bitmask, u32 flags, u32 num_bytes) {
 }
 
 void __nand_set_address(s32 page_off, s32 pageno) {
-//	NAND_debug("nand_set_address: %d, %d\n", page_off, pageno);
 	if (page_off != -1) write32(NAND_ADDR0, page_off);
 	if (pageno != -1)   write32(NAND_ADDR1, pageno);
 }
 
 void __nand_setup_dma(u8 *data, u8 *spare) {
-//	NAND_debug("nand_setup_dma: %p, %p\n", data, spare);
 	if (((s32)data) != -1) {
 		write32(NAND_DATA, dma_addr(data));
 	}
@@ -175,7 +173,6 @@ void nand_get_status(u8 *status_buf) {
 }
 
 void nand_read_page(u32 pageno, void *data, void *ecc) {
-//	NAND_debug("nand_read_page(%u, %p, %p)\n", pageno, data, ecc);
 	irq_flag = 0;
 	__nand_set_address(0, pageno);
 	nand_send_command(NAND_READ_PRE, 0x1f, 0, 0);
@@ -332,7 +329,6 @@ void nand_ipc(volatile ipc_request *req)
 		default:
 			gecko_printf("IPC: unknown SLOW NAND request %04x\n",
 					req->req);
-
 	}
 }
 
