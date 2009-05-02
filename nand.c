@@ -36,6 +36,11 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //#define	NAND_DEBUG	1
 #define NAND_SUPPORT_WRITE 1
 #define NAND_SUPPORT_ERASE 1
+#ifdef ALLOW_BOOT2_WRITES
+#define NAND_MIN_PAGE 0x40
+#else
+#define NAND_MIN_PAGE 0x200
+#endif
 
 #ifdef NAND_DEBUG
 #	include "gecko.h"
@@ -201,7 +206,7 @@ void nand_write_page(u32 pageno, void *data, void *ecc) {
 	NAND_debug("nand_write_page(%u, %p, %p)\n", pageno, data, ecc);
 
 // this is a safety check to prevent you from accidentally wiping out boot1 or boot2.
-	if ((pageno < 0x200) || (pageno >= NAND_MAX_PAGE)) {
+	if ((pageno < NAND_MIN_PAGE) || (pageno >= NAND_MAX_PAGE)) {
 		gecko_printf("Error: nand_write to page %d forbidden\n", pageno);
 		return;
 	}
@@ -222,7 +227,7 @@ void nand_erase_block(u32 pageno) {
 	NAND_debug("nand_erase_block(%d)\n", pageno);
 
 // this is a safety check to prevent you from accidentally wiping out boot1 or boot2.
-	if ((pageno < 0x200) || (pageno >= NAND_MAX_PAGE)) {
+	if ((pageno < NAND_MIN_PAGE) || (pageno >= NAND_MAX_PAGE)) {
 		gecko_printf("Error: nand_erase to page %d forbidden\n", pageno);
 		return;
 	}
