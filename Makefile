@@ -1,6 +1,7 @@
 include ../../starlet.mk
 
 ASFLAGS += -D_LANGUAGE_ASSEMBLY
+CFLAGS += -DCAN_HAZ_IRQ -DCAN_HAZ_IPC
 LDSCRIPT = mini.ld
 LIBS = -lgcc
 
