@@ -24,8 +24,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "gecko.h"
 #include "vsprintf.h"
 #include "start.h"
+#include "gpio.h"
 #include "hollywood.h"
 
+#ifndef LOADER
 static char ascii(char s) {
   if(s < 0x20) return '.';
   if(s > 0x7E) return '.';
@@ -49,6 +51,7 @@ void hexdump(void *d, int len) {
     gecko_printf("\n");
   }
 }
+#endif
 
 void udelay(u32 d)
 {
@@ -76,8 +79,10 @@ void panic(u8 v)
 {
 	while(1) {
 		debug_output(v);
+		set32(HW_GPIO1BOUT, GP_SLOTLED);
 		udelay(500000);
 		debug_output(0);
+		clear32(HW_GPIO1BOUT, GP_SLOTLED);
 		udelay(500000);
 	}
 }
