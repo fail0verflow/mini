@@ -25,17 +25,21 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "utils.h"
 #include "gecko.h"
 #include "hollywood.h"
+#ifdef CAN_HAZ_IRQ
 #include "irq.h"
+#endif
 
 void _dc_inval_entries(void *start, int count);
 void _dc_flush_entries(const void *start, int count);
 void _dc_flush(void);
-void _dc_inval(void);
 void _ic_inval(void);
 void _drain_write_buffer(void);
-void _tlb_inval(void);
 
+#ifndef LOADER
 extern u32 __page_table[4096];
+void _dc_inval(void);
+void _tlb_inval(void);
+#endif
 
 #define LINESIZE 0x20
 #define CACHESIZE 0x4000
@@ -61,12 +65,12 @@ extern u32 __page_table[4096];
 #define		HW_188			(HW_REG_BASE + 0x188)
 #define		HW_18C			(HW_REG_BASE + 0x18c)
 
-#ifdef LOADER
-#define IRQ_PREAMBLE /* */
-#define IRQ_POSTAMBLE /* */
-#else
+#ifdef CAN_HAZ_IRQ
 #define IRQ_PREAMBLE u32 cookie = irq_kill();
 #define IRQ_POSTAMBLE irq_restore(cookie);
+#else
+#define IRQ_PREAMBLE /* */
+#define IRQ_POSTAMBLE (void)0;
 #endif
 
 // what is this thing doing anyway?
@@ -280,6 +284,7 @@ void mem_setswap(int enable)
 		write32(HW_MEMMIRR, d | 0x20);
 }
 
+#ifndef LOADER
 u32 dma_addr(void *p)
 {
 	u32 addr = (u32)p;
@@ -386,4 +391,4 @@ IRQ_PREAMBLE
 	_tlb_inval();
 IRQ_POSTAMBLE
 }
-
+#endif
