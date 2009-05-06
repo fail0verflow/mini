@@ -32,7 +32,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "utils.h"
 #include "memory.h"
 
-//#define SDMMC_DEBUG	1
+#define SDMMC_DEBUG	1
 
 #ifdef SDMMC_DEBUG
 static int sdmmcdebug = 0;
@@ -44,20 +44,25 @@ static int sdmmcdebug = 0;
 struct sdmmc_card {
 	struct sdmmc_chip_functions *functions;
 	sdmmc_chipset_handle_t handle;
-	char name[255];
+	char name[30];
 	int no;
 	int inserted;
 	int sdhc_blockmode;
 	int selected;
 	int new_card; // set to 1 everytime a new card is inserted
 
-
-	int num_sectors;
+	u32 timeout;
+	u32 num_sectors;
 	u32 cid;
 	u16 rca;
 };
 
+#ifdef LOADER
+static struct sdmmc_card cards[SDHC_MAX_HOSTS];
+#else
 static struct sdmmc_card cards[SDHC_MAX_HOSTS] MEM2_BSS;
+#endif
+
 static int n_cards = 0;
 
 static inline int sdmmc_host_reset(struct sdmmc_card *card)
@@ -123,6 +128,17 @@ struct device *sdmmc_attach(struct sdmmc_chip_functions *functions,
 
 	// HACK
 	return (struct device *)(n_cards-1);
+}
+
+void sdmmc_abort(void) {
+	struct sdmmc_command cmd;
+	gecko_printf("abortion kthx\n");
+	
+	memset(&cmd, 0, sizeof(cmd));
+	cmd.c_opcode = MMC_STOP_TRANSMISSION;
+	cmd.c_arg = 0;
+	cmd.c_flags = SCF_RSP_R1B;
+	sdmmc_host_exec_command(&cards[0], &cmd);
 }
 
 void sdmmc_needs_discover(struct device *dev)
@@ -220,7 +236,8 @@ void sdmmc_needs_discover(struct device *dev)
 	else
 		c->sdhc_blockmode = 0;
 	DPRINTF(2, ("sdmmc: SDHC: %d\n", c->sdhc_blockmode));
-
+	
+	u8 *resp;
 	DPRINTF(2, ("sdmmc: MMC_ALL_SEND_CID\n"));
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.c_opcode = MMC_ALL_SEND_CID;
@@ -234,7 +251,11 @@ void sdmmc_needs_discover(struct device *dev)
 	}
 
 	c->cid = MMC_R1(cmd.c_resp);
-
+	resp = (u8 *)cmd.c_resp;
+	gecko_printf("CID: mid=%02x name='%c%c%c%c%c%c%c' prv=%d.%d psn=%02x%02x%02x%02x mdt=%d/%d\n", resp[14], 
+		resp[13],resp[12],resp[11],resp[10],resp[9],resp[8],resp[7], resp[6], resp[5] >> 4, resp[5] & 0xf, 
+		resp[4], resp[3], resp[2], resp[0] & 0xf, 2000 + (resp[0] >> 4));
+		
 	DPRINTF(2, ("sdmmc: SD_SEND_RELATIVE_ADDRESS\n"));
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.c_opcode = SD_SEND_RELATIVE_ADDR;
@@ -253,7 +274,6 @@ void sdmmc_needs_discover(struct device *dev)
 	c->selected = 0;
 	c->inserted = 1;
 
-	u8 *resp;
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.c_opcode = MMC_SEND_CSD;
 	cmd.c_arg = ((u32)c->rca)<<16;
@@ -261,16 +281,21 @@ void sdmmc_needs_discover(struct device *dev)
 	sdmmc_host_exec_command(c, &cmd);
 	if (cmd.c_error) {
 		gecko_printf("sdmmc: MMC_SEND_CSD failed for "
-				"card %d with %d", no, cmd.c_error);
+				"card %d with %d\n", no, cmd.c_error);
 		goto out_power;
 	}
 
 	resp = (u8 *)cmd.c_resp;
 
+	int i;
+	gecko_printf("csd: ");
+	for(i=15; i>=0; i--) gecko_printf("%02x ", (u32) resp[i]);
+	gecko_printf("\n");
+
 	if (resp[13] == 0xe) { // sdhc
 		unsigned int c_size = resp[7] << 16 | resp[6] << 8 | resp[5];
-//		sdhc_error(sdhci->reg_base, "sdhc mode, c_size=%u, card size = %uk", c_size, (c_size + 1)* 512);
-//		sdhci->timeout = 250 * 1000000; // spec says read timeout is 100ms and write/erase timeout is 250ms
+		gecko_printf("sdmmc: sdhc mode, c_size=%u, card size = %uk\n", c_size, (c_size + 1)* 512);
+		c->timeout = 250 * 1000000; // spec says read timeout is 100ms and write/erase timeout is 250ms
 		c->num_sectors = (c_size + 1) * 1024; // number of 512-byte sectors
 	}
 	else {
@@ -284,15 +309,14 @@ void sdmmc_needs_discover(struct device *dev)
 		c_size |= (resp[6] >> 6);
 		c_size_mult = (resp[5] & 3) << 1;
 		c_size_mult |= resp[4] >> 7;
-//		sdhc_error(sdhci->reg_base, "taac=%u nsac=%u read_bl_len=%u c_size=%u c_size_mult=%u card size=%u bytes",
-//			taac, nsac, read_bl_len, c_size, c_size_mult, (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len));
-//		static const unsigned int time_unit[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000};
-//		static const unsigned int time_value[] = {1, 10, 12, 13, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80}; // must div by 10
-//		sdhci->timeout = time_unit[taac & 7] * time_value[(taac >> 3) & 0xf] / 10;
-//		sdhc_error(sdhci->reg_base, "calculated timeout =  %uns", sdhci->timeout);
+		gecko_printf("taac=%u nsac=%u read_bl_len=%u c_size=%u c_size_mult=%u card size=%u bytes\n",
+			taac, nsac, read_bl_len, c_size, c_size_mult, (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len));
+		static const unsigned int time_unit[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000};
+		static const unsigned int time_value[] = {1, 10, 12, 13, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80}; // must div by 10
+		c->timeout = time_unit[taac & 7] * time_value[(taac >> 3) & 0xf] / 10;
+		gecko_printf("calculated timeout =  %uns\n", c->timeout);
 		c->num_sectors = (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len) / 512;
 	}
-
 
 	sdmmc_select(dev);
 	DPRINTF(2, ("sdmmc: MMC_SET_BLOCKLEN\n"));
@@ -433,7 +457,7 @@ int sdmmc_read(struct device *dev, u32 blk_start, u32 blk_count, void *data)
 
 	if (cmd.c_error) {
 		gecko_printf("sdmmc: MMC_READ_BLOCK_MULTIPLE failed for "
-				"card %d with %d", no, cmd.c_error);
+				"card %d with %d\n", no, cmd.c_error);
 		return -1;
 	}
 	DPRINTF(2, ("sdmmc: MMC_READ_BLOCK_MULTIPLE done\n"));
@@ -441,6 +465,7 @@ int sdmmc_read(struct device *dev, u32 blk_start, u32 blk_count, void *data)
 	return 0;
 }
 
+#ifndef LOADER
 int sdmmc_write(struct device *dev, u32 blk_start, u32 blk_count, void *data)
 {
 	int no = (int)dev;
@@ -479,7 +504,7 @@ int sdmmc_write(struct device *dev, u32 blk_start, u32 blk_count, void *data)
 
 	if (cmd.c_error) {
 		gecko_printf("sdmmc: MMC_READ_BLOCK_MULTIPLE failed for "
-				"card %d with %d", no, cmd.c_error);
+				"card %d with %d\n", no, cmd.c_error);
 		return -1;
 	}
 	DPRINTF(2, ("sdmmc: MMC_WRITE_BLOCK_MULTIPLE done\n"));
@@ -506,7 +531,9 @@ int sdmmc_get_sectors(struct device *dev)
 	
 	return c->num_sectors;
 }
+#endif
 
+#ifdef CAN_HAZ_IPC
 void sdmmc_ipc(volatile ipc_request *req)
 {
 	int ret;
@@ -539,4 +566,4 @@ void sdmmc_ipc(volatile ipc_request *req)
 		break;
 	}
 }
-
+#endif
