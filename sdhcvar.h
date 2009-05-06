@@ -21,7 +21,10 @@
 #define _SDHCVAR_H_
 
 #include "bsdtypes.h"
+#ifdef CAN_HAZ_IPC
 #include "ipc.h"
+#endif
+
 #define SDHC_MAX_HOSTS	4
 
 struct sdhc_host {
@@ -54,8 +57,9 @@ void	sdhc_shutdown(void *);
 int	sdhc_intr(void *);
 void	sdhc_init(void);
 void	sdhc_irq(void);
+#ifdef CAN_HAZ_IPC
 void	sdhc_ipc(volatile ipc_request *req);
-
+#endif
 /* flag values */
 #define SDHC_F_NOPWR0		(1 << 0)
 
