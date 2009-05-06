@@ -1,5 +1,3 @@
-/*	$OpenBSD: sdhc.c,v 1.25 2009/01/13 19:44:20 grange Exp $	*/
-
 /*
  * Copyright (c) 2006 Uwe Stuehler <uwe@openbsd.org>
  * Copyright (c) 2009 Sven Peter <svenpeter@gmail.com>
@@ -21,16 +19,6 @@
  * SD Host Controller driver based on the SD Host Controller Standard
  * Simplified Specification Version 1.00 (www.sdcard.com).
  */
-
-
-#if 0
-#include <sys/param.h>
-#include <sys/device.h>
-#include <sys/kernel.h>
-#include <sys/kthread.h>
-#include <sys/malloc.h>
-#include <sys/systm.h>
-#endif
 
 #include "bsdtypes.h"
 #include "sdhcreg.h"
@@ -107,18 +95,6 @@ static inline void bus_space_write_1(bus_space_handle_t ioh, u32 r, u8 v)
 	mask32(addr & ~3, mask, v << shift);
 }
 
-u32 splbio(void)
-{
-//	irq_disable(IRQ_SDHC);
-	return 0;
-}
-
-void splx(u32 dummy)
-{
-	(void)dummy;
-//	irq_enable(IRQ_SDHC);
-}
-
 /* flag values */
 #define SHF_USE_DMA		0x0001
 
@@ -185,12 +161,6 @@ struct sdmmc_chip_functions sdhc_functions = {
 	sdhc_card_intr_mask,
 	sdhc_card_intr_ack
 };
-
-#if 0
-struct cfdriver sdhc_cd = {
-	NULL, "sdhc", DV_DULL
-};
-#endif
 
 /*
  * Called by attachment driver.  For each SD card slot there is one SD
@@ -388,9 +358,6 @@ sdhc_host_reset(sdmmc_chipset_handle_t sch)
 	struct sdhc_host *hp = sch;
 	u_int16_t imask;
 	int error;
-	int s;
-
-	s = splsdmmc();
 
 	/* Disable all interrupts. */
 	HWRITE2(hp, SDHC_NINTR_SIGNAL_EN, 0);
@@ -400,7 +367,6 @@ sdhc_host_reset(sdmmc_chipset_handle_t sch)
 	 * the controller to clear the reset bit.
 	 */
 	if ((error = sdhc_soft_reset(hp, SDHC_RESET_ALL)) != 0) {
-		splx(s);
 		return (error);
 	}	
 
@@ -418,7 +384,6 @@ sdhc_host_reset(sdmmc_chipset_handle_t sch)
 	HWRITE2(hp, SDHC_NINTR_SIGNAL_EN, imask);
 	HWRITE2(hp, SDHC_EINTR_SIGNAL_EN, SDHC_EINTR_SIGNAL_MASK);
 
-	splx(s);
 	return 0;
 }
 
@@ -456,9 +421,6 @@ sdhc_bus_power(sdmmc_chipset_handle_t sch, u_int32_t ocr)
 {
 	struct sdhc_host *hp = sch;
 	u_int8_t vdd;
-	int s;
-
-	s = splsdmmc();
 
 	/*
 	 * Disable bus power before voltage change.
@@ -468,7 +430,6 @@ sdhc_bus_power(sdmmc_chipset_handle_t sch, u_int32_t ocr)
 
 	/* If power is disabled, reset the host and return now. */
 	if (ocr == 0) {
-		splx(s);
 		(void)sdhc_host_reset(hp);
 		return 0;
 	}
@@ -485,7 +446,6 @@ sdhc_bus_power(sdmmc_chipset_handle_t sch, u_int32_t ocr)
 		vdd = SDHC_VOLTAGE_1_8V;
 	else {
 		/* Unsupported voltage level requested. */
-		splx(s);
 		return EINVAL;
 	}
 
@@ -503,11 +463,9 @@ sdhc_bus_power(sdmmc_chipset_handle_t sch, u_int32_t ocr)
 	 * bus power bit.
 	 */
 	if (!ISSET(HREAD1(hp, SDHC_POWER_CTL), SDHC_BUS_POWER)) {
-		splx(s);
 		return ENXIO;
 	}
 
-	splx(s);
 	return 0;
 }
 
@@ -535,12 +493,9 @@ int
 sdhc_bus_clock(sdmmc_chipset_handle_t sch, int freq)
 {
 	struct sdhc_host *hp = sch;
-	int s;
 	int div;
 	int timo;
 	int error = 0;
-
-	s = splsdmmc();
 
 #ifdef DIAGNOSTIC
 	/* Must not stop the clock if commands are in progress. */
@@ -586,7 +541,6 @@ sdhc_bus_clock(sdmmc_chipset_handle_t sch, int freq)
 	HSET2(hp, SDHC_CLOCK_CTL, SDHC_SDCLK_ENABLE);
 
 ret:
-	splx(s);
 	return error;
 }
 
@@ -695,7 +649,6 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 	u_int16_t mode;
 	u_int16_t command;
 	int error;
-	int s;
 	
 	DPRINTF(1,("%s: start cmd %u arg=%#x data=%p dlen=%d flags=%#x "
 	    "proc=\"%s\"\n", HDEVNAME(hp), cmd->c_opcode, cmd->c_arg,
@@ -765,8 +718,6 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 	if ((error = sdhc_wait_state(hp, SDHC_CMD_INHIBIT_MASK, 0)) != 0)
 		return error;
 
-	s = splsdmmc();
-
 	/* Alert the user not to remove the card. */
 	HSET1(hp, SDHC_HOST_CTL, SDHC_LED_ON);
 
@@ -798,7 +749,6 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 //	HWRITE2(hp, SDHC_COMMAND, command);
 //	HWRITE2(hp, SDHC_TRANSFER_MODE, mode);
 
-	splx(s);
 	return 0;
 }
 
@@ -967,13 +917,10 @@ int
 sdhc_wait_intr(struct sdhc_host *hp, int mask, int timo)
 {
 	int status;
-	int s;
 
 	mask |= SDHC_ERROR_INTERRUPT;
 
-	s = splsdmmc();
 	status = hp->intr_status & mask;
-
 
 	for (timo = 500; timo > 0; timo--) {
 		if (hp->intr_status != 0) {
@@ -997,7 +944,6 @@ sdhc_wait_intr(struct sdhc_host *hp, int mask, int timo)
 		status = 0;
 	}
 
-	splx(s);
 	return status;
 }
 

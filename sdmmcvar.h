@@ -20,17 +20,6 @@
 #ifndef _SDMMCVAR_H_
 #define _SDMMCVAR_H_
 
-#if 0
-#include <sys/queue.h>
-#include <sys/lock.h>
-
-#include <scsi/scsi_all.h>
-#include <scsi/scsiconf.h>
-
-#include <dev/sdmmc/sdmmcchip.h>
-#include <dev/sdmmc/sdmmcreg.h>
-#endif
-
 struct sdmmc_csd {
 	int	csdver;		/* CSD structure format */
 	int	mmcver;		/* MMC version (for CID format) */
@@ -58,9 +47,6 @@ struct sdmmc_task {
 	void *arg;
 	int onqueue;
 	struct sdmmc_softc *sc;
-#if 0
-	TAILQ_ENTRY(sdmmc_task) next;
-#endif
 };
 
 #define	sdmmc_init_task(xtask, xfunc, xarg) do {			\
@@ -142,9 +128,6 @@ struct sdmmc_function {
 	int flags;
 #define SFF_ERROR		0x0001	/* function is poo; ignore it */
 #define SFF_SDHC		0x0002	/* SD High Capacity card */
-#if 0
-	SIMPLEQ_ENTRY(sdmmc_function) sf_list;
-#endif
 	/* SD card I/O function members */
 	int number;			/* I/O function number or -1 */
 	struct device *child;		/* function driver */
@@ -173,23 +156,11 @@ struct sdmmc_softc {
 	int sc_function_count;		/* number of I/O functions (SDIO) */
 	struct sdmmc_function *sc_card;	/* selected card */
 	struct sdmmc_function *sc_fn0;	/* function 0, the card itself */
-#if 0
-	SIMPLEQ_HEAD(, sdmmc_function) sf_head; /* list of card functions */
-#endif
 	int sc_dying;			/* bus driver is shutting down */
 	struct proc *sc_task_thread;	/* asynchronous tasks */
-#if 0
-	TAILQ_HEAD(, sdmmc_task) sc_tskq;   /* task thread work queue */
-#endif
 	struct sdmmc_task sc_discover_task; /* card attach/detach task */
 	struct sdmmc_task sc_intr_task;	/* card interrupt task */
-#if 0
-	struct lock sc_lock;		/* lock around host controller */
-#endif
 	void *sc_scsibus;		/* SCSI bus emulation softc */
-#if 0
-	TAILQ_HEAD(, sdmmc_intr_handler) sc_intrq; /* interrupt handlers */
-#endif
 	long sc_max_xfer;		/* maximum transfer size */
 };
 
@@ -202,79 +173,10 @@ struct sdmmc_attach_args {
 };
 
 #define IPL_SDMMC	IPL_BIO
-#define splsdmmc()	splbio()
 
 #define SDMMC_LOCK(sc)	 lockmgr(&(sc)->sc_lock, LK_EXCLUSIVE, NULL)
 #define SDMMC_UNLOCK(sc) lockmgr(&(sc)->sc_lock, LK_RELEASE, NULL)
 #define	SDMMC_ASSERT_LOCKED(sc) \
 	KASSERT(lockstatus(&((sc))->sc_lock) == LK_EXCLUSIVE)
-
-#if 0
-void	sdmmc_add_task(struct sdmmc_softc *, struct sdmmc_task *);
-void	sdmmc_del_task(struct sdmmc_task *);
-
-struct	sdmmc_function *sdmmc_function_alloc(struct sdmmc_softc *);
-void	sdmmc_function_free(struct sdmmc_function *);
-int	sdmmc_set_bus_power(struct sdmmc_softc *, u_int32_t, u_int32_t);
-int	sdmmc_mmc_command(struct sdmmc_softc *, struct sdmmc_command *);
-int	sdmmc_app_command(struct sdmmc_softc *, struct sdmmc_command *);
-void	sdmmc_go_idle_state(struct sdmmc_softc *);
-int	sdmmc_select_card(struct sdmmc_softc *, struct sdmmc_function *);
-int	sdmmc_set_relative_addr(struct sdmmc_softc *,
-	    struct sdmmc_function *);
-int	sdmmc_send_if_cond(struct sdmmc_softc *, uint32_t);
-
-void	sdmmc_intr_enable(struct sdmmc_function *);
-void	sdmmc_intr_disable(struct sdmmc_function *);
-void	*sdmmc_intr_establish(struct device *, int (*)(void *),
-	    void *, const char *);
-void	sdmmc_intr_disestablish(void *);
-void	sdmmc_intr_task(void *);
-
-int	sdmmc_io_enable(struct sdmmc_softc *);
-void	sdmmc_io_scan(struct sdmmc_softc *);
-int	sdmmc_io_init(struct sdmmc_softc *, struct sdmmc_function *);
-void	sdmmc_io_attach(struct sdmmc_softc *);
-void	sdmmc_io_detach(struct sdmmc_softc *);
-u_int8_t sdmmc_io_read_1(struct sdmmc_function *, int);
-u_int16_t sdmmc_io_read_2(struct sdmmc_function *, int);
-u_int32_t sdmmc_io_read_4(struct sdmmc_function *, int);
-int	sdmmc_io_read_multi_1(struct sdmmc_function *, int, u_char *, int);
-void	sdmmc_io_write_1(struct sdmmc_function *, int, u_int8_t);
-void	sdmmc_io_write_2(struct sdmmc_function *, int, u_int16_t);
-void	sdmmc_io_write_4(struct sdmmc_function *, int, u_int32_t);
-int	sdmmc_io_write_multi_1(struct sdmmc_function *, int, u_char *, int);
-int	sdmmc_io_function_ready(struct sdmmc_function *);
-int	sdmmc_io_function_enable(struct sdmmc_function *);
-void	sdmmc_io_function_disable(struct sdmmc_function *);
-
-int	sdmmc_read_cis(struct sdmmc_function *, struct sdmmc_cis *);
-void	sdmmc_print_cis(struct sdmmc_function *);
-void	sdmmc_check_cis_quirks(struct sdmmc_function *);
-
-int	sdmmc_mem_enable(struct sdmmc_softc *);
-void	sdmmc_mem_scan(struct sdmmc_softc *);
-int	sdmmc_mem_init(struct sdmmc_softc *, struct sdmmc_function *);
-int	sdmmc_mem_read_block(struct sdmmc_function *, int, u_char *, size_t);
-int	sdmmc_mem_write_block(struct sdmmc_function *, int, u_char *, size_t);
-
-/* ioctls */
-
-#include <sys/ioccom.h>
-
-struct bio_sdmmc_command {
-	void *cookie;
-	struct sdmmc_command cmd;
-};
-
-struct bio_sdmmc_debug {
-	void *cookie;
-	int debug;
-};
-
-#define SDIOCEXECMMC	_IOWR('S',0, struct bio_sdmmc_command)
-#define SDIOCEXECAPP	_IOWR('S',1, struct bio_sdmmc_command)
-#define SDIOCSETDEBUG	_IOWR('S',2, struct bio_sdmmc_debug)
-#endif
 
 #endif
