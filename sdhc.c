@@ -29,12 +29,18 @@
 #include "sdmmc.h"
 #include "gecko.h"
 #include "string.h"
-#include "irq.h"
-#include "utils.h"
-#include "ipc.h"
 #include "memory.h"
+#include "utils.h"
 
-//#define SDHC_DEBUG	1
+#ifdef CAN_HAZ_IRQ
+#include "irq.h"
+#endif
+
+#ifdef CAN_HAZ_IPC
+#include "ipc.h"
+#endif
+
+#define SDHC_DEBUG	1
 
 #define SDHC_COMMAND_TIMEOUT	0
 #define SDHC_BUFFER_TIMEOUT	0
@@ -179,7 +185,7 @@ sdhc_host_found(struct sdhc_softc *sc, bus_space_tag_t iot,
 #ifdef SDHC_DEBUG
 	u_int16_t version;
 
-	version = bus_space_read_2(iot, ioh, SDHC_HOST_CTL_VERSION);
+	version = bus_space_read_2(ioh, SDHC_HOST_CTL_VERSION);
 	gecko_printf("%s: SD Host Specification/Vendor Version ",
 	    sc->sc_dev.dv_xname);
 	switch(SDHC_SPEC_VERSION(version)) {
@@ -331,6 +337,7 @@ sdhc_power(int why, void *arg)
 }
 #endif
 
+#ifndef LOADER
 /*
  * Shutdown hook established by or called from attachment driver.
  */
@@ -347,6 +354,7 @@ sdhc_shutdown(void *arg)
 		(void)sdhc_host_reset(hp);
 	}
 }
+#endif
 
 /*
  * Reset the host controller.  Called during initialization, when
@@ -572,7 +580,7 @@ sdhc_wait_state(struct sdhc_host *hp, u_int32_t mask, u_int32_t value)
 	u_int32_t state;
 	int timeout;
 
-	for (timeout = 10; timeout > 0; timeout--) {
+	for (timeout = 500; timeout > 0; timeout--) {
 		if (((state = HREAD4(hp, SDHC_PRESENT_STATE)) & mask)
 		    == value)
 			return 0;
@@ -731,7 +739,7 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 			dc_flushrange(cmd->c_data, cmd->c_datalen);
 			ahb_flush_to(AHB_SDHC);
 		}
-		HWRITE4(hp, SDHC_DMA_ADDR, dma_addr(cmd->c_data));
+		HWRITE4(hp, SDHC_DMA_ADDR, (u32)cmd->c_data);
 	}
 
 	DPRINTF(1,("%s: cmd=%#x mode=%#x blksize=%d blkcount=%d\n",
@@ -775,6 +783,7 @@ sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 					SDHC_DMA_INTERRUPT,
 					SDHC_TRANSFER_TIMEOUT);
 			if (!status) {
+				gecko_printf("DMA timeout %08x\n", status);				
 				error = ETIMEDOUT;
 				break;
 			}
@@ -785,8 +794,7 @@ sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 							left));
 				// FIXME: why do we need -0x200 here?
 				cmd->c_buf = cmd->c_data + cmd->c_datalen - left*512 - 0x200;
-				HWRITE4(hp, SDHC_DMA_ADDR,
-						dma_addr(cmd->c_buf));
+				HWRITE4(hp, SDHC_DMA_ADDR, (u32)cmd->c_buf);
 				continue;
 			}
 			if (ISSET(status, SDHC_TRANSFER_COMPLETE)) {
@@ -849,12 +857,12 @@ sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 #endif
 }
 
+#if 0
 void
 sdhc_read_data(struct sdhc_host *hp, u_char *datap, int datalen)
 {
 	while (datalen > 3) {
 		*(u_int32_t *)datap = HREAD4(hp, SDHC_DATA);
-		gecko_printf("next_data: %08x\n", *datap);
 		datap += 4;
 		datalen -= 4;
 		udelay(1000);
@@ -887,6 +895,7 @@ sdhc_write_data(struct sdhc_host *hp, u_char *datap, int datalen)
 		HWRITE4(hp, SDHC_DATA, rv);
 	}
 }
+#endif
 
 /* Prepare for another command. */
 int
@@ -922,19 +931,23 @@ sdhc_wait_intr(struct sdhc_host *hp, int mask, int timo)
 
 	status = hp->intr_status & mask;
 
-	for (timo = 500; timo > 0; timo--) {
+
+	for (timo = 5000; timo > 0; timo--) {
+#ifndef CAN_HAZ_IRQ
+		sdhc_irq(); // seems backwards but ok
+#endif
 		if (hp->intr_status != 0) {
 			status = hp->intr_status & mask;
 			break;
 		}
-		sdmmc_delay(1000);
+		udelay(1000);
 	}
 	if (timo == 0) {
 		status |= SDHC_ERROR_INTERRUPT;
 	}
 	hp->intr_status &= ~status;
 
-	DPRINTF(2,("%s: intr status %#x error %#x\n", HDEVNAME(hp), status,
+	DPRINTF(2,("%s: timo=%d intr status %#x error %#x\n", HDEVNAME(hp), timo, status,
 	    hp->intr_error_status));
 	
 	/* Command timeout has higher priority than command complete. */
@@ -1060,7 +1073,11 @@ sdhc_dump_regs(struct sdhc_host *hp)
 #endif
 
 #include "hollywood.h"
+#ifdef LOADER
+static struct sdhc_softc __softc;
+#else
 static struct sdhc_softc __softc MEM2_BSS;
+#endif
 
 void sdhc_irq(void)
 {
@@ -1069,13 +1086,16 @@ void sdhc_irq(void)
 
 void sdhc_init(void)
 {
+#ifdef CAN_HAZ_IRQ
 	irq_enable(IRQ_SDHC);
+#endif
 	memset(&__softc, 0, sizeof(__softc));
 	sdhc_host_found(&__softc, 0, SDHC_REG_BASE, 1);
 //	sdhc_host_found(&__softc, 0, SDHC_REG_BASE + 0x100, 1);
 //	sdhc_host_found(&__softc, 0, 0x0d080000, 1);
 }
 
+#ifdef CAN_HAZ_IPC
 void sdhc_ipc(volatile ipc_request *req)
 {
 	switch (req->req) {
@@ -1084,3 +1104,4 @@ void sdhc_ipc(volatile ipc_request *req)
 		break;
 	}
 }
+#endif
