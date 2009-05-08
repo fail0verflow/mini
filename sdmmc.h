@@ -44,9 +44,10 @@ struct device *sdmmc_attach(struct sdmmc_chip_functions *functions,
 void sdmmc_needs_discover(struct device *dev);
 int sdmmc_select(struct device *dev);
 int sdmmc_check_card(struct device *dev);
-void sdmmc_ack_card(struct device *dev);
+int sdmmc_ack_card(struct device *dev);
 int sdmmc_read(struct device *dev, u32 blk_start, u32 blk_count, void *data);
 #ifdef CAN_HAZ_IPC
 void sdmmc_ipc(volatile ipc_request *req);
 #endif
+
 #endif

@@ -40,7 +40,7 @@
 #include "ipc.h"
 #endif
 
-#define SDHC_DEBUG	1
+//#define SDHC_DEBUG
 
 #define SDHC_COMMAND_TIMEOUT	0
 #define SDHC_BUFFER_TIMEOUT	0

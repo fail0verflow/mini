@@ -32,7 +32,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "utils.h"
 #include "memory.h"
 
-#define SDMMC_DEBUG	1
+//#define SDMMC_DEBUG
 
 #ifdef SDMMC_DEBUG
 static int sdmmcdebug = 0;
@@ -405,18 +405,27 @@ int sdmmc_check_card(struct device *dev)
 {
 	int no = (int)dev;
 	struct sdmmc_card *c = &cards[no];
+
 	if (c->inserted == 0)
 		return SDMMC_NO_CARD;
+
 	if (c->new_card == 1)
 		return SDMMC_NEW_CARD;
+
 	return SDMMC_INSERTED;
 }
 
-void sdmmc_ack_card(struct device *dev)
+int sdmmc_ack_card(struct device *dev)
 {
 	int no = (int)dev;
 	struct sdmmc_card *c = &cards[no];
-	c->new_card = 0;
+
+	if (c->new_card == 1) {
+		c->new_card = 0;
+		return 0;
+	}
+
+	return -1;
 }
 
 int sdmmc_read(struct device *dev, u32 blk_start, u32 blk_count, void *data)
@@ -539,8 +548,8 @@ void sdmmc_ipc(volatile ipc_request *req)
 	int ret;
 	switch (req->req) {
 	case IPC_SDMMC_ACK:
-		sdmmc_ack_card(SDMMC_DEFAULT_DEVICE);
-		ipc_post(req->code, req->tag, 1);
+		ret = sdmmc_ack_card(SDMMC_DEFAULT_DEVICE);
+		ipc_post(req->code, req->tag, 1, ret);
 		break;
 	case IPC_SDMMC_READ:
 		ret = sdmmc_read(SDMMC_DEFAULT_DEVICE, req->args[0],
