@@ -340,17 +340,19 @@ u32 ipc_process_slow(void)
 	u32 vector = 0;
 
 	while (!vector) {
-		while (slow_queue_head != slow_queue_tail) {
+		while (!vector && (slow_queue_head != slow_queue_tail)) {
 			vector = process_slow(&slow_queue[slow_queue_head]);
 			slow_queue_head = (slow_queue_head+1)&(IPC_SLOW_SIZE-1);
 		}
 
-		u32 cookie = irq_kill();
-		if(slow_queue_head == slow_queue_tail)
-			irq_wait();
-		irq_restore(cookie);
+		if (!vector)
+		{
+			u32 cookie = irq_kill();
+			if(slow_queue_head == slow_queue_tail)
+				irq_wait();
+			irq_restore(cookie);
+		}
 	}
-
 	return vector;
 }
 
