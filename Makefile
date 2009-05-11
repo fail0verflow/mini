@@ -19,15 +19,20 @@ include ../../common.mk
 
 all: $(TARGET_BIN)
 
+main.o: main.c git_version.h
+
 $(TARGET_BIN): $(TARGET) $(ELFLOADER) 
 	@echo  "MAKEBIN	$@"
 	@$(MAKEBIN) $(ELFLOADER) $< $@
 
 upload: $(TARGET_BIN)
 	@$(WIIDEV)/bin/bootmii -a $<
+	
+git_version.h:
+	echo 'const char git_version[] = "'`./describesimple.sh`'";' > git_version.h
 
 clean: myclean
 
 myclean:
-	-rm -f $(TARGET_BIN)
+	-rm -f $(TARGET_BIN) git_version.h
 

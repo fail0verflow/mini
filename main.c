@@ -38,6 +38,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "crypto.h"
 #include "nand.h"
 #include "boot2.h"
+#include "git_version.h"
 
 #define PPC_BOOT_FILE "/bootmii/ppcboot.elf"
 
@@ -51,7 +52,7 @@ u32 _main(void *base)
 	(void)base;
 
 	gecko_init();
-	gecko_printf("mini v0.2 loading\n");
+	gecko_printf("mini v0.2 (%s) loading\n", git_version);
 
 	gecko_printf("Initializing exceptions...\n");
 	exception_initialize();
