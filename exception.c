@@ -18,7 +18,8 @@ Copyright (C) 2008, 2009	Haxx Enterprises <bushing@gmail.com>
 #include "panic.h"
 
 const char *exceptions[] = {
-	"RESET", "UNDEFINED INSTR", "SWI", "INSTR ABORT", "DATA ABORT", "RESERVED", "IRQ", "FIQ", "(unknown exception type)"
+	"RESET", "UNDEFINED INSTR", "SWI", "INSTR ABORT", "DATA ABORT",
+	"RESERVED", "IRQ", "FIQ", "(unknown exception type)"
 };
 
 const char *aborts[] = {

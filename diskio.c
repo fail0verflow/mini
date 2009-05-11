@@ -20,7 +20,6 @@ Copyright (C) 2008, 2009	Haxx Enterprises <bushing@gmail.com>
 static u8 buffer[512] MEM2_BSS ALIGNED(32);
 
 // Initialize a Drive
-
 DSTATUS disk_initialize (BYTE drv) {
 	if (sdmmc_check_card(SDMMC_DEFAULT_DEVICE) == SDMMC_NO_CARD)
 		return STA_NOINIT;
@@ -29,10 +28,7 @@ DSTATUS disk_initialize (BYTE drv) {
 	return disk_status(drv);
 }
 
-
-
 // Return Disk Status
-
 DSTATUS disk_status (BYTE drv) {
 	(void)drv;
 	if (sdmmc_check_card(SDMMC_DEFAULT_DEVICE) == SDMMC_INSERTED)
@@ -41,10 +37,7 @@ DSTATUS disk_status (BYTE drv) {
 		return STA_NODISK;
 }
 
-
-
 // Read Sector(s)
-
 DRESULT disk_read (BYTE drv, BYTE *buff, DWORD sector, BYTE count) {
 	int i;
 	(void)drv;
@@ -57,10 +50,7 @@ DRESULT disk_read (BYTE drv, BYTE *buff, DWORD sector, BYTE count) {
 	return RES_OK;
 }
 
-
-
 // Write Sector(s)
-
 #if _READONLY == 0
 DRESULT disk_write (BYTE drv, const BYTE *buff, DWORD sector, BYTE count) {
 	int i;
@@ -84,4 +74,3 @@ DRESULT disk_ioctl (BYTE drv, BYTE ctrl, void *buff) {
 	return RES_PARERR;
 }
 #endif /* _USE_IOCTL */
-

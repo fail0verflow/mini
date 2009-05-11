@@ -15,11 +15,11 @@ Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
 #include "types.h"
 #include "ipc.h"
 
-#define PAGE_SIZE			2048
+#define PAGE_SIZE		2048
 #define PAGE_SPARE_SIZE		64
 #define ECC_BUFFER_SIZE		(PAGE_SPARE_SIZE+16)
 #define ECC_BUFFER_ALLOC	(PAGE_SPARE_SIZE+32)
-#define BLOCK_SIZE			64
+#define BLOCK_SIZE		64
 #define NAND_MAX_PAGE		0x40000
 
 void nand_irq(void);
@@ -40,9 +40,7 @@ void nand_read_cluster(u32 clusterno, void *data);
 #define NAND_ECC_UNCORRECTABLE -1
 
 int nand_correct(u32 pageno, void *data, void *ecc);
-
-void nand_initialize();
-
+void nand_initialize(void);
 void nand_ipc(volatile ipc_request *req);
 
 #endif

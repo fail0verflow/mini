@@ -40,7 +40,7 @@ void crypto_read_seeprom(void)
 	seeprom_read(&seeprom, 0, sizeof(seeprom) / 2);
 }
 
-void crypto_initialize()
+void crypto_initialize(void)
 {
 	crypto_read_otp();
 	crypto_read_seeprom();
@@ -70,7 +70,7 @@ void crypto_ipc(volatile ipc_request *req)
 
 static int _aes_irq = 0;
 
-void aes_irq()
+void aes_irq(void)
 {
 	_aes_irq = 1;
 }
@@ -99,7 +99,7 @@ void aes_set_iv(u8 *iv)
 	}
 }
 
-void aes_empty_iv()
+void aes_empty_iv(void)
 {
 	int i;
 	for(i = 0; i < 4; i++)

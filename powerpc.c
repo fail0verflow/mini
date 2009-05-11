@@ -46,7 +46,7 @@ void powerpc_upload_stub(u32 entry)
 	clear32(HW_EXICTRL, EXICTRL_ENABLE_EXI);
 }
 
-void powerpc_hang()
+void powerpc_hang(void)
 {
 	clear32(HW_RESETS, 0x30);
 	udelay(100);
@@ -54,7 +54,7 @@ void powerpc_hang()
 	udelay(100);
 }
 
-void powerpc_reset()
+void powerpc_reset(void)
 {
 	// enable the broadway IPC interrupt
 	write32(HW_PPCIRQMASK, (1<<30));

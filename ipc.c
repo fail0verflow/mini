@@ -40,17 +40,17 @@ extern char __mem2_area_start[];
 // These defines are for the ARMCTRL regs
 // See http://wiibrew.org/wiki/Hardware/IPC
 
-#define		IPC_CTRL_Y1		0x01
-#define		IPC_CTRL_X2		0x02
-#define		IPC_CTRL_X1		0x04
-#define		IPC_CTRL_Y2		0x08
+#define		IPC_CTRL_Y1	0x01
+#define		IPC_CTRL_X2	0x02
+#define		IPC_CTRL_X1	0x04
+#define		IPC_CTRL_Y2	0x08
 
 #define		IPC_CTRL_IX1	0x10
 #define		IPC_CTRL_IX2	0x20
 
 // Our definitions for this IPC interface
 #define		IPC_CTRL_OUT	IPC_CTRL_Y1
-#define		IPC_CTRL_IN		IPC_CTRL_X1
+#define		IPC_CTRL_IN	IPC_CTRL_X1
 #define		IPC_CTRL_IRQ_IN	IPC_CTRL_IX1
 
 // reset both flags (X* for ARM and Y* for PPC)

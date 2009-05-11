@@ -142,7 +142,8 @@ static inline u32 boot2_page_translate(u32 page)
 static int read_to(u32 bytes)
 {
 	if(bytes > (valid_blocks * BLOCK_SIZE * PAGE_SIZE)) {
-		gecko_printf("tried to read %d boot2 bytes (%d pages), but only %d blocks (%d pages) are valid!\n", bytes, (bytes+(PAGE_SIZE-1)) / PAGE_SIZE, valid_blocks, valid_blocks * BLOCK_SIZE);
+		gecko_printf("tried to read %d boot2 bytes (%d pages), but only %d blocks (%d pages) are valid!\n",
+			bytes, (bytes+(PAGE_SIZE-1)) / PAGE_SIZE, valid_blocks, valid_blocks * BLOCK_SIZE);
 		return -1;
 	}
 	while(bytes > ((u32)pages_read * PAGE_SIZE)) {
@@ -186,7 +187,8 @@ int boot2_load(int copy)
 		}
 		mapno = find_valid_map(maps);
 		if(mapno >= 0) {
-			gecko_printf("found valid boot2 blockmap at page 0x%x, submap %d, generation %d\n", page, mapno, maps[mapno].generation);
+			gecko_printf("found valid boot2 blockmap at page 0x%x, submap %d, generation %d\n",
+				page, mapno, maps[mapno].generation);
 			if(maps[mapno].generation >= good_blockmap.generation) {
 				memcpy(&good_blockmap, &maps[mapno], sizeof(boot2blockmap));
 				found = 1;
@@ -270,7 +272,8 @@ int boot2_load(int copy)
 	gecko_printf("boot2 title key: %08x%08x%08x%08x\n", kp[0], kp[1], kp[2], kp[3]);
 
 	boot2_content_size = (boot2_tmd.boot_content.size + 15) & ~15;
-	gecko_printf("boot2 content size: 0x%x (padded: 0x%x)\n", (u32)boot2_tmd.boot_content.size, boot2_content_size);
+	gecko_printf("boot2 content size: 0x%x (padded: 0x%x)\n",
+		(u32)boot2_tmd.boot_content.size, boot2_content_size);
 
 	// read content
 	if(read_to(hdr->data_offset + boot2_content_size) < 0) {
@@ -285,7 +288,7 @@ int boot2_load(int copy)
 	return 0;
 }
 
-void boot2_init() {
+void boot2_init(void) {
 	boot2_copy = -1;
 	boot2_initialized = 0;
 	if(boot2_load(0) < 0) {
@@ -359,7 +362,6 @@ u32 boot2_ipc(volatile ipc_request *req)
 			} else {
 				ipc_post(req->code, req->tag, 1, -1);
 			}
-
 			break;
 
 		case IPC_BOOT2_TMD:
