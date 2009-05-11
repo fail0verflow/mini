@@ -14,21 +14,13 @@ Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
 static inline u32 read32(u32 addr)
 {
 	u32 data;
-#ifdef __THUMBEB__
 	__asm__ volatile ("ldr\t%0, [%1]" : "=l" (data) : "l" (addr));
-#else
-	__asm__ volatile ("ldr\t%0, [%1]" : "=r" (data) : "r" (addr));
-#endif
 	return data;
 }
 
 static inline void write32(u32 addr, u32 data)
 {
-#ifdef __THUMBEB__
 	__asm__ volatile ("str\t%0, [%1]" : : "l" (data), "l" (addr));
-#else
-	__asm__ volatile ("str\t%0, [%1]" : : "r" (data), "r" (addr));
-#endif
 }
 
 static inline u32 set32(u32 addr, u32 set)
@@ -38,13 +30,8 @@ static inline u32 set32(u32 addr, u32 set)
 		"ldr\t%0, [%1]\n"
 		"\torr\t%0, %2\n"
 		"\tstr\t%0, [%1]"
-#ifdef __THUMBEB__
 		: "=&l" (data)
 		: "l" (addr), "l" (set)
-#else
-		: "=&r" (data)
-		: "r" (addr), "r" (set)
-#endif
 	);
 	return data;
 }
@@ -56,13 +43,8 @@ static inline u32 clear32(u32 addr, u32 clear)
 		"ldr\t%0, [%1]\n"
 		"\tbic\t%0, %2\n"
 		"\tstr\t%0, [%1]"
-#ifdef __THUMBEB__
 		: "=&l" (data)
 		: "l" (addr), "l" (clear)
-#else
-		: "=&r" (data)
-		: "r" (addr), "r" (clear)
-#endif
 	);
 	return data;
 }
@@ -76,13 +58,8 @@ static inline u32 mask32(u32 addr, u32 clear, u32 set)
 		"\tbic\t%0, %3\n"
 		"\torr\t%0, %2\n"
 		"\tstr\t%0, [%1]"
-#ifdef __THUMBEB__
 		: "=&l" (data)
 		: "l" (addr), "l" (set), "l" (clear)
-#else
-		: "=&r" (data)
-		: "r" (addr), "r" (set), "r" (clear)
-#endif
 	);
 	return data;
 }
@@ -90,21 +67,13 @@ static inline u32 mask32(u32 addr, u32 clear, u32 set)
 static inline u16 read16(u32 addr)
 {
 	u32 data;
-#ifdef __THUMBEB__
 	__asm__ volatile ("ldrh\t%0, [%1]" : "=l" (data) : "l" (addr));
-#else
-	__asm__ volatile ("ldrh\t%0, [%1]" : "=r" (data) : "r" (addr));
-#endif
 	return data;
 }
 
 static inline void write16(u32 addr, u16 data)
 {
-#ifdef __THUMBEB__
 	__asm__ volatile ("strh\t%0, [%1]" : : "l" (data), "l" (addr));
-#else
-	__asm__ volatile ("strh\t%0, [%1]" : : "r" (data), "r" (addr));
-#endif
 }
 
 static inline u16 set16(u32 addr, u16 set)
@@ -114,13 +83,8 @@ static inline u16 set16(u32 addr, u16 set)
 		"ldrh\t%0, [%1]\n"
 		"\torr\t%0, %2\n"
 		"\tstrh\t%0, [%1]"
-#ifdef __THUMBEB__
 		: "=&l" (data)
 		: "l" (addr), "l" (set)
-#else
-		: "=&r" (data)
-		: "r" (addr), "r" (set)
-#endif
 
 	);
 	return data;
@@ -133,13 +97,8 @@ static inline u16 clear16(u32 addr, u16 clear)
 		"ldrh\t%0, [%1]\n"
 		"\tbic\t%0, %2\n"
 		"\tstrh\t%0, [%1]"
-#ifdef __THUMBEB__
 		: "=&l" (data)
 		: "l" (addr), "l" (clear)
-#else
-		: "=&r" (data)
-		: "r" (addr), "r" (clear)
-#endif
 	);
 	return data;
 }
@@ -153,13 +112,8 @@ static inline u16 mask16(u32 addr, u16 clear, u16 set)
 		"\tbic\t%0, %3\n"
 		"\torr\t%0, %2\n"
 		"\tstrh\t%0, [%1]"
-#ifdef __THUMBEB__
 		: "=&l" (data)
 		: "l" (addr), "l" (set), "l" (clear)
-#else
-		: "=&r" (data)
-		: "r" (addr), "r" (set), "r" (clear)
-#endif
 	);
 	return data;
 }
@@ -167,21 +121,13 @@ static inline u16 mask16(u32 addr, u16 clear, u16 set)
 static inline u8 read8(u32 addr)
 {
 	u32 data;
-#ifdef __THUMBEB__
 	__asm__ volatile ("ldrb\t%0, [%1]" : "=l" (data) : "l" (addr));
-#else
-	__asm__ volatile ("ldrb\t%0, [%1]" : "=r" (data) : "r" (addr));
-#endif
 	return data;
 }
 
 static inline void write8(u32 addr, u8 data)
 {
-#ifdef __THUMBEB__
 	__asm__ volatile ("strb\t%0, [%1]" : : "l" (data), "l" (addr));
-#else
-	__asm__ volatile ("strb\t%0, [%1]" : : "r" (data), "r" (addr));
-#endif
 }
 
 static inline u8 set8(u32 addr, u8 set)
@@ -191,13 +137,8 @@ static inline u8 set8(u32 addr, u8 set)
 		"ldrb\t%0, [%1]\n"
 		"\torr\t%0, %2\n"
 		"\tstrb\t%0, [%1]"
-#ifdef __THUMBEB__
 		: "=&l" (data)
 		: "l" (addr), "l" (set)
-#else
-		: "=&r" (data)
-		: "r" (addr), "r" (set)
-#endif
 	);
 	return data;
 }
@@ -209,13 +150,8 @@ static inline u8 clear8(u32 addr, u8 clear)
 		"ldrb\t%0, [%1]\n"
 		"\tbic\t%0, %2\n"
 		"\tstrb\t%0, [%1]"
-#ifdef __THUMBEB__
 		: "=&l" (data)
 		: "l" (addr), "l" (clear)
-#else
-		: "=&r" (data)
-		: "r" (addr), "r" (clear)
-#endif
 	);
 	return data;
 }
@@ -228,13 +164,8 @@ static inline u8 mask8(u32 addr, u8 clear, u8 set)
 		"\tbic\t%0, %3\n"
 		"\torr\t%0, %2\n"
 		"\tstrb\t%0, [%1]"
-#ifdef __THUMBEB__
 		: "=&l" (data)
 		: "l" (addr), "l" (set), "l" (clear)
-#else
-		: "=&r" (data)
-		: "r" (addr), "r" (set), "r" (clear)
-#endif
 	);
 	return data;
 }
