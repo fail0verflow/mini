@@ -4,9 +4,7 @@
  * This code is based on code written by Patrick Powell <papowell@astart.com>.
  * It may be used for any purpose as long as this notice remains intact on all
  * source code distributions.
- */
 
-/*
  * Copyright (c) 2008 Holger Weiss.
  *
  * This version of the code is maintained by Holger Weiss <holger@jhweiss.de>.

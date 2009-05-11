@@ -1,6 +1,5 @@
 /*
 	mini - a Free Software replacement for the Nintendo/BroadOn IOS.
-
 	inter-processor communications
 
 Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
@@ -9,25 +8,14 @@ Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
 Copyright (C) 2009			Andre Heider "dhewg" <dhewg@wiibrew.org>
 Copyright (C) 2009		John Kelley <wiidev@kelley.ca>
 
-This program is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, version 2.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-
+# This code is licensed to you under the terms of the GNU GPL, version 2;
+# see file COPYING or http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
 */
+
 #ifndef __IPC_H__
 #define __IPC_H__
 
 #include "types.h"
-
 
 /* For the sake of interface compatibility between mini and powerpc code,
    you should try to commit any enhancements you make back upstream so
