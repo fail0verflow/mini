@@ -40,7 +40,7 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #include "panic.h"
 
 #define MINI_VERSION_MAJOR 1
-#define MINI_VERSION_MINOR 0
+#define MINI_VERSION_MINOR 1
 
 static volatile ipc_request in_queue[IPC_IN_SIZE] ALIGNED(32) MEM2_BSS;
 static volatile ipc_request out_queue[IPC_OUT_SIZE] ALIGNED(32) MEM2_BSS;
