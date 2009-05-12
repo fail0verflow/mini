@@ -13,6 +13,7 @@ Copyright (C) 2009		John Kelley <wiidev@kelley.ca>
 */
 
 #include <stdarg.h>
+#include "string.h"
 #include "types.h"
 #include "irq.h"
 #include "memory.h"
@@ -36,6 +37,7 @@ static volatile ipc_request out_queue[IPC_OUT_SIZE] ALIGNED(32) MEM2_BSS;
 static volatile ipc_request slow_queue[IPC_SLOW_SIZE];
 
 extern char __mem2_area_start[];
+extern const char git_version[];
 
 // These defines are for the ARMCTRL regs
 // See http://wiibrew.org/wiki/Hardware/IPC
@@ -141,6 +143,11 @@ static u32 process_slow(volatile ipc_request *req)
 					return req->args[0];
 				case IPC_SYS_GETVERS:
 					ipc_post(req->code, req->tag, 1, MINI_VERSION_MAJOR << 16 | MINI_VERSION_MINOR);
+					break;
+				case IPC_SYS_GETGITS:
+					strlcpy((char *)req->args[0], git_version, 32);
+					dc_flushrange((void *)req->args[0], 32);
+					ipc_post(req->code, req->tag, 0);
 					break;
 				default:
 					gecko_printf("IPC: unknown SLOW SYS request %04x\n", req->req);

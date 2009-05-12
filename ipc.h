@@ -49,6 +49,7 @@ Copyright (C) 2009		John Kelley <wiidev@kelley.ca>
 #define IPC_SYS_PING	0x0000
 #define IPC_SYS_JUMP	0x0001
 #define IPC_SYS_GETVERS 0x0002
+#define IPC_SYS_GETGITS 0x0003
 #define IPC_SYS_WRITE32	0x0100
 #define IPC_SYS_WRITE16	0x0101
 #define IPC_SYS_WRITE8	0x0102

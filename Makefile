@@ -29,7 +29,8 @@ upload: $(TARGET_BIN)
 	@$(WIIDEV)/bin/bootmii -a $<
 	
 git_version.h:
-	echo 'const char git_version[] = "'`./describesimple.sh`'";' > git_version.h
+	@echo "  GITVER    $@"
+	@echo 'const char git_version[] = "'`./describesimple.sh`'";' > git_version.h
 
 clean: myclean
 
