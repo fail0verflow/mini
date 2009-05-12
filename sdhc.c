@@ -763,13 +763,9 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 void
 sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 {
-	int mask;
 	int error;
 	int status;
-	int left;
 
-	mask = ISSET(cmd->c_flags, SCF_CMD_READ) ?
-	    SDHC_BUFFER_READ_ENABLE : SDHC_BUFFER_WRITE_ENABLE;
 	error = 0;
 
 	DPRINTF(1,("%s: resp=%#x datalen=%d\n", HDEVNAME(hp),
@@ -780,18 +776,20 @@ sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 					SDHC_DMA_INTERRUPT,
 					SDHC_TRANSFER_TIMEOUT);
 			if (!status) {
-				gecko_printf("DMA timeout %08x\n", status);				
+				gecko_printf("DMA timeout %08x\n", status);
 				error = ETIMEDOUT;
 				break;
 			}
 
 			if (ISSET(status, SDHC_DMA_INTERRUPT)) {
-				left = HREAD2(hp, SDHC_BLOCK_COUNT);
 				DPRINTF(2,("%s: dma left:%#x\n", HDEVNAME(hp),
-							left));
-				// FIXME: why do we need -0x200 here?
-				cmd->c_buf = cmd->c_data + cmd->c_datalen - left*512 - 0x200;
-				HWRITE4(hp, SDHC_DMA_ADDR, (u32)cmd->c_buf);
+						HREAD2(hp, SDHC_BLOCK_COUNT)));
+				// this works because our virtual memory
+				// addresses are equal to the physical memory
+				// addresses and because we require the target
+				// buffer to be contiguous
+				HWRITE4(hp, SDHC_DMA_ADDR,
+						HREAD4(hp, SDHC_DMA_ADDR));
 				continue;
 			}
 			if (ISSET(status, SDHC_TRANSFER_COMPLETE)) {
@@ -820,79 +818,7 @@ sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 	DPRINTF(1,("%s: data transfer done (error=%d)\n",
 	    HDEVNAME(hp), cmd->c_error));
 	return;
-#if 0
-	while (datalen > 0) {
-		if (!sdhc_wait_intr(hp, SDHC_BUFFER_READ_READY|
-		    SDHC_BUFFER_WRITE_READY, SDHC_BUFFER_TIMEOUT)) {
-			error = ETIMEDOUT;
-			break;
-		}
-
-		if ((error = sdhc_wait_state(hp, mask, mask)) != 0)
-			break;
-
-		i = MIN(datalen, cmd->c_blklen);
-		if (ISSET(cmd->c_flags, SCF_CMD_READ))
-			sdhc_read_data(hp, datap, i);
-		else
-			sdhc_write_data(hp, datap, i);
-
-		datap += i;
-		datalen -= i;
-	}
-
-	if (error == 0 && !sdhc_wait_intr(hp, SDHC_TRANSFER_COMPLETE,
-	    SDHC_TRANSFER_TIMEOUT))
-		error = ETIMEDOUT;
-
-	if (error != 0)
-		cmd->c_error = error;
-	SET(cmd->c_flags, SCF_ITSDONE);
-
-	DPRINTF(1,("%s: data transfer done (error=%d)\n",
-	    HDEVNAME(hp), cmd->c_error));
-#endif
 }
-
-#if 0
-void
-sdhc_read_data(struct sdhc_host *hp, u_char *datap, int datalen)
-{
-	while (datalen > 3) {
-		*(u_int32_t *)datap = HREAD4(hp, SDHC_DATA);
-		datap += 4;
-		datalen -= 4;
-		udelay(1000);
-	}
-	if (datalen > 0) {
-		u_int32_t rv = HREAD4(hp, SDHC_DATA);
-		do {
-			*datap++ = rv & 0xff;
-			rv = rv >> 8;
-		} while (--datalen > 0);
-	}
-}
-
-void
-sdhc_write_data(struct sdhc_host *hp, u_char *datap, int datalen)
-{
-	while (datalen > 3) {
-		DPRINTF(3,("%08x\n", *(u_int32_t *)datap));
-		HWRITE4(hp, SDHC_DATA, *((u_int32_t *)datap));
-		datap += 4;
-		datalen -= 4;
-	}
-	if (datalen > 0) {
-		u_int32_t rv = *datap++;
-		if (datalen > 1)
-			rv |= *datap++ << 8;
-		if (datalen > 2)
-			rv |= *datap++ << 16;
-		DPRINTF(3,("rv %08x\n", rv));
-		HWRITE4(hp, SDHC_DATA, rv);
-	}
-}
-#endif
 
 /* Prepare for another command. */
 int
