@@ -763,20 +763,17 @@ sdhc_start_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 void
 sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 {
-	int datalen;
 	int mask;
 	int error;
 	int status;
-	int left, blkcnt;
+	int left;
 
 	mask = ISSET(cmd->c_flags, SCF_CMD_READ) ?
 	    SDHC_BUFFER_READ_ENABLE : SDHC_BUFFER_WRITE_ENABLE;
 	error = 0;
-	datalen = cmd->c_datalen;
-	blkcnt = (datalen / 512);
 
 	DPRINTF(1,("%s: resp=%#x datalen=%d\n", HDEVNAME(hp),
-	    MMC_R1(cmd->c_resp), datalen));
+	    MMC_R1(cmd->c_resp), cmd->c_datalen));
 	if (ISSET(hp->flags, SHF_USE_DMA)) {
 		for(;;) {
 			status = sdhc_wait_intr(hp, SDHC_TRANSFER_COMPLETE |
@@ -997,10 +994,21 @@ sdhc_intr(void *arg)
 		 */
 		if (ISSET(status, SDHC_ERROR_INTERRUPT)) {
 			u_int16_t error;
+			u_int16_t signal;
 
 			/* Acknowledge error interrupts. */
 			error = HREAD2(hp, SDHC_EINTR_STATUS);
-			HWRITE2(hp, SDHC_EINTR_STATUS, error);
+
+			/* IOS does this */
+			if (error == 0) {
+				signal = HREAD2(hp, SDHC_EINTR_SIGNAL_EN);
+				HWRITE2(hp, SDHC_EINTR_SIGNAL_EN, 0);
+				(void)sdhc_soft_reset(hp, SDHC_RESET_DAT|SDHC_RESET_CMD);
+				HWRITE2(hp, SDHC_EINTR_STATUS, 0xffff);
+				HWRITE2(hp, SDHC_EINTR_SIGNAL_EN, signal);
+			}
+			else
+				HWRITE2(hp, SDHC_EINTR_STATUS, error);
 //			DPRINTF(2,("%s: error interrupt, status=%d\n",
 //			    HDEVNAME(hp), error));
 
@@ -1008,7 +1016,6 @@ sdhc_intr(void *arg)
 		 	    SDHC_DATA_TIMEOUT_ERROR)) {
 				hp->intr_error_status |= error;
 				hp->intr_status |= status;
-				wakeup(&hp->intr_status);
 			}
 		}
 
@@ -1016,7 +1023,7 @@ sdhc_intr(void *arg)
 		 * Wake up the sdmmc event thread to scan for cards.
 		 */
 		 if (ISSET(status, SDHC_CARD_REMOVAL|SDHC_CARD_INSERTION)) {
-			// this pushed a request to the slow queue so that we
+			// this pushes a request to the slow queue so that we
 			// don't block other IRQs.
 			ipc_enqueue_slow(IPC_DEV_SDHC, IPC_SDHC_DISCOVER, 1,
 							(u32) hp->sdmmc);
@@ -1030,7 +1037,6 @@ sdhc_intr(void *arg)
 		    SDHC_BUFFER_WRITE_READY|SDHC_COMMAND_COMPLETE|
 		     SDHC_TRANSFER_COMPLETE|SDHC_DMA_INTERRUPT)) {
 			hp->intr_status |= status;
-			wakeup(&hp->intr_status);
 		}
 
 		/*
