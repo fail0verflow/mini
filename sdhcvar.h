@@ -39,6 +39,7 @@ struct sdhc_host {
 	u_int8_t regs[14];		/* host controller state */
 	u_int16_t intr_status;		/* soft interrupt status */
 	u_int16_t intr_error_status;	/* soft error status */
+	int data_command;
 };
 
 struct sdhc_softc {

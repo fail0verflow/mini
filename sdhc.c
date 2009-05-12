@@ -211,6 +211,7 @@ sdhc_host_found(struct sdhc_softc *sc, bus_space_tag_t iot,
 	hp->sc = sc;
 	hp->iot = iot;
 	hp->ioh = ioh;
+	hp->data_command = 0;
 
 	/*
 	 * Reset the host controller and enable interrupts.
@@ -600,6 +601,9 @@ sdhc_exec_command(sdmmc_chipset_handle_t sch, struct sdmmc_command *cmd)
 	struct sdhc_host *hp = sch;
 	int error;
 
+	if (cmd->c_datalen > 0)
+		hp->data_command = 1;
+
 	/*
 	 * Start the MMC command, or mark `cmd' as failed and return.
 	 */
@@ -607,6 +611,7 @@ sdhc_exec_command(sdmmc_chipset_handle_t sch, struct sdmmc_command *cmd)
 	if (error != 0) {
 		cmd->c_error = error;
 		SET(cmd->c_flags, SCF_ITSDONE);
+		hp->data_command = 0;
 		return;
 	}
 
@@ -618,6 +623,7 @@ sdhc_exec_command(sdmmc_chipset_handle_t sch, struct sdmmc_command *cmd)
 	    SDHC_COMMAND_TIMEOUT)) {
 		cmd->c_error = ETIMEDOUT;
 		SET(cmd->c_flags, SCF_ITSDONE);
+		hp->data_command = 0;
 		return;
 	}
 
@@ -650,6 +656,7 @@ sdhc_exec_command(sdmmc_chipset_handle_t sch, struct sdmmc_command *cmd)
 	DPRINTF(1,("%s: cmd %u done (flags=%#x error=%d)\n",
 	    HDEVNAME(hp), cmd->c_opcode, cmd->c_flags, cmd->c_error));
 	SET(cmd->c_flags, SCF_ITSDONE);
+	hp->data_command = 0;
 }
 
 int
@@ -930,6 +937,13 @@ sdhc_intr(void *arg)
 			signal = HREAD2(hp, SDHC_EINTR_SIGNAL_EN);
 			HWRITE2(hp, SDHC_EINTR_SIGNAL_EN, 0);
 			(void)sdhc_soft_reset(hp, SDHC_RESET_DAT|SDHC_RESET_CMD);
+			if (hp->data_command == 1) {
+				hp->data_command = 0;
+
+				// TODO: add a way to send commands from irq
+				// context and uncomment this
+//				sdmmc_abort();
+			}
 			HWRITE2(hp, SDHC_EINTR_STATUS, error);
 			HWRITE2(hp, SDHC_EINTR_SIGNAL_EN, signal);
 
