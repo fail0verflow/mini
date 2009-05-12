@@ -14,9 +14,7 @@ Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
 #include "utils.h"
 #include "gecko.h"
 #include "hollywood.h"
-#ifdef CAN_HAZ_IRQ
 #include "irq.h"
-#endif
 
 void _dc_inval_entries(void *start, int count);
 void _dc_flush_entries(const void *start, int count);
@@ -53,14 +51,6 @@ void _tlb_inval(void);
 #define		HW_138	(HW_REG_BASE + 0x138)
 #define		HW_188	(HW_REG_BASE + 0x188)
 #define		HW_18C	(HW_REG_BASE + 0x18c)
-
-#ifdef CAN_HAZ_IRQ
-#define IRQ_PREAMBLE u32 cookie = irq_kill();
-#define IRQ_POSTAMBLE irq_restore(cookie);
-#else
-#define IRQ_PREAMBLE /* */
-#define IRQ_POSTAMBLE (void)0;
-#endif
 
 // what is this thing doing anyway?
 // and why only on reads?
@@ -163,17 +153,18 @@ void _ahb_flush_to(enum AHBDEV dev) {
 // invalidate device and then starlet
 void ahb_flush_to(enum AHBDEV type)
 {
-IRQ_PREAMBLE
+	u32 cookie = irq_kill();
 	_ahb_flush_to(type);
 	if(type != AHB_STARLET)
 		_ahb_flush_to(AHB_STARLET);
-IRQ_POSTAMBLE
+
+	irq_restore(cookie);
 }
 
 // flush device and also invalidate memory
 void ahb_flush_from(enum AHBDEV dev)
 {
-IRQ_PREAMBLE
+	u32 cookie = irq_kill();
 	u16 req = 0;
 	u16 ack;
 	int i;
@@ -210,12 +201,12 @@ IRQ_PREAMBLE
 		gecko_printf("ahb_flush(%d): Flush (0x%x) did not ack!\n", dev, req);
 	}
 done:
-IRQ_POSTAMBLE
+	irq_restore(cookie);
 }
 
 void dc_flushrange(const void *start, u32 size)
 {
-IRQ_PREAMBLE
+	u32 cookie = irq_kill();
 	if(size > 0x4000) {
 		_dc_flush();
 	} else {
@@ -225,34 +216,34 @@ IRQ_PREAMBLE
 	}
 	_drain_write_buffer();
 	ahb_flush_from(AHB_1);
-IRQ_POSTAMBLE
+	irq_restore(cookie);
 }
 
 void dc_invalidaterange(void *start, u32 size)
 {
-IRQ_PREAMBLE
+	u32 cookie = irq_kill();
 	void *end = ALIGN_FORWARD(((u8*)start) + size, LINESIZE);
 	start = ALIGN_BACKWARD(start, LINESIZE);
 	_dc_inval_entries(start, (end - start) / LINESIZE);
 	ahb_flush_to(AHB_STARLET);
-IRQ_POSTAMBLE
+	irq_restore(cookie);
 }
 
 void dc_flushall(void)
 {
-IRQ_PREAMBLE
+	u32 cookie = irq_kill();
 	_dc_flush();
 	_drain_write_buffer();
 	ahb_flush_from(AHB_1);
-IRQ_POSTAMBLE
+	irq_restore(cookie);
 }
 
 void ic_invalidateall(void)
 {
-IRQ_PREAMBLE
+	u32 cookie = irq_kill();
 	_ic_inval();
 	ahb_flush_to(AHB_STARLET);
-IRQ_POSTAMBLE
+	irq_restore(cookie);
 }
 
 void mem_protect(int enable, void *start, void *end)
@@ -321,7 +312,7 @@ void map_section(u32 from, u32 to, u32 size, u32 attributes)
 void mem_initialize(void)
 {
 	u32 cr;
-IRQ_PREAMBLE
+	u32 cookie = irq_kill();
 
 	gecko_printf("MEM: cleaning up\n");
 
@@ -364,12 +355,12 @@ IRQ_PREAMBLE
 
 	gecko_printf("MEM: init done\n");
 
-IRQ_POSTAMBLE
+	irq_restore(cookie);
 }
 
 void mem_shutdown(void)
 {
-IRQ_PREAMBLE
+	u32 cookie = irq_kill();
 	_dc_flush();
 	_drain_write_buffer();
 	u32 cr = get_cr();
@@ -378,6 +369,6 @@ IRQ_PREAMBLE
 	_ic_inval();
 	_dc_inval();
 	_tlb_inval();
-IRQ_POSTAMBLE
+	irq_restore(cookie);
 }
 #endif

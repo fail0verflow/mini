@@ -12,6 +12,7 @@ Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
 #ifndef __IRQ_H__
 #define __IRQ_H__
 
+#ifdef CAN_HAZ_IRQ
 #define IRQ_TIMER	0
 #define IRQ_NAND	1
 #define IRQ_AES		2
@@ -66,7 +67,17 @@ static inline void irq_wait(void)
 }
 
 void irq_set_alarm(u32 ms, u8 enable);
+#endif
 
+#else
+// stub functions allow us to avoid sprinkling other code with ifdefs
+static inline u32 irq_kill(void) {
+	return 0;
+}
+
+static inline void irq_restore(u32 cookie) {
+	(void)cookie;
+}
 #endif
 
 #endif
