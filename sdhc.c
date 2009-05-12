@@ -382,7 +382,10 @@ sdhc_host_reset(sdmmc_chipset_handle_t sch)
 	HWRITE1(hp, SDHC_TIMEOUT_CTL, SDHC_TIMEOUT_MAX);
 
 	/* Enable interrupts. */
-	imask = SDHC_CARD_REMOVAL | SDHC_CARD_INSERTION |
+	imask =
+#ifndef LOADER
+	    SDHC_CARD_REMOVAL | SDHC_CARD_INSERTION |
+#endif
 	    SDHC_BUFFER_READ_READY | SDHC_BUFFER_WRITE_READY |
 	    SDHC_DMA_INTERRUPT | SDHC_BLOCK_GAP_EVENT |
 	    SDHC_TRANSFER_COMPLETE | SDHC_COMMAND_COMPLETE;
@@ -924,17 +927,12 @@ sdhc_intr(void *arg)
 
 			/* Acknowledge error interrupts. */
 			error = HREAD2(hp, SDHC_EINTR_STATUS);
+			signal = HREAD2(hp, SDHC_EINTR_SIGNAL_EN);
+			HWRITE2(hp, SDHC_EINTR_SIGNAL_EN, 0);
+			(void)sdhc_soft_reset(hp, SDHC_RESET_DAT|SDHC_RESET_CMD);
+			HWRITE2(hp, SDHC_EINTR_STATUS, error);
+			HWRITE2(hp, SDHC_EINTR_SIGNAL_EN, signal);
 
-			/* IOS does this */
-			if (error == 0) {
-				signal = HREAD2(hp, SDHC_EINTR_SIGNAL_EN);
-				HWRITE2(hp, SDHC_EINTR_SIGNAL_EN, 0);
-				(void)sdhc_soft_reset(hp, SDHC_RESET_DAT|SDHC_RESET_CMD);
-				HWRITE2(hp, SDHC_EINTR_STATUS, 0xffff);
-				HWRITE2(hp, SDHC_EINTR_SIGNAL_EN, signal);
-			}
-			else
-				HWRITE2(hp, SDHC_EINTR_STATUS, error);
 //			DPRINTF(2,("%s: error interrupt, status=%d\n",
 //			    HDEVNAME(hp), error));
 
@@ -945,6 +943,7 @@ sdhc_intr(void *arg)
 			}
 		}
 
+#ifdef CAN_HAZ_IPC
 		/*
 		 * Wake up the sdmmc event thread to scan for cards.
 		 */
@@ -954,6 +953,7 @@ sdhc_intr(void *arg)
 			ipc_enqueue_slow(IPC_DEV_SDHC, IPC_SDHC_DISCOVER, 1,
 							(u32) hp->sdmmc);
 		}
+#endif
 
 		/*
 		 * Wake up the blocking process to service command
