@@ -2,7 +2,7 @@
 
 # Check for git and a git repo.
 if head=`git rev-parse --verify HEAD 2>/dev/null`; then
-	comm=`git log --pretty=oneline -n1 ../mini | awk ' { print $1 }'`
+	comm=`git log --pretty=oneline -n1 | awk ' { print $1 }'`
 	if tagver=`git describe --exact-match --match bootmii-\* $comm 2>/dev/null`; then
 		printf "%s" "BootMii v"`printf "%s" $tagver | awk '{ sub (/bootmii-/, ""); print;}'`
 	else
