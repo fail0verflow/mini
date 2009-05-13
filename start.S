@@ -104,8 +104,7 @@ done_bss2:
 	bl	debug_output
 	@ take the plunge
 	mov	r0, r4
-	ldr	r4, =(_main+1)
-	blx	r4
+	bl	_main
 	@ _main returned! Go to whatever address it returned...
 	mov	pc, r0
 
