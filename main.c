@@ -42,7 +42,7 @@ u32 _main(void *base)
 	(void)base;
 
 	gecko_init();
-	gecko_printf("mini v0.2 (%s) loading\n", git_version);
+	gecko_printf("mini %s loading\n", git_version);
 
 	gecko_printf("Initializing exceptions...\n");
 	exception_initialize();
