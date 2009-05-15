@@ -1,4 +1,4 @@
-include ../../starlet.mk
+include starlet.mk
 
 ASFLAGS += -D_LANGUAGE_ASSEMBLY
 CFLAGS += -DCAN_HAZ_IRQ -DCAN_HAZ_IPC
@@ -15,7 +15,7 @@ OBJS = start.o main.o ipc.o vsprintf.o string.o gecko.o memory.o memory_asm.o \
 	irq.o irq_asm.o exception.o exception_asm.o seeprom.o crypto.o nand.o \
 	boot2.o ldhack.o sdmmc.o
 
-include ../../common.mk
+include common.mk
 
 all: $(TARGET_BIN)
 
