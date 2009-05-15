@@ -5,8 +5,8 @@ CFLAGS += -DCAN_HAZ_IRQ -DCAN_HAZ_IPC
 LDSCRIPT = mini.ld
 LIBS = -lgcc
 
-ELFLOADER = ../elfloader/elfloader.bin
-MAKEBIN = python ../makebin.py
+ELFLOADER = elfloader/elfloader.bin
+MAKEBIN = python makebin.py
 
 TARGET = armboot.elf
 TARGET_BIN = armboot.bin
@@ -34,6 +34,10 @@ git_version.h:
 
 clean: myclean
 
+$(ELFLOADER):
+	make -C elfloader
+
 myclean:
 	-rm -f $(TARGET_BIN) git_version.h
+	$(MAKE) -C elfloader clean
 

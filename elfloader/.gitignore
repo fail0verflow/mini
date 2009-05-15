@@ -1,6 +1,6 @@
-git_version.h
 *.d
 *.bin
 *.elf
+*.o
 *.map
-*~
+
