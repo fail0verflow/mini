@@ -38,9 +38,8 @@ struct sdmmc_chip_functions {
 	/* command execution */
 	void	(*exec_command)(sdmmc_chipset_handle_t,
 		    struct sdmmc_command *);
-	/* card interrupt */
-	void	(*card_intr_mask)(sdmmc_chipset_handle_t, int);
-	void	(*card_intr_ack)(sdmmc_chipset_handle_t);
+	/* bus width */
+	void	(*set_bus_width)(sdmmc_chipset_handle_t, int);
 };
 
 /* host controller reset */
@@ -62,11 +61,9 @@ struct sdmmc_chip_functions {
 /* command execution */
 #define sdmmc_chip_exec_command(tag, handle, cmdp)			\
 	((tag)->exec_command((handle), (cmdp)))
-/* card interrupt */
-#define sdmmc_chip_card_intr_mask(tag, handle, enable)			\
-	((tag)->card_intr_mask((handle), (enable)))
-#define sdmmc_chip_card_intr_ack(tag, handle)				\
-	((tag)->card_intr_ack((handle)))
+/* bus widht */
+#define sdmmc_chip_set_bus_width(tag, handle, enable)			\
+	((tag)->set_bus_width((handle), (enable)))
 
 /* clock frequencies for sdmmc_chip_bus_clock() */
 #define SDMMC_SDCLK_OFF		0
