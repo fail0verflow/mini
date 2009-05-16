@@ -42,9 +42,8 @@
 
 //#define SDHC_DEBUG
 
-#define SDHC_COMMAND_TIMEOUT	0
-#define SDHC_BUFFER_TIMEOUT	0
-#define SDHC_TRANSFER_TIMEOUT	0
+#define SDHC_COMMAND_TIMEOUT	100
+#define SDHC_TRANSFER_TIMEOUT	5000
 
 #define HDEVNAME(hp)	((hp)->sc->sc_dev.dv_xname)
 #define sdmmc_delay(t)	udelay(t)
@@ -857,7 +856,7 @@ sdhc_wait_intr(struct sdhc_host *hp, int mask, int timo)
 	status = hp->intr_status & mask;
 
 
-	for (timo = 5000; timo > 0; timo--) {
+	for (; timo > 0; timo--) {
 #ifndef CAN_HAZ_IRQ
 		sdhc_irq(); // seems backwards but ok
 #endif
@@ -867,6 +866,7 @@ sdhc_wait_intr(struct sdhc_host *hp, int mask, int timo)
 		}
 		udelay(1000);
 	}
+
 	if (timo == 0) {
 		status |= SDHC_ERROR_INTERRUPT;
 	}
