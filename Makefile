@@ -35,7 +35,7 @@ git_version.h:
 clean: myclean
 
 $(ELFLOADER):
-	make -C elfloader
+	$(MAKE) -C elfloader
 
 myclean:
 	-rm -f $(TARGET_BIN) git_version.h
