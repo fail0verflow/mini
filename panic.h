@@ -14,6 +14,7 @@ Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
 #define PANIC_MOUNT      1,1,-1
 #define PANIC_EXCEPTION  1,3,1,-1
 #define PANIC_IPCOVF     1,3,3,-1
+#define PANIC_PATCHFAIL  1,3,3,3,-1
 
 void panic2(int mode, ...)  __attribute__ ((noreturn));
 

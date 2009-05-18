@@ -19,6 +19,7 @@ Copyright (C) 2009		Andre Heider "dhewg" <dhewg@wiibrew.org>
 #include "gecko.h"
 #include "powerpc.h"
 #include "utils.h"
+#include "panic.h"
 
 static u8 boot2[0x80000] MEM2_BSS ALIGNED(64);
 static u8 boot2_key[32] MEM2_BSS ALIGNED(32);
@@ -305,14 +306,12 @@ void boot2_init(void) {
 }
 
 static u32 match[] = {
-	0xF7FFFFB8,
 	0xBC024708,
 	1,
 	2,
 };
 
 static u32 patch[] = {
-	0xF7FFFFB8,
 	0xBC024708,
 	0x10001,
 	0x48415858,
@@ -320,11 +319,11 @@ static u32 patch[] = {
 
 u32 boot2_run(u32 tid_hi, u32 tid_lo) {
 	u8 *ptr;
-	u32 i;
+	u32 i, num_matches=0;
 	ioshdr *hdr;
-
-	patch[2] = tid_hi;
-	patch[3] = tid_lo;
+	
+	patch[1] = tid_hi;
+	patch[2] = tid_lo;
 
 	gecko_printf("booting boot2 with title %08x-%08x\n", tid_hi, tid_lo);
 	mem_protect(1, (void *)0x11000000, (void *)0x13FFFFFF);
@@ -336,11 +335,17 @@ u32 boot2_run(u32 tid_hi, u32 tid_lo) {
 	ptr = (u8 *)0x11000000 + hdr->hdrsize + hdr->loadersize;
 	for (i = 0; i < sizeof(boot2); i += 1) {
 		if (memcmp(ptr+i, match, sizeof(match)) == 0) {
+			num_matches++;
 			memcpy(ptr+i, patch, sizeof(patch));
 			gecko_printf("patched data @%08x\n", (u32)ptr+i);
 		}
 	}
 
+	if (num_matches != 1) {
+		gecko_printf("Wrong number of patches (matched %d times, expected 1), panicking\n", num_matches);
+		panic2(0, PANIC_PATCHFAIL);
+	}
+	
 	hdr->argument = 0x42;
 
 	u32 vector = 0x11000000 + hdr->hdrsize;
