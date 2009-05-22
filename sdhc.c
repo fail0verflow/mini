@@ -1033,6 +1033,14 @@ void sdhc_init(void)
 //	sdhc_host_found(&__softc, 0, 0x0d080000, 1);
 }
 
+void sdhc_exit(void)
+{
+#ifdef CAN_HAZ_IRQ
+	irq_disable(IRQ_SDHC);
+#endif
+	sdhc_shutdown(&__softc);
+}
+
 #ifdef CAN_HAZ_IPC
 void sdhc_ipc(volatile ipc_request *req)
 {
@@ -1040,6 +1048,9 @@ void sdhc_ipc(volatile ipc_request *req)
 	case IPC_SDHC_DISCOVER:
 		sdmmc_needs_discover((struct device *)req->args[0]);
 		break;
+	case IPC_SDHC_EXIT:
+		sdhc_exit();
+		ipc_post(req->code, req->tag, 0);
 	}
 }
 #endif

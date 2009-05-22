@@ -57,6 +57,7 @@ void	sdhc_power(int, void *);
 void	sdhc_shutdown(void *);
 int	sdhc_intr(void *);
 void	sdhc_init(void);
+void	sdhc_exit(void);
 void	sdhc_irq(void);
 #ifdef CAN_HAZ_IPC
 void	sdhc_ipc(volatile ipc_request *req);

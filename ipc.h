@@ -77,6 +77,7 @@ Copyright (C) 2009		John Kelley <wiidev@kelley.ca>
 // etc.
 
 #define IPC_SDHC_DISCOVER 0x0000
+#define IPC_SDHC_EXIT 	  0x0001
 
 #define IPC_SDMMC_ACK	0x0000
 #define IPC_SDMMC_READ	0x0001
