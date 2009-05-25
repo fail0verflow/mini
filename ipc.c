@@ -30,7 +30,7 @@ Copyright (C) 2009		John Kelley <wiidev@kelley.ca>
 #include "panic.h"
 
 #define MINI_VERSION_MAJOR 1
-#define MINI_VERSION_MINOR 1
+#define MINI_VERSION_MINOR 2
 
 static volatile ipc_request in_queue[IPC_IN_SIZE] ALIGNED(32) MEM2_BSS;
 static volatile ipc_request out_queue[IPC_OUT_SIZE] ALIGNED(32) MEM2_BSS;
