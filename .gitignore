@@ -4,3 +4,4 @@ git_version.h
 *.elf
 *.map
 *~
+*.o
