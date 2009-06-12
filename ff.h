@@ -1,17 +1,16 @@
 /*---------------------------------------------------------------------------/
-/  FatFs - FAT file system module include file  R0.07        (C)ChaN, 2009
+/  FatFs - FAT file system module include file  R0.07a       (C)ChaN, 2009
 /----------------------------------------------------------------------------/
-/ FatFs module is an open source project to implement FAT file system to small
-/ embedded systems. It is opened for education, research and development under
-/ license policy of following trems.
+/ FatFs module is an open source software to implement FAT file system to
+/ small embedded systems. This is a free software and is opened for education,
+/ research and commercial developments under license policy of following trems.
 /
 /  Copyright (C) 2009, ChaN, all right reserved.
 /
-/ * The FatFs module is a free software and there is no warranty.
-/ * You can use, modify and/or redistribute it for personal, non-profit or
-/   commercial use without any restriction under your responsibility.
+/ * The FatFs module is a free software and there is NO WARRANTY.
+/ * No restriction on use. You can use, modify and redistribute it for
+/   personal, non-profit or commercial use UNDER YOUR RESPONSIBILITY.
 / * Redistributions of source code must retain the above copyright notice.
-/
 /----------------------------------------------------------------------------*/
 
 #include "integer.h"
@@ -61,10 +60,6 @@
 /  data transfer. This reduces memory consumption 512 bytes each file object. */
 
 
-#define _DRIVES		1
-/* Number of volumes (logical drives) to be used. */
-
-
 #define	_USE_STRFUNC	0
 /* To enable string functions, set _USE_STRFUNC to 1 or 2. */
 
@@ -77,19 +72,22 @@
 /* To enable f_forward function, set _USE_FORWARD to 1 and set _FS_TINY to 1. */
 
 
-#define	_USE_LFN	0
-#define	_MAX_LFN	255		/* Maximum LFN length to handle (max:255) */
-/* The _USE_LFN option switches the LFN support.
-/
-/   0: Disable LFN.
-/   1: Enable LFN with static working buffer on the bss. Not re-entrant.
-/   2: Enable LFN with dynamic working buffer on the caller's 'stack'.
-/
-/  The working buffer occupies (_MAX_LFN + 1) * 2 bytes. When enable LFN,
-/  a Unicode - OEM code conversion function ff_convert() must be linked. */
+#define _DRIVES		1
+/* Number of volumes (logical drives) to be used. */
 
 
-#define _CODE_PAGE	437
+#define	_MAX_SS	512
+/* Maximum sector size to be handled. (512/1024/2048/4096) */
+/* 512 for memroy card and hard disk, 1024 for floppy disk, 2048 for MO disk */
+
+
+#define	_MULTI_PARTITION	0
+/* When _MULTI_PARTITION is set to 0, each volume is bound to the same physical
+/ drive number and can mount only first primaly partition. When it is set to 1,
+/ each volume is tied to the partitions listed in Drives[]. */
+
+
+#define _CODE_PAGE	932
 /* The _CODE_PAGE specifies the OEM code page to be used on the target system.
 /  When it is non LFN configuration, there is no difference between SBCS code
 /  pages. When LFN is enabled, the code page must always be set correctly.
@@ -113,21 +111,26 @@
 */
 
 
-#define	_MULTI_PARTITION	0
-/* When _MULTI_PARTITION is set to 0, each volume is bound to same physical
-/ drive number and can mount only 1st primaly partition. When it is set to 1,
-/ each volume is tied to the partition listed in Drives[]. */
+#define	_USE_LFN	0
+#define	_MAX_LFN	255		/* Maximum LFN length to handle (max:255) */
+/* The _USE_LFN option switches the LFN support.
+/
+/   0: Disable LFN.
+/   1: Enable LFN with static working buffer on the bss. NOT REENTRANT.
+/   2: Enable LFN with dynamic working buffer on the caller's STACK.
+/
+/  The working buffer occupies (_MAX_LFN + 1) * 2 bytes. When enable LFN,
+/  a Unicode - OEM code conversion function ff_convert() must be added to
+/  the project. */
 
 
 #define _FS_REENTRANT	0
-#define _TIMEOUT		1000
-/* To make the FatFs module re-entrant, set 1 and re-write platform dependent
-/  lock out code that defined arownd _FS_REENTRANT. The _TIMEOUT defines the
-/  time out value in unit of milliseconds on the multi access exclusion. */
-
-
-#define _EXCLUDE_LIB	0
-/* When _EXCLUDE_LIB is set to 1, FatFs module does not use standard library. */
+#define _TIMEOUT		1000	/* Timeout period in unit of time ticks */
+#define	_SYNC_t			HANDLE	/* Type of sync object used on the OS. */
+								/* e.g. HANDLE, OS_EVENT*, ID and etc.. */
+/* To make the FatFs module re-entrant, set _FS_REENTRANT to 1 and add user
+/  provided synchronization handlers, ff_req_grant, ff_rel_grant,
+/  ff_del_syncobj and ff_cre_syncobj function to the project. */
 
 
 
@@ -136,13 +139,16 @@
 
 
 
-/* Definitions corresponds to multiple sector size (Not tested) */
+/* Definitions corresponds to multiple sector size */
 
-#define	MAX_SS	512U	/* Do not change */
-#if MAX_SS > 512U
+#if _MAX_SS == 512
+#define	SS(fs)	512
+#else
+#if _MAX_SS == 1024 || _MAX_SS == 2048 || _MAX_SS == 4096
 #define	SS(fs)	((fs)->s_size)
 #else
-#define	SS(fs)	512U
+#error Sector size must be 512, 1024, 2048 or 4096.
+#endif
 #endif
 
 
@@ -159,9 +165,9 @@ typedef struct _FATFS {
 	WORD	id;			/* File system mount ID */
 	WORD	n_rootdir;	/* Number of root directory entries (0 on FAT32) */
 #if _FS_REENTRANT
-	HANDLE	h_mutex;	/* Handle to the mutex (Platform dependent) */
+	_SYNC_t	sobj;		/* Identifier of sync object */
 #endif
-#if MAX_SS > 512U
+#if _MAX_SS != 512U
 	WORD	s_size;		/* Sector size */
 #endif
 #if !_FS_READONLY
@@ -177,7 +183,7 @@ typedef struct _FATFS {
 	DWORD	dirbase;	/* Root directory start sector (Cluster# on FAT32) */
 	DWORD	database;	/* Data start sector */
 	DWORD	winsect;	/* Current sector appearing in the win[] */
-	BYTE	win[MAX_SS];/* Disk access window for Directory/FAT */
+	BYTE	win[_MAX_SS];/* Disk access window for Directory/FAT */
 } FATFS;
 
 
@@ -213,12 +219,12 @@ typedef struct _FIL {
 	DWORD	org_clust;	/* File start cluster */
 	DWORD	curr_clust;	/* Current cluster */
 	DWORD	dsect;		/* Current data sector */
-#if _FS_READONLY == 0
+#if !_FS_READONLY
 	DWORD	dir_sect;	/* Sector containing the directory entry */
 	BYTE*	dir_ptr;	/* Ponter to the directory entry in the window */
 #endif
 #if !_FS_TINY
-	BYTE	buf[MAX_SS];/* File R/W buffer */
+	BYTE	buf[_MAX_SS];/* File R/W buffer */
 #endif
 } FIL;
 
@@ -396,19 +402,28 @@ char* f_gets (char*, int, FIL*);					/* Get a string from the file */
 #endif
 
 
+
 /*--------------------------------------------------------------*/
 /* User defined functions                                       */
 
-
 /* Real time clock */
+#if !_FS_READONLY
 DWORD get_fattime (void);	/* 31-25: Year(0-127 org.1980), 24-21: Month(1-12), 20-16: Day(1-31) */
 							/* 15-11: Hour(0-23), 10-5: Minute(0-59), 4-0: Second(0-29 *2) */
+#endif
 
 /* Unicode - OEM code conversion */
 #if _USE_LFN
 WCHAR ff_convert (WCHAR, UINT);
 #endif
 
+/* Sync functions */
+#if _FS_REENTRANT
+BOOL ff_cre_syncobj(BYTE, _SYNC_t*);
+BOOL ff_del_syncobj(_SYNC_t);
+BOOL ff_req_grant(_SYNC_t);
+void ff_rel_grant(_SYNC_t);
+#endif
 
 
 
@@ -522,10 +537,10 @@ WCHAR ff_convert (WCHAR, UINT);
 #define	ST_WORD(ptr,val)	*(WORD*)(BYTE*)(ptr)=(WORD)(val)
 #define	ST_DWORD(ptr,val)	*(DWORD*)(BYTE*)(ptr)=(DWORD)(val)
 #else					/* Use byte-by-byte access to the FAT structure */
-#define	LD_WORD(ptr)		(WORD)(((WORD)*(volatile BYTE*)((ptr)+1)<<8)|(WORD)*(volatile BYTE*)(ptr))
-#define	LD_DWORD(ptr)		(DWORD)(((DWORD)*(volatile BYTE*)((ptr)+3)<<24)|((DWORD)*(volatile BYTE*)((ptr)+2)<<16)|((WORD)*(volatile BYTE*)((ptr)+1)<<8)|*(volatile BYTE*)(ptr))
-#define	ST_WORD(ptr,val)	*(volatile BYTE*)(ptr)=(BYTE)(val); *(volatile BYTE*)((ptr)+1)=(BYTE)((WORD)(val)>>8)
-#define	ST_DWORD(ptr,val)	*(volatile BYTE*)(ptr)=(BYTE)(val); *(volatile BYTE*)((ptr)+1)=(BYTE)((WORD)(val)>>8); *(volatile BYTE*)((ptr)+2)=(BYTE)((DWORD)(val)>>16); *(volatile BYTE*)((ptr)+3)=(BYTE)((DWORD)(val)>>24)
+#define	LD_WORD(ptr)		(WORD)(((WORD)*(BYTE*)((ptr)+1)<<8)|(WORD)*(BYTE*)(ptr))
+#define	LD_DWORD(ptr)		(DWORD)(((DWORD)*(BYTE*)((ptr)+3)<<24)|((DWORD)*(BYTE*)((ptr)+2)<<16)|((WORD)*(BYTE*)((ptr)+1)<<8)|*(BYTE*)(ptr))
+#define	ST_WORD(ptr,val)	*(BYTE*)(ptr)=(BYTE)(val); *(BYTE*)((ptr)+1)=(BYTE)((WORD)(val)>>8)
+#define	ST_DWORD(ptr,val)	*(BYTE*)(ptr)=(BYTE)(val); *(BYTE*)((ptr)+1)=(BYTE)((WORD)(val)>>8); *(BYTE*)((ptr)+2)=(BYTE)((DWORD)(val)>>16); *(BYTE*)((ptr)+3)=(BYTE)((DWORD)(val)>>24)
 #endif
 
 
