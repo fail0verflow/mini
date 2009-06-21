@@ -184,6 +184,7 @@ void sdmmc_needs_discover(struct device *dev)
 	cmd.c_opcode = SD_SEND_IF_COND;
 	cmd.c_arg = 0x1aa;
 	cmd.c_flags = SCF_RSP_R7;
+	cmd.c_timeout = 100;
 	sdmmc_host_exec_command(c, &cmd);
 
 	ocr = sdmmc_host_ocr(c);

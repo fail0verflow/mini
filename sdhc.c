@@ -42,7 +42,7 @@
 
 //#define SDHC_DEBUG
 
-#define SDHC_COMMAND_TIMEOUT	100
+#define SDHC_COMMAND_TIMEOUT	500
 #define SDHC_TRANSFER_TIMEOUT	5000
 
 #define HDEVNAME(hp)	((hp)->sc->sc_dev.dv_xname)
@@ -578,6 +578,13 @@ sdhc_exec_command(sdmmc_chipset_handle_t sch, struct sdmmc_command *cmd)
 	if (cmd->c_datalen > 0)
 		hp->data_command = 1;
 
+	if (cmd->c_timeout == 0) {
+		if (cmd->c_datalen > 0)
+			cmd->c_timeout = SDHC_TRANSFER_TIMEOUT;
+		else
+			cmd->c_timeout = SDHC_COMMAND_TIMEOUT;
+	}
+
 	/*
 	 * Start the MMC command, or mark `cmd' as failed and return.
 	 */
@@ -594,7 +601,7 @@ sdhc_exec_command(sdmmc_chipset_handle_t sch, struct sdmmc_command *cmd)
 	 * is marked done for any other reason.
 	 */
 	if (!sdhc_wait_intr(hp, SDHC_COMMAND_COMPLETE,
-	    SDHC_COMMAND_TIMEOUT)) {
+	    cmd->c_timeout)) {
 		cmd->c_error = ETIMEDOUT;
 		SET(cmd->c_flags, SCF_ITSDONE);
 		hp->data_command = 0;

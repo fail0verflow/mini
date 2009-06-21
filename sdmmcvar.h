@@ -90,7 +90,9 @@ struct sdmmc_command {
 #define SCF_RSP_R5B	 (SCF_RSP_PRESENT|SCF_RSP_CRC|SCF_RSP_IDX|SCF_RSP_BSY)
 #define SCF_RSP_R6	 (SCF_RSP_PRESENT|SCF_RSP_CRC|SCF_RSP_IDX)
 #define SCF_RSP_R7	 (SCF_RSP_PRESENT|SCF_RSP_CRC|SCF_RSP_IDX)
-	int		 c_error;	/* errno value on completion */
+	int		c_error;	/* errno value on completion */
+
+	int		c_timeout;
 
 	/* Host controller owned fields for data xfer in progress */
 	int c_resid;			/* remaining I/O */
