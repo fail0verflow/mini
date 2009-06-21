@@ -130,6 +130,8 @@ int	sdhc_host_maxblklen(sdmmc_chipset_handle_t);
 int	sdhc_card_detect(sdmmc_chipset_handle_t);
 int	sdhc_bus_power(sdmmc_chipset_handle_t, u_int32_t);
 int	sdhc_bus_clock(sdmmc_chipset_handle_t, int);
+void	sdhc_card_intr_mask(sdmmc_chipset_handle_t, int);
+void	sdhc_card_intr_ack(sdmmc_chipset_handle_t);
 void	sdhc_exec_command(sdmmc_chipset_handle_t, struct sdmmc_command *);
 int	sdhc_start_command(struct sdhc_host *, struct sdmmc_command *);
 int	sdhc_wait_state(struct sdhc_host *, u_int32_t, u_int32_t);
@@ -138,7 +140,6 @@ int	sdhc_wait_intr(struct sdhc_host *, int, int);
 void	sdhc_transfer_data(struct sdhc_host *, struct sdmmc_command *);
 void	sdhc_read_data(struct sdhc_host *, u_char *, int);
 void	sdhc_write_data(struct sdhc_host *, u_char *, int);
-void	sdhc_set_bus_width(sdmmc_chipset_handle_t, int);
 
 #ifdef SDHC_DEBUG
 int sdhcdebug = 2;
@@ -161,7 +162,9 @@ struct sdmmc_chip_functions sdhc_functions = {
 	sdhc_bus_clock,
 	/* command execution */
 	sdhc_exec_command,
-	sdhc_set_bus_width,
+	/* card interrupt */
+	sdhc_card_intr_mask,
+	sdhc_card_intr_ack
 };
 
 /*
@@ -552,6 +555,28 @@ ret:
 	return error;
 }
 
+void
+sdhc_card_intr_mask(sdmmc_chipset_handle_t sch, int enable)
+{
+	struct sdhc_host *hp = sch;
+
+	if (enable) {
+		HSET2(hp, SDHC_NINTR_STATUS_EN, SDHC_CARD_INTERRUPT);
+		HSET2(hp, SDHC_NINTR_SIGNAL_EN, SDHC_CARD_INTERRUPT);
+	} else {
+		HCLR2(hp, SDHC_NINTR_SIGNAL_EN, SDHC_CARD_INTERRUPT);
+		HCLR2(hp, SDHC_NINTR_STATUS_EN, SDHC_CARD_INTERRUPT);
+	}
+}
+
+void
+sdhc_card_intr_ack(sdmmc_chipset_handle_t sch)
+{
+	struct sdhc_host *hp = sch;
+
+	HSET2(hp, SDHC_NINTR_STATUS_EN, SDHC_CARD_INTERRUPT);
+}
+
 int
 sdhc_wait_state(struct sdhc_host *hp, u_int32_t mask, u_int32_t value)
 {
@@ -809,23 +834,6 @@ sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 	DPRINTF(1,("%s: data transfer done (error=%d)\n",
 	    HDEVNAME(hp), cmd->c_error));
 	return;
-}
-
-void
-sdhc_set_bus_width(sdmmc_chipset_handle_t sch, int enable)
-{
-	struct sdhc_host *hp = sch;
-	u_int16_t hctl;
-
-	hctl = HREAD2(hp, SDHC_HOST_CTL);
-
-	if (enable)
-		hctl |= SDHC_4BIT_MODE;
-	else
-		hctl &= ~SDHC_4BIT_MODE;
-
-	HWRITE2(hp, SDHC_HOST_CTL, hctl);
-
 }
 
 /* Prepare for another command. */

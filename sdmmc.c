@@ -82,11 +82,6 @@ static inline void sdmmc_host_exec_command(struct sdmmc_card *card, struct
 {
 	sdmmc_chip_exec_command(card->functions, card->handle, cmd);
 }
-static inline void sdmmc_host_set_bus_width(struct sdmmc_card *card, int
-		enable)
-{
-	sdmmc_chip_set_bus_width(card->functions, card->handle, enable);
-}
 
 struct device *sdmmc_attach(struct sdmmc_chip_functions *functions,
 		sdmmc_chipset_handle_t handle, const char *name, int no)
@@ -313,7 +308,6 @@ void sdmmc_needs_discover(struct device *dev)
 	}
 
 	sdmmc_select(dev);
-
 	DPRINTF(2, ("sdmmc: MMC_SET_BLOCKLEN\n"));
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.c_opcode = MMC_SET_BLOCKLEN;
@@ -326,43 +320,11 @@ void sdmmc_needs_discover(struct device *dev)
 		c->inserted = c->selected = 0;
 		goto out_clock;
 	}
-
-	/* we can assume that every card supports a 4bit bus
-	 * (see Simplified Physical Layer Spec, 5.6 SCR register (page 90),
-	 *  SD_BUS_WIDTHS)
-	 */
-	memset(&cmd, 0, sizeof(cmd));
-	cmd.c_opcode = MMC_APP_CMD;
-	cmd.c_arg = ((u32)c->rca)<<16;
-	cmd.c_flags = SCF_RSP_R1;
-	sdmmc_host_exec_command(c, &cmd);
-
-	if (cmd.c_error) {
-		gecko_printf("sdmmc: MMC_APP_CMD failed for "
-				"card %d with %d\n", no, cmd.c_error);
-		goto out_power;
-	}
-	
-	memset(&cmd, 0, sizeof(cmd));
-	cmd.c_opcode = SD_APP_SET_BUS_WIDTH;
-	cmd.c_arg = SD_ARG_BUS_WIDTH_4;
-	cmd.c_flags = SCF_RSP_R1;
-	sdmmc_host_exec_command(c, &cmd);
-	if (cmd.c_error) {
-		gecko_printf("sdmmc: SD_APP_SET_BUS_WIDTH failed for "
-				"card %d with %d\n", no, cmd.c_error);
-		goto out_power;
-	}
-
-	sdmmc_host_set_bus_width(c, 1);
-
 	return;
 
 out_clock:
 out_power:
-	c->inserted = c->selected = 0;
 	sdmmc_host_power(c, 0);
-	sdmmc_host_reset(c);
 out:
 	return;
 
