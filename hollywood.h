@@ -35,6 +35,7 @@ Copyright (C) 2008, 2009	John Kelley <wiidev@kelley.ca>
 #define		HW_ARMIRQMASK		(HW_REG_BASE + 0x03c)
 
 #define		HW_MEMMIRR		(HW_REG_BASE + 0x060)
+#define		HW_AHBPROT		(HW_REG_BASE + 0x064)
 
 // something to do with PPCBOOT
 // and legacy DI it seems ?!?

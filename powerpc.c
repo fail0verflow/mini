@@ -41,6 +41,7 @@ void powerpc_upload_stub(u32 entry)
 		write32(EXI_BOOT_BASE + 4 * i, 0);
 
 	set32(HW_DIFLAGS, DIFLAGS_BOOT_CODE);
+	set32(HW_AHBPROT, 0xFFFFFFFF);
 
 	gecko_printf("disabling EXI now...\n");
 	clear32(HW_EXICTRL, EXICTRL_ENABLE_EXI);
