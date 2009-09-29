@@ -314,7 +314,7 @@ static u32 match[] = {
 static u32 patch[] = {
 	0xBC024708,
 	0x10001,
-	0x48415858,
+	0x4a4f4449,
 };
 
 u32 boot2_run(u32 tid_hi, u32 tid_lo) {
