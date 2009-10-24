@@ -15,7 +15,7 @@ Copyright (C) 2009		John Kelley <wiidev@kelley.ca>
 #include "utils.h"
 #include "start.h"
 #include "hollywood.h"
-#include "sdhcvar.h"
+#include "sdhc.h"
 #include "string.h"
 #include "memory.h"
 #include "gecko.h"

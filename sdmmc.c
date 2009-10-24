@@ -9,8 +9,7 @@ Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
 */
 
 #include "bsdtypes.h"
-#include "sdhcreg.h"
-#include "sdhcvar.h"
+#include "sdhc.h"
 #include "sdmmc.h"
 #include "gecko.h"
 #include "string.h"

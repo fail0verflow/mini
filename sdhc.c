@@ -21,8 +21,7 @@
  */
 
 #include "bsdtypes.h"
-#include "sdhcreg.h"
-#include "sdhcvar.h"
+#include "sdhc.h"
 #include "sdmmc.h"
 #include "gecko.h"
 #include "string.h"

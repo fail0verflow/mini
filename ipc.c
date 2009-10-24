@@ -22,7 +22,7 @@ Copyright (C) 2009		John Kelley <wiidev@kelley.ca>
 #include "gecko.h"
 #include "ipc.h"
 #include "nand.h"
-#include "sdhcvar.h"
+#include "sdhc.h"
 #include "sdmmc.h"
 #include "crypto.h"
 #include "boot2.h"
