@@ -47,6 +47,7 @@
 
 #define HDEVNAME(hp)	((hp)->sc->sc_dev.dv_xname)
 #define sdmmc_delay(t)	udelay(t)
+#define sdhc_wait_intr(a,b,c) sdhc_wait_intr_debug(__func__, __LINE__, a, b, c)
 
 static inline u32 bus_space_read_4(bus_space_handle_t ioh, u32 reg)
 {
@@ -136,11 +137,12 @@ void	sdhc_exec_command(sdmmc_chipset_handle_t, struct sdmmc_command *);
 int	sdhc_start_command(struct sdhc_host *, struct sdmmc_command *);
 int	sdhc_wait_state(struct sdhc_host *, u_int32_t, u_int32_t);
 int	sdhc_soft_reset(struct sdhc_host *, int);
-int	sdhc_wait_intr(struct sdhc_host *, int, int);
+void sdhc_reset_intr_status(struct sdhc_host *hp);
+int	sdhc_wait_intr_debug(const char *func, int line, struct sdhc_host *, int, int);
 void	sdhc_transfer_data(struct sdhc_host *, struct sdmmc_command *);
 void	sdhc_read_data(struct sdhc_host *, u_char *, int);
 void	sdhc_write_data(struct sdhc_host *, u_char *, int);
-
+#define SDHC_DEBUG 1
 #ifdef SDHC_DEBUG
 int sdhcdebug = 2;
 #define DPRINTF(n,s)	do { if ((n) <= sdhcdebug) gecko_printf s; } while (0)
@@ -508,6 +510,7 @@ sdhc_bus_clock(sdmmc_chipset_handle_t sch, int freq)
 	int timo;
 	int error = 0;
 
+	gecko_printf("%s(%d)\n", __FUNCTION__, freq);
 #ifdef DIAGNOSTIC
 	/* Must not stop the clock if commands are in progress. */
 	if (ISSET(HREAD4(hp, SDHC_PRESENT_STATE), SDHC_CMD_INHIBIT_MASK) &&
@@ -610,6 +613,9 @@ sdhc_exec_command(sdmmc_chipset_handle_t sch, struct sdmmc_command *cmd)
 			cmd->c_timeout = SDHC_COMMAND_TIMEOUT;
 	}
 
+
+	sdhc_reset_intr_status(hp);
+
 	/*
 	 * Start the MMC command, or mark `cmd' as failed and return.
 	 */
@@ -625,13 +631,18 @@ sdhc_exec_command(sdmmc_chipset_handle_t sch, struct sdmmc_command *cmd)
 	 * Wait until the command phase is done, or until the command
 	 * is marked done for any other reason.
 	 */
-	if (!sdhc_wait_intr(hp, SDHC_COMMAND_COMPLETE,
-	    cmd->c_timeout)) {
+
+	int status = sdhc_wait_intr(hp, SDHC_COMMAND_COMPLETE, cmd->c_timeout);
+	if (!ISSET(status, SDHC_COMMAND_COMPLETE)) {
 		cmd->c_error = ETIMEDOUT;
+		gecko_printf("timeout dump: error_intr: 0x%x intr: 0x%x\n", hp->intr_error_status, hp->intr_status);
+		sdhc_dump_regs(hp);
 		SET(cmd->c_flags, SCF_ITSDONE);
 		hp->data_command = 0;
 		return;
 	}
+
+	gecko_printf("command_complete, continuing...\n");
 
 	/*
 	 * The host controller removes bits [0:7] from the response
@@ -659,8 +670,8 @@ sdhc_exec_command(sdmmc_chipset_handle_t sch, struct sdmmc_command *cmd)
 	/* Turn off the LED. */
 	HCLR1(hp, SDHC_HOST_CTL, SDHC_LED_ON);
 
-	DPRINTF(1,("%s: cmd %u done (flags=%#x error=%d)\n",
-	    HDEVNAME(hp), cmd->c_opcode, cmd->c_flags, cmd->c_error));
+	DPRINTF(1,("%s: cmd %u done (flags=%#x error=%d prev state=%d)\n",
+	    HDEVNAME(hp), cmd->c_opcode, cmd->c_flags, cmd->c_error, (cmd->c_resp[0] >> 9) & 15));
 	SET(cmd->c_flags, SCF_ITSDONE);
 	hp->data_command = 0;
 }
@@ -797,6 +808,10 @@ sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 				break;
 			}
 
+			if (ISSET(status, SDHC_TRANSFER_COMPLETE)) {
+				gecko_printf("got a TRANSFER_COMPLETE: %08x\n", status);
+				break;
+			}
 			if (ISSET(status, SDHC_DMA_INTERRUPT)) {
 				DPRINTF(2,("%s: dma left:%#x\n", HDEVNAME(hp),
 						HREAD2(hp, SDHC_BLOCK_COUNT)));
@@ -807,9 +822,6 @@ sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 				HWRITE4(hp, SDHC_DMA_ADDR,
 						HREAD4(hp, SDHC_DMA_ADDR));
 				continue;
-			}
-			if (ISSET(status, SDHC_TRANSFER_COMPLETE)) {
-				break;
 			}
 		}
 	} else
@@ -857,12 +869,17 @@ sdhc_soft_reset(struct sdhc_host *hp, int mask)
 		HWRITE1(hp, SDHC_SOFTWARE_RESET, 0);
 		return (ETIMEDOUT);
 	}
-
 	return (0);
 }
 
+
+void sdhc_reset_intr_status(struct sdhc_host *hp)
+{
+	hp->intr_status = 0;
+}
+
 int
-sdhc_wait_intr(struct sdhc_host *hp, int mask, int timo)
+sdhc_wait_intr_debug(const char *funcname, int line, struct sdhc_host *hp, int mask, int timo)
 {
 	int status;
 
@@ -887,11 +904,14 @@ sdhc_wait_intr(struct sdhc_host *hp, int mask, int timo)
 	}
 	hp->intr_status &= ~status;
 
-	DPRINTF(2,("%s: timo=%d intr status %#x error %#x\n", HDEVNAME(hp), timo, status,
-	    hp->intr_error_status));
+	DPRINTF(2,("%s: funcname=%s, line=%d, timo=%d status=%#x intr status=%#x error %#x\n",
+		HDEVNAME(hp), funcname, line, timo, status, hp->intr_status, hp->intr_error_status));
 	
 	/* Command timeout has higher priority than command complete. */
 	if (ISSET(status, SDHC_ERROR_INTERRUPT)) {
+		gecko_printf("resetting due to error interrupt\n");
+		sdhc_dump_regs(hp);
+
 		hp->intr_error_status = 0;
 		(void)sdhc_soft_reset(hp, SDHC_RESET_DAT|SDHC_RESET_CMD);
 		status = 0;

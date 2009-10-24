@@ -377,9 +377,13 @@ int sdmmc_select(struct device *dev)
 	DPRINTF(2, ("sdmmc: MMC_SELECT_CARD\n"));
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.c_opcode = MMC_SELECT_CARD;
-	cmd.c_arg = ((u32)c->rca)<<16;;
-	cmd.c_flags = SCF_RSP_R1;
+	cmd.c_arg = ((u32)c->rca)<<16;
+	cmd.c_flags = SCF_RSP_R1B;
 	sdmmc_host_exec_command(c, &cmd);
+	gecko_printf("%s: resp=%x\n", __FUNCTION__, MMC_R1(cmd.c_resp));
+	sdhc_dump_regs(c->handle);
+
+//	gecko_printf("present state = %x\n", HREAD4(hp, SDHC_PRESENT_STATE));
 	if (cmd.c_error) {
 		gecko_printf("sdmmc: MMC_SELECT card failed with %d for	%d.\n",
 				cmd.c_error, no);
@@ -423,6 +427,7 @@ int sdmmc_read(struct device *dev, u32 blk_start, u32 blk_count, void *data)
 	struct sdmmc_card *c = &cards[no];
 	struct sdmmc_command cmd;
 
+	gecko_printf("%s(%u, %u, %p)\n", __FUNCTION__, blk_start, blk_count, data);
 	if (c->inserted == 0) {
 		gecko_printf("sdmmc: READ: no card inserted.\n");
 		return -1;
