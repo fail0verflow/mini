@@ -143,6 +143,8 @@ static int gecko_sendbuffer(const void *buffer, u32 size)
 	while(left>0) {
 		if(!_gecko_sendbyte(*ptr))
 			break;
+		if(*ptr == '\n' && !_gecko_sendbyte('\r'))
+			break;
 		ptr++;
 		left--;
 	}
@@ -180,6 +182,8 @@ static int gecko_sendbuffer_safe(const void *buffer, u32 size)
 	while(left>0) {
 		if(_gecko_checksend()) {
 			if(!_gecko_sendbyte(*ptr))
+				break;
+			if(*ptr == '\n' && !_gecko_sendbyte('\r'))
 				break;
 			ptr++;
 			left--;
