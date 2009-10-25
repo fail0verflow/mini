@@ -46,7 +46,6 @@ struct sdhc_softc {
 	struct device sc_dev;
 	struct sdhc_host sc_host[SDHC_MAX_HOSTS];
 	int sc_nhosts;
-	u_int sc_flags;
 };
 
 
@@ -62,8 +61,6 @@ void	sdhc_irq(void);
 #ifdef CAN_HAZ_IPC
 void	sdhc_ipc(volatile ipc_request *req);
 #endif
-/* flag values */
-#define SDHC_F_NOPWR0		(1 << 0)
 
 /* Host standard register set */
 #define SDHC_DMA_ADDR			0x00

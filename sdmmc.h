@@ -205,7 +205,6 @@ struct sdmmc_softc {
 #define SDMMCDEVNAME(sc)	((sc)->sc_dev.dv_xname)
 	sdmmc_chipset_tag_t sct;	/* host controller chipset tag */
 	sdmmc_chipset_handle_t sch;	/* host controller chipset handle */
-	int sc_flags;
 #define SMF_SD_MODE		0x0001	/* host in SD mode (MMC otherwise) */
 #define SMF_IO_MODE		0x0002	/* host in I/O mode (SD mode only) */
 #define SMF_MEM_MODE		0x0004	/* host in memory mode (SD or MMC) */

@@ -431,11 +431,8 @@ sdhc_bus_power(sdmmc_chipset_handle_t sch, u_int32_t ocr)
 	struct sdhc_host *hp = sch;
 	u_int8_t vdd;
 
-	/*
-	 * Disable bus power before voltage change.
-	 */
-	if (!(hp->sc->sc_flags & SDHC_F_NOPWR0))
-		HWRITE1(hp, SDHC_POWER_CTL, 0);
+	/* Disable bus power before voltage change. */
+	HWRITE1(hp, SDHC_POWER_CTL, 0);
 
 	/* If power is disabled, reset the host and return now. */
 	if (ocr == 0) {
