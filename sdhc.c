@@ -244,15 +244,7 @@ sdhc_host_found(struct sdhc_softc *sc, bus_space_tag_t iot,
 	 * capabilities. (2.2.15)
 	 */
 
-	/*
-	 * Determine SD bus voltage levels supported by the controller.
-	 */
-	if (ISSET(caps, SDHC_VOLTAGE_SUPP_1_8V))
-		SET(hp->ocr, MMC_OCR_1_7V_1_8V | MMC_OCR_1_8V_1_9V);
-	if (ISSET(caps, SDHC_VOLTAGE_SUPP_3_0V))
-		SET(hp->ocr, MMC_OCR_2_9V_3_0V | MMC_OCR_3_0V_3_1V);
-	if (ISSET(caps, SDHC_VOLTAGE_SUPP_3_3V))
-		SET(hp->ocr, MMC_OCR_3_2V_3_3V | MMC_OCR_3_3V_3_4V);
+	SET(hp->ocr, MMC_OCR_3_2V_3_3V | MMC_OCR_3_3V_3_4V);
 
 	/*
 	 * Determine the maximum block length supported by the host
@@ -283,57 +275,13 @@ sdhc_host_found(struct sdhc_softc *sc, bus_space_tag_t iot,
 	saa.sch = hp;
 
 	hp->sdmmc = sdmmc_attach(&sdhc_functions, hp, "sdhc", ioh);
-/*	hp->sdmmc = config_found(&sc->sc_dev, &saa, NULL);
-	if (hp->sdmmc == NULL) {
-		error = 0;
-		goto err;
-	}*/
 	
 	return 0;
 
 err:
-//	free(hp, M_DEVBUF);
 	sc->sc_nhosts--;
 	return (error);
 }
-
-#if 0
-/*
- * Power hook established by or called from attachment driver.
- */
-void
-sdhc_power(int why, void *arg)
-{
-	struct sdhc_softc *sc = arg;
-	struct sdhc_host *hp;
-	int n, i;
-
-	switch(why) {
-	case PWR_STANDBY:
-	case PWR_SUSPEND:
-		/* XXX poll for command completion or suspend command
-		 * in progress */
-
-		/* Save the host controller state. */
-		for (n = 0; n < sc->sc_nhosts; n++) {
-			hp = sc->sc_host[n];
-			for (i = 0; i < sizeof hp->regs; i++)
-				hp->regs[i] = HREAD1(hp, i);
-		}
-		break;
-
-	case PWR_RESUME:
-		/* Restore the host controller state. */
-		for (n = 0; n < sc->sc_nhosts; n++) {
-			hp = sc->sc_host[n];
-			(void)sdhc_host_reset(hp);
-			for (i = 0; i < sizeof hp->regs; i++)
-				HWRITE1(hp, i, hp->regs[i]);
-		}
-		break;
-	}
-}
-#endif
 
 #ifndef LOADER
 /*
@@ -429,8 +377,8 @@ int
 sdhc_bus_power(sdmmc_chipset_handle_t sch, u_int32_t ocr)
 {
 	struct sdhc_host *hp = sch;
-	u_int8_t vdd;
 
+	gecko_printf("sdhc_bus_power(%u)\n", ocr);
 	/* Disable bus power before voltage change. */
 	HWRITE1(hp, SDHC_POWER_CTL, 0);
 
@@ -441,25 +389,10 @@ sdhc_bus_power(sdmmc_chipset_handle_t sch, u_int32_t ocr)
 	}
 
 	/*
-	 * Select the maximum voltage according to capabilities.
-	 */
-	ocr &= hp->ocr;
-	if (ISSET(ocr, MMC_OCR_3_2V_3_3V|MMC_OCR_3_3V_3_4V))
-		vdd = SDHC_VOLTAGE_3_3V;
-	else if (ISSET(ocr, MMC_OCR_2_9V_3_0V|MMC_OCR_3_0V_3_1V))
-		vdd = SDHC_VOLTAGE_3_0V;
-	else if (ISSET(ocr, MMC_OCR_1_7V_1_8V|MMC_OCR_1_8V_1_9V))
-		vdd = SDHC_VOLTAGE_1_8V;
-	else {
-		/* Unsupported voltage level requested. */
-		return EINVAL;
-	}
-
-	/*
 	 * Enable bus power.  Wait at least 1 ms (or 74 clocks) plus
 	 * voltage ramp until power rises.
 	 */
-	HWRITE1(hp, SDHC_POWER_CTL, (vdd << SDHC_VOLTAGE_SHIFT) |
+	HWRITE1(hp, SDHC_POWER_CTL, (SDHC_VOLTAGE_3_3V << SDHC_VOLTAGE_SHIFT) |
 	    SDHC_BUS_POWER);
 	sdmmc_delay(10000);
 
@@ -469,6 +402,7 @@ sdhc_bus_power(sdmmc_chipset_handle_t sch, u_int32_t ocr)
 	 * bus power bit.
 	 */
 	if (!ISSET(HREAD1(hp, SDHC_POWER_CTL), SDHC_BUS_POWER)) {
+		gecko_printf("Host controller failed to enable bus power\n");
 		return ENXIO;
 	}
 
