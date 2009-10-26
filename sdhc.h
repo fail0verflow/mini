@@ -141,6 +141,7 @@ void	sdhc_ipc(volatile ipc_request *req);
 #define SDHC_RESET_ALL			(1<<0)
 #define SDHC_NINTR_STATUS		0x30
 #define SDHC_ERROR_INTERRUPT		(1<<15)
+#define SDHC_ERROR_TIMEOUT		(1<<14)
 #define SDHC_CARD_INTERRUPT		(1<<8)
 #define SDHC_CARD_REMOVAL		(1<<7)
 #define SDHC_CARD_INSERTION		(1<<6)

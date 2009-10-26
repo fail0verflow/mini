@@ -811,6 +811,7 @@ sdhc_wait_intr_debug(const char *funcname, int line, struct sdhc_host *hp, int m
 	int status;
 
 	mask |= SDHC_ERROR_INTERRUPT;
+	mask |= SDHC_ERROR_TIMEOUT;
 
 	status = hp->intr_status & mask;
 
@@ -827,7 +828,7 @@ sdhc_wait_intr_debug(const char *funcname, int line, struct sdhc_host *hp, int m
 	}
 
 	if (timo == 0) {
-		status |= SDHC_ERROR_INTERRUPT;
+		status |= SDHC_ERROR_TIMEOUT;
 	}
 	hp->intr_status &= ~status;
 
@@ -841,6 +842,16 @@ sdhc_wait_intr_debug(const char *funcname, int line, struct sdhc_host *hp, int m
 
 		hp->intr_error_status = 0;
 		(void)sdhc_soft_reset(hp, SDHC_RESET_DAT|SDHC_RESET_CMD);
+		status = 0;
+	}
+
+	/* Command timeout has higher priority than command complete. */
+	if (ISSET(status, SDHC_ERROR_TIMEOUT)) {
+		gecko_printf("not resetting due to timeout\n");
+		sdhc_dump_regs(hp);
+
+		hp->intr_error_status = 0;
+//		(void)sdhc_soft_reset(hp, SDHC_RESET_DAT|SDHC_RESET_CMD);
 		status = 0;
 	}
 
@@ -865,6 +876,9 @@ sdhc_intr(void *arg)
 		if (hp == NULL)
 			continue;
 
+		DPRINTF(1,("shdc_intr(%d):\n", host));
+		sdhc_dump_regs(hp);
+
 		/* Find out which interrupts are pending. */
 		status = HREAD2(hp, SDHC_NINTR_STATUS);
 		if (!ISSET(status, SDHC_NINTR_STATUS_MASK))
@@ -872,8 +886,8 @@ sdhc_intr(void *arg)
 
 		/* Acknowledge the interrupts we are about to handle. */
 		HWRITE2(hp, SDHC_NINTR_STATUS, status);
-//		DPRINTF(2,("%s: interrupt status=%d\n", HDEVNAME(hp),
-//		    status));
+		DPRINTF(2,("%s: interrupt status=%d\n", HDEVNAME(hp),
+		    status));
 
 
 		/* Claim this interrupt. */
@@ -901,8 +915,8 @@ sdhc_intr(void *arg)
 			HWRITE2(hp, SDHC_EINTR_STATUS, error);
 			HWRITE2(hp, SDHC_EINTR_SIGNAL_EN, signal);
 
-//			DPRINTF(2,("%s: error interrupt, status=%d\n",
-//			    HDEVNAME(hp), error));
+			DPRINTF(2,("%s: error interrupt, status=%d\n",
+			    HDEVNAME(hp), error));
 
 			if (ISSET(error, SDHC_CMD_TIMEOUT_ERROR|
 		 	    SDHC_DATA_TIMEOUT_ERROR)) {
