@@ -25,16 +25,10 @@
 #include "ipc.h"
 #endif
 #include "sdmmc.h"
-
-#define SDHC_MAX_HOSTS	4
-
 struct sdhc_host {
-	struct sdhc_softc *sc;		/* host controller device */
-	struct device *sdmmc;		/* generic SD/MMC device */
 	bus_space_tag_t iot;		/* host register set tag */
 	bus_space_handle_t ioh;		/* host register set handle */
 	u_int clkbase;			/* base clock frequency in KHz */
-	int maxblklen;			/* maximum block length */
 	int flags;			/* flags for this host */
 	u_int32_t ocr;			/* OCR value from capabilities */
 	u_int8_t regs[14];		/* host controller state */
@@ -174,11 +168,6 @@ void	sdhc_ipc(volatile ipc_request *req);
 #define SDHC_VOLTAGE_SUPP_3_3V		(1<<24)
 #define SDHC_DMA_SUPPORT		(1<<22)
 #define SDHC_HIGH_SPEED_SUPP		(1<<21)
-#define SDHC_MAX_BLK_LEN_512		0
-#define SDHC_MAX_BLK_LEN_1024		1
-#define SDHC_MAX_BLK_LEN_2048		2
-#define SDHC_MAX_BLK_LEN_SHIFT		16
-#define SDHC_MAX_BLK_LEN_MASK		0x3
 #define SDHC_BASE_FREQ_SHIFT		8
 #define SDHC_BASE_FREQ_MASK		0x3f
 #define SDHC_TIMEOUT_FREQ_UNIT		(1<<7)	/* 0=KHz, 1=MHz */
@@ -208,12 +197,9 @@ void	sdhc_ipc(volatile ipc_request *req);
 #define SDHC_VENDOR_VERSION(hcv)					\
 	(((hcv) >> SDHC_VENDOR_VERS_SHIFT) & SDHC_VENDOR_VERS_MASK)
 
-//typedef void *sdmmc_chipset_handle_t;
 struct sdmmc_command;
 
 int	sdhc_host_reset(struct sdhc_host *hp);
-u_int32_t sdhc_host_ocr(struct sdhc_host *hp);
-int	sdhc_host_maxblklen(struct sdhc_host *hp);
 int	sdhc_card_detect(struct sdhc_host *hp);
 int	sdhc_bus_power(struct sdhc_host *hp, u_int32_t);
 int	sdhc_bus_clock(struct sdhc_host *hp, int);

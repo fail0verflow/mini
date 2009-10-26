@@ -15,8 +15,7 @@ Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
 
 struct sdmmc_command;
 
-typedef struct sdmmc_chip_functions *sdmmc_chipset_tag_t;
-typedef void *sdmmc_chipset_handle_t;
+typedef struct sdhc_host * sdmmc_chipset_handle_t;
 
 /* clock frequencies for sdmmc_chip_bus_clock() */
 #define SDMMC_SDCLK_OFF		0
@@ -157,7 +156,7 @@ struct sdmmc_function {
 #define SDMMC_NEW_CARD			    2
 #define SDMMC_INSERTED			    3
 
-void sdmmc_attach(sdmmc_chipset_handle_t handle, const char *name, int no);
+void sdmmc_attach(sdmmc_chipset_handle_t handle);
 void sdmmc_needs_discover(void);
 int sdmmc_select(void);
 int sdmmc_check_card(void);
@@ -304,7 +303,7 @@ void sdmmc_ipc(volatile ipc_request *req);
 #define SD_CSD_CAPACITY(resp)		((SD_CSD_C_SIZE((resp))+1) << \
 					 (SD_CSD_C_SIZE_MULT((resp))+2))
 #define SD_CSD_V2_C_SIZE(resp)		MMC_RSP_BITS((resp), 48, 22)
-#define SD_CSD_V2_CAPACITY(resp)	((SD_CSD_V2_C_SIZE((resp))+1) << 10)
+#define SD_CSD_V2_CAPACITY(resp)	((SD_CSD_V2_C_SIZE((resp))+1) << 10) 
 #define SD_CSD_V2_BL_LEN		0x9	/* 512 */
 #define SD_CSD_VDD_R_CURR_MIN(resp)	MMC_RSP_BITS((resp), 59, 3)
 #define SD_CSD_VDD_R_CURR_MAX(resp)	MMC_RSP_BITS((resp), 56, 3)

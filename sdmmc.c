@@ -25,10 +25,7 @@ static int sdmmcdebug = 0;
 #endif
 
 struct sdmmc_card {
-	struct sdmmc_chip_functions *functions;
 	sdmmc_chipset_handle_t handle;
-	char name[30];
-	int no;
 	int inserted;
 	int sdhc_blockmode;
 	int selected;
@@ -41,35 +38,22 @@ struct sdmmc_card {
 };
 
 #ifdef LOADER
-static struct sdmmc_card cards[SDHC_MAX_HOSTS];
+static struct sdmmc_card card;
 #else
-static struct sdmmc_card cards[SDHC_MAX_HOSTS] MEM2_BSS;
+static struct sdmmc_card card MEM2_BSS;
 #endif
 
-static int n_cards = 0;
-
-void sdmmc_attach(sdmmc_chipset_handle_t handle, const char *name, int no)
+void sdmmc_attach(sdmmc_chipset_handle_t handle)
 {
-	struct sdmmc_card *c;
+	memset(&card, 0, sizeof(card));
 
-	if (n_cards >= SDHC_MAX_HOSTS) {
-		gecko_printf("n_cards(%d) >= %d!\n", n_cards, SDHC_MAX_HOSTS);
-		gecko_printf("starlet is soo going to crash very soon...\n");
-	}
+	card.handle = handle;
 
-	c = &cards[n_cards++];
-	memset(c, 0, sizeof(*c));
+	DPRINTF(0, ("sdmmc: attached new SD/MMC card\n"));
 
-	c->handle = handle;
-	c->no = no;
-	strlcpy(c->name, name, sizeof(c->name));
+	sdhc_host_reset(card.handle);
 
-	DPRINTF(0, ("sdmmc: attached new SD/MMC card %d for host [%s:%d]\n",
-				n_cards-1, c->name, c->no));
-
-	sdhc_host_reset(c->handle);
-
-	if (sdhc_card_detect(c->handle)) {
+	if (sdhc_card_detect(card.handle)) {
 		DPRINTF(1, ("card is inserted. starting init sequence.\n"));
 		sdmmc_needs_discover();
 	}
@@ -83,33 +67,32 @@ void sdmmc_abort(void) {
 	cmd.c_opcode = MMC_STOP_TRANSMISSION;
 	cmd.c_arg = 0;
 	cmd.c_flags = SCF_RSP_R1B;
-	sdhc_exec_command(&cards[0].handle, &cmd);
+	sdhc_exec_command(card.handle, &cmd);
 }
 
 void sdmmc_needs_discover(void)
 {
-	struct sdmmc_card *c = &cards[0];
 	struct sdmmc_command cmd;
 	u32 ocr;
 
 	DPRINTF(0, ("sdmmc: card needs discovery.\n"));
-	sdhc_host_reset(c->handle);
-	c->new_card = 1;
+	sdhc_host_reset(card.handle);
+	card.new_card = 1;
 
-	if (!sdhc_card_detect(c->handle)) {
+	if (!sdhc_card_detect(card.handle)) {
 		DPRINTF(1, ("sdmmc: card (no longer?) inserted.\n"));
-		c->inserted = 0;
+		card.inserted = 0;
 		return;
 	}
 	
 	DPRINTF(1, ("sdmmc: enabling power\n"));
-	if (sdhc_bus_power(c->handle, 1) != 0) {
+	if (sdhc_bus_power(card.handle, 1) != 0) {
 		gecko_printf("sdmmc: powerup failed for card\n");
 		goto out;
 	}
 
 	DPRINTF(1, ("sdmmc: enabling clock\n"));
-	if (sdhc_bus_clock(c->handle, SDMMC_DEFAULT_CLOCK) != 0) {
+	if (sdhc_bus_clock(card.handle, SDMMC_DEFAULT_CLOCK) != 0) {
 		gecko_printf("sdmmc: could not enable clock for card\n");
 		goto out_power;
 	}
@@ -119,7 +102,7 @@ void sdmmc_needs_discover(void)
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.c_opcode = MMC_GO_IDLE_STATE;
 	cmd.c_flags = SCF_RSP_R0;
-	sdhc_exec_command(c->handle, &cmd);
+	sdhc_exec_command(card.handle, &cmd);
 
 	if (cmd.c_error) {
 		gecko_printf("sdmmc: GO_IDLE_STATE failed with %d\n", cmd.c_error);
@@ -134,9 +117,9 @@ void sdmmc_needs_discover(void)
 	cmd.c_arg = 0x1aa;
 	cmd.c_flags = SCF_RSP_R7;
 	cmd.c_timeout = 100;
-	sdhc_exec_command(c->handle, &cmd);
+	sdhc_exec_command(card.handle, &cmd);
 
-	ocr = sdhc_host_ocr(c->handle);
+	ocr = card.handle->ocr;
 	if (cmd.c_error || (cmd.c_resp[0] & 0xff) != 0xaa)
 		ocr &= ~SD_OCR_SDHC_CAP;
 	else
@@ -151,7 +134,7 @@ void sdmmc_needs_discover(void)
 		cmd.c_opcode = MMC_APP_CMD;
 		cmd.c_arg = 0;
 		cmd.c_flags = SCF_RSP_R1;
-		sdhc_exec_command(c->handle, &cmd);
+		sdhc_exec_command(card.handle, &cmd);
 
 		if (cmd.c_error)
 			continue;
@@ -160,7 +143,7 @@ void sdmmc_needs_discover(void)
 		cmd.c_opcode = SD_APP_OP_COND;
 		cmd.c_arg = ocr;
 		cmd.c_flags = SCF_RSP_R3;
-		sdhc_exec_command(c->handle, &cmd);
+		sdhc_exec_command(card.handle, &cmd);
 		if (cmd.c_error)
 			continue;
 
@@ -175,10 +158,10 @@ void sdmmc_needs_discover(void)
 	}
 
 	if (ISSET(MMC_R1(cmd.c_resp), SD_OCR_SDHC_CAP))
-		c->sdhc_blockmode = 1;
+		card.sdhc_blockmode = 1;
 	else
-		c->sdhc_blockmode = 0;
-	DPRINTF(2, ("sdmmc: SDHC: %d\n", c->sdhc_blockmode));
+		card.sdhc_blockmode = 0;
+	DPRINTF(2, ("sdmmc: SDHC: %d\n", card.sdhc_blockmode));
 	
 	u8 *resp;
 	DPRINTF(2, ("sdmmc: MMC_ALL_SEND_CID\n"));
@@ -186,13 +169,13 @@ void sdmmc_needs_discover(void)
 	cmd.c_opcode = MMC_ALL_SEND_CID;
 	cmd.c_arg = 0;
 	cmd.c_flags = SCF_RSP_R2;
-	sdhc_exec_command(c->handle, &cmd);
+	sdhc_exec_command(card.handle, &cmd);
 	if (cmd.c_error) {
 		gecko_printf("sdmmc: MMC_ALL_SEND_CID failed with %d\n", cmd.c_error);
 		goto out_clock;
 	}
 
-	c->cid = MMC_R1(cmd.c_resp);
+	card.cid = MMC_R1(cmd.c_resp);
 	resp = (u8 *)cmd.c_resp;
 	gecko_printf("CID: mid=%02x name='%c%c%c%c%c%c%c' prv=%d.%d psn=%02x%02x%02x%02x mdt=%d/%d\n", resp[14], 
 		resp[13],resp[12],resp[11],resp[10],resp[9],resp[8],resp[7], resp[6], resp[5] >> 4, resp[5] & 0xf, 
@@ -203,23 +186,23 @@ void sdmmc_needs_discover(void)
 	cmd.c_opcode = SD_SEND_RELATIVE_ADDR;
 	cmd.c_arg = 0;
 	cmd.c_flags = SCF_RSP_R6;
-	sdhc_exec_command(c->handle, &cmd);
+	sdhc_exec_command(card.handle, &cmd);
 	if (cmd.c_error) {
 		gecko_printf("sdmmc: SD_SEND_RCA failed with %d\n", cmd.c_error);
 		goto out_clock;
 	}
 
-	c->rca = MMC_R1(cmd.c_resp)>>16;
-	DPRINTF(2, ("sdmmc: rca: %08x\n", c->rca));
+	card.rca = MMC_R1(cmd.c_resp)>>16;
+	DPRINTF(2, ("sdmmc: rca: %08x\n", card.rca));
 
-	c->selected = 0;
-	c->inserted = 1;
+	card.selected = 0;
+	card.inserted = 1;
 
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.c_opcode = MMC_SEND_CSD;
-	cmd.c_arg = ((u32)c->rca)<<16;
+	cmd.c_arg = ((u32)card.rca)<<16;
 	cmd.c_flags = SCF_RSP_R2;
-	sdhc_exec_command(c->handle, &cmd);
+	sdhc_exec_command(card.handle, &cmd);
 	if (cmd.c_error) {
 		gecko_printf("sdmmc: MMC_SEND_CSD failed with %d\n", cmd.c_error);
 		goto out_power;
@@ -235,8 +218,8 @@ void sdmmc_needs_discover(void)
 	if (resp[13] == 0xe) { // sdhc
 		unsigned int c_size = resp[7] << 16 | resp[6] << 8 | resp[5];
 		gecko_printf("sdmmc: sdhc mode, c_size=%u, card size = %uk\n", c_size, (c_size + 1)* 512);
-		c->timeout = 250 * 1000000; // spec says read timeout is 100ms and write/erase timeout is 250ms
-		c->num_sectors = (c_size + 1) * 1024; // number of 512-byte sectors
+		card.timeout = 250 * 1000000; // spec says read timeout is 100ms and write/erase timeout is 250ms
+		card.num_sectors = (c_size + 1) * 1024; // number of 512-byte sectors
 	}
 	else {
 		unsigned int taac, nsac, read_bl_len, c_size, c_size_mult;
@@ -253,9 +236,9 @@ void sdmmc_needs_discover(void)
 			taac, nsac, read_bl_len, c_size, c_size_mult, (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len));
 		static const unsigned int time_unit[] = {1, 10, 100, 1000, 10000, 100000, 1000000, 10000000};
 		static const unsigned int time_value[] = {1, 10, 12, 13, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80}; // must div by 10
-		c->timeout = time_unit[taac & 7] * time_value[(taac >> 3) & 0xf] / 10;
-		gecko_printf("calculated timeout =  %uns\n", c->timeout);
-		c->num_sectors = (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len) / 512;
+		card.timeout = time_unit[taac & 7] * time_value[(taac >> 3) & 0xf] / 10;
+		gecko_printf("calculated timeout =  %uns\n", card.timeout);
+		card.num_sectors = (c_size + 1) * (4 << c_size_mult) * (1 << read_bl_len) / 512;
 	}
 
 	sdmmc_select();
@@ -264,19 +247,19 @@ void sdmmc_needs_discover(void)
 	cmd.c_opcode = MMC_SET_BLOCKLEN;
 	cmd.c_arg = SDMMC_DEFAULT_BLOCKLEN;
 	cmd.c_flags = SCF_RSP_R1;
-	sdhc_exec_command(c->handle, &cmd);
+	sdhc_exec_command(card.handle, &cmd);
 	if (cmd.c_error) {
 		gecko_printf("sdmmc: MMC_SET_BLOCKLEN failed with %d\n", cmd.c_error);
-		c->inserted = c->selected = 0;
+		card.inserted = card.selected = 0;
 		goto out_clock;
 	}
 	return;
 
 out_clock:
-	sdhc_bus_clock(c->handle, SDMMC_SDCLK_OFF);
+	sdhc_bus_clock(card.handle, SDMMC_SDCLK_OFF);
 
 out_power:
-	sdhc_bus_power(c->handle, 0);
+	sdhc_bus_power(card.handle, 0);
 out:
 	return;
 }
@@ -284,36 +267,33 @@ out:
 
 int sdmmc_select(void)
 {
-	struct sdmmc_card *c = &cards[0];
 	struct sdmmc_command cmd;
 
 	DPRINTF(2, ("sdmmc: MMC_SELECT_CARD\n"));
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.c_opcode = MMC_SELECT_CARD;
-	cmd.c_arg = ((u32)c->rca)<<16;
+	cmd.c_arg = ((u32)card.rca)<<16;
 	cmd.c_flags = SCF_RSP_R1B;
-	sdhc_exec_command(c->handle, &cmd);
+	sdhc_exec_command(card.handle, &cmd);
 	gecko_printf("%s: resp=%x\n", __FUNCTION__, MMC_R1(cmd.c_resp));
-	sdhc_dump_regs(c->handle);
-
+	sdhc_dump_regs(card.handle);
+	
 //	gecko_printf("present state = %x\n", HREAD4(hp, SDHC_PRESENT_STATE));
 	if (cmd.c_error) {
 		gecko_printf("sdmmc: MMC_SELECT card failed with %d.\n", cmd.c_error);
 		return -1;
 	}
 
-	c->selected = 1;
+	card.selected = 1;
 	return 0;
 }
 
 int sdmmc_check_card(void)
 {
-	struct sdmmc_card *c = &cards[0];
-
-	if (c->inserted == 0)
+	if (card.inserted == 0)
 		return SDMMC_NO_CARD;
 
-	if (c->new_card == 1)
+	if (card.new_card == 1)
 		return SDMMC_NEW_CARD;
 
 	return SDMMC_INSERTED;
@@ -321,10 +301,8 @@ int sdmmc_check_card(void)
 
 int sdmmc_ack_card(void)
 {
-	struct sdmmc_card *c = &cards[0];
-
-	if (c->new_card == 1) {
-		c->new_card = 0;
+	if (card.new_card == 1) {
+		card.new_card = 0;
 		return 0;
 	}
 
@@ -333,23 +311,22 @@ int sdmmc_ack_card(void)
 
 int sdmmc_read(u32 blk_start, u32 blk_count, void *data)
 {
-	struct sdmmc_card *c = &cards[0];
 	struct sdmmc_command cmd;
 
 	gecko_printf("%s(%u, %u, %p)\n", __FUNCTION__, blk_start, blk_count, data);
-	if (c->inserted == 0) {
+	if (card.inserted == 0) {
 		gecko_printf("sdmmc: READ: no card inserted.\n");
 		return -1;
 	}
 
-	if (c->selected == 0) {
+	if (card.selected == 0) {
 		if (sdmmc_select() < 0) {
 			gecko_printf("sdmmc: READ: cannot select card.\n");
 			return -1;
 		}
 	}
 
-	if (c->new_card == 1) {
+	if (card.new_card == 1) {
 		gecko_printf("sdmmc: new card inserted but not acknowledged yet.\n");
 		return -1;
 	}
@@ -357,7 +334,7 @@ int sdmmc_read(u32 blk_start, u32 blk_count, void *data)
 	DPRINTF(2, ("sdmmc: MMC_READ_BLOCK_MULTIPLE\n"));
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.c_opcode = MMC_READ_BLOCK_MULTIPLE;
-	if (c->sdhc_blockmode)
+	if (card.sdhc_blockmode)
 		cmd.c_arg = blk_start;
 	else
 		cmd.c_arg = blk_start * SDMMC_DEFAULT_BLOCKLEN;
@@ -365,7 +342,7 @@ int sdmmc_read(u32 blk_start, u32 blk_count, void *data)
 	cmd.c_datalen = blk_count * SDMMC_DEFAULT_BLOCKLEN;
 	cmd.c_blklen = SDMMC_DEFAULT_BLOCKLEN;
 	cmd.c_flags = SCF_RSP_R1 | SCF_CMD_READ;
-	sdhc_exec_command(c->handle, &cmd);
+	sdhc_exec_command(card.handle, &cmd);
 
 	if (cmd.c_error) {
 		gecko_printf("sdmmc: MMC_READ_BLOCK_MULTIPLE failed with %d\n", cmd.c_error);
@@ -379,22 +356,21 @@ int sdmmc_read(u32 blk_start, u32 blk_count, void *data)
 #ifndef LOADER
 int sdmmc_write(u32 blk_start, u32 blk_count, void *data)
 {
-	struct sdmmc_card *c = &cards[0];
 	struct sdmmc_command cmd;
 
-	if (c->inserted == 0) {
+	if (card.inserted == 0) {
 		gecko_printf("sdmmc: READ: no card inserted.\n");
 		return -1;
 	}
 
-	if (c->selected == 0) {
+	if (card.selected == 0) {
 		if (sdmmc_select() < 0) {
 			gecko_printf("sdmmc: READ: cannot select card.\n");
 			return -1;
 		}
 	}
 
-	if (c->new_card == 1) {
+	if (card.new_card == 1) {
 		gecko_printf("sdmmc: new card inserted but not acknowledged yet.\n");
 		return -1;
 	}
@@ -402,7 +378,7 @@ int sdmmc_write(u32 blk_start, u32 blk_count, void *data)
 	DPRINTF(2, ("sdmmc: MMC_WRITE_BLOCK_MULTIPLE\n"));
 	memset(&cmd, 0, sizeof(cmd));
 	cmd.c_opcode = MMC_WRITE_BLOCK_MULTIPLE;
-	if (c->sdhc_blockmode)
+	if (card.sdhc_blockmode)
 		cmd.c_arg = blk_start;
 	else
 		cmd.c_arg = blk_start * SDMMC_DEFAULT_BLOCKLEN;
@@ -410,7 +386,7 @@ int sdmmc_write(u32 blk_start, u32 blk_count, void *data)
 	cmd.c_datalen = blk_count * SDMMC_DEFAULT_BLOCKLEN;
 	cmd.c_blklen = SDMMC_DEFAULT_BLOCKLEN;
 	cmd.c_flags = SCF_RSP_R1;
-	sdhc_exec_command(c->handle, &cmd);
+	sdhc_exec_command(card.handle, &cmd);
 
 	if (cmd.c_error) {
 		gecko_printf("sdmmc: MMC_READ_BLOCK_MULTIPLE failed with %d\n", cmd.c_error);
@@ -423,21 +399,19 @@ int sdmmc_write(u32 blk_start, u32 blk_count, void *data)
 
 int sdmmc_get_sectors(void)
 {
-	struct sdmmc_card *c = &cards[0];
-
-	if (c->inserted == 0) {
+	if (card.inserted == 0) {
 		gecko_printf("sdmmc: READ: no card inserted.\n");
 		return -1;
 	}
 
-	if (c->new_card == 1) {
+	if (card.new_card == 1) {
 		gecko_printf("sdmmc: new card inserted but not acknowledged yet.\n");
 		return -1;
 	}
 
 //	sdhc_error(sdhci->reg_base, "num sectors = %u", sdhci->num_sectors);
 	
-	return c->num_sectors;
+	return card.num_sectors;
 }
 #endif
 
