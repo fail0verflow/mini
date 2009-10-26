@@ -43,18 +43,13 @@ struct sdhc_host {
 	int data_command;
 };
 
-struct sdhc_softc {
-	struct sdhc_host sc_host[SDHC_MAX_HOSTS];
-	int sc_nhosts;
-};
-
+extern struct sdhc_host sc_host;
 
 /* Host controller functions called by the attachment driver. */
-int	sdhc_host_found(struct sdhc_softc *, bus_space_tag_t,
-	    bus_space_handle_t, int);
+int	sdhc_host_found(bus_space_tag_t, bus_space_handle_t, int);
 void	sdhc_power(int, void *);
-void	sdhc_shutdown(void *);
-int	sdhc_intr(void *);
+void	sdhc_shutdown(void);
+int	sdhc_intr(void);
 void	sdhc_init(void);
 void	sdhc_exit(void);
 void	sdhc_irq(void);
@@ -216,14 +211,14 @@ void	sdhc_ipc(volatile ipc_request *req);
 //typedef void *sdmmc_chipset_handle_t;
 struct sdmmc_command;
 
-int	sdhc_host_reset(sdmmc_chipset_handle_t);
-u_int32_t sdhc_host_ocr(sdmmc_chipset_handle_t);
-int	sdhc_host_maxblklen(sdmmc_chipset_handle_t);
-int	sdhc_card_detect(sdmmc_chipset_handle_t);
-int	sdhc_bus_power(sdmmc_chipset_handle_t, u_int32_t);
-int	sdhc_bus_clock(sdmmc_chipset_handle_t, int);
-void	sdhc_card_intr_mask(sdmmc_chipset_handle_t, int);
-void	sdhc_card_intr_ack(sdmmc_chipset_handle_t);
-void	sdhc_exec_command(sdmmc_chipset_handle_t, struct sdmmc_command *);
+int	sdhc_host_reset(struct sdhc_host *hp);
+u_int32_t sdhc_host_ocr(struct sdhc_host *hp);
+int	sdhc_host_maxblklen(struct sdhc_host *hp);
+int	sdhc_card_detect(struct sdhc_host *hp);
+int	sdhc_bus_power(struct sdhc_host *hp, u_int32_t);
+int	sdhc_bus_clock(struct sdhc_host *hp, int);
+void	sdhc_card_intr_mask(struct sdhc_host *hp, int);
+void	sdhc_card_intr_ack(struct sdhc_host *hp);
+void	sdhc_exec_command(struct sdhc_host *hp, struct sdmmc_command *);
 
 #endif

@@ -23,16 +23,6 @@ typedef void *sdmmc_chipset_handle_t;
 #define SDMMC_SDCLK_400KHZ	400
 #define SDMMC_SDCLK_25MHZ	25000
 
-struct sdmmcbus_attach_args {
-	const char *saa_busname;
-	sdmmc_chipset_tag_t sct;
-	sdmmc_chipset_handle_t sch;
-	int	flags;
-	long	max_xfer;
-};
-
-void	sdmmc_delay(u_int);
-
 struct sdmmc_csd {
 	int	csdver;		/* CSD structure format */
 	int	mmcver;		/* MMC version (for CID format) */
@@ -138,7 +128,6 @@ struct sdmmc_cis {
  */
 struct sdmmc_function {
 	/* common members */
-	struct sdmmc_softc *sc;		/* card slot softc */
 	u_int16_t rca;			/* relative card address */
 	int flags;
 #define SFF_ERROR		0x0001	/* function is poo; ignore it */
@@ -151,39 +140,6 @@ struct sdmmc_function {
 	struct sdmmc_cid cid;		/* decoded CID value */
 	sdmmc_response raw_cid;		/* temp. storage for decoding */
 };
-
-/*
- * Structure describing a single SD/MMC/SDIO card slot.
- */
-struct sdmmc_softc {
-	sdmmc_chipset_tag_t sct;	/* host controller chipset tag */
-	sdmmc_chipset_handle_t sch;	/* host controller chipset handle */
-#define SMF_SD_MODE		0x0001	/* host in SD mode (MMC otherwise) */
-#define SMF_IO_MODE		0x0002	/* host in I/O mode (SD mode only) */
-#define SMF_MEM_MODE		0x0004	/* host in memory mode (SD or MMC) */
-#define SMF_CARD_PRESENT	0x0010	/* card presence noticed */
-#define SMF_CARD_ATTACHED	0x0020	/* card driver(s) attached */
-#define	SMF_STOP_AFTER_MULTIPLE	0x0040	/* send a stop after a multiple cmd */
-	int sc_function_count;		/* number of I/O functions (SDIO) */
-	struct sdmmc_function *sc_card;	/* selected card */
-	struct sdmmc_function *sc_fn0;	/* function 0, the card itself */
-	int sc_dying;			/* bus driver is shutting down */
-	struct proc *sc_task_thread;	/* asynchronous tasks */
-	struct sdmmc_task sc_discover_task; /* card attach/detach task */
-	struct sdmmc_task sc_intr_task;	/* card interrupt task */
-	void *sc_scsibus;		/* SCSI bus emulation softc */
-	long sc_max_xfer;		/* maximum transfer size */
-};
-
-/*
- * Attach devices at the sdmmc bus.
- */
-struct sdmmc_attach_args {
-	struct scsi_link *scsi_link;	/* XXX */
-	struct sdmmc_function *sf;
-};
-
-#define IPL_SDMMC	IPL_BIO
 
 #define SDMMC_LOCK(sc)	 lockmgr(&(sc)->sc_lock, LK_EXCLUSIVE, NULL)
 #define SDMMC_UNLOCK(sc) lockmgr(&(sc)->sc_lock, LK_RELEASE, NULL)

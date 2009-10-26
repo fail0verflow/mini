@@ -974,7 +974,7 @@ void sdhc_exit(void)
 #ifdef CAN_HAZ_IRQ
 	irq_disable(IRQ_SDHC);
 #endif
-	sdhc_shutdown(&__softc);
+	sdhc_shutdown();
 }
 
 #ifdef CAN_HAZ_IPC
