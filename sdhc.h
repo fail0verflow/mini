@@ -24,6 +24,7 @@
 #ifdef CAN_HAZ_IPC
 #include "ipc.h"
 #endif
+#include "sdmmc.h"
 
 #define SDHC_MAX_HOSTS	4
 
@@ -212,5 +213,18 @@ void	sdhc_ipc(volatile ipc_request *req);
 	(((hcv) >> SDHC_SPEC_VERS_SHIFT) & SDHC_SPEC_VERS_MASK)
 #define SDHC_VENDOR_VERSION(hcv)					\
 	(((hcv) >> SDHC_VENDOR_VERS_SHIFT) & SDHC_VENDOR_VERS_MASK)
+
+//typedef void *sdmmc_chipset_handle_t;
+struct sdmmc_command;
+
+int	sdhc_host_reset(sdmmc_chipset_handle_t);
+u_int32_t sdhc_host_ocr(sdmmc_chipset_handle_t);
+int	sdhc_host_maxblklen(sdmmc_chipset_handle_t);
+int	sdhc_card_detect(sdmmc_chipset_handle_t);
+int	sdhc_bus_power(sdmmc_chipset_handle_t, u_int32_t);
+int	sdhc_bus_clock(sdmmc_chipset_handle_t, int);
+void	sdhc_card_intr_mask(sdmmc_chipset_handle_t, int);
+void	sdhc_card_intr_ack(sdmmc_chipset_handle_t);
+void	sdhc_exec_command(sdmmc_chipset_handle_t, struct sdmmc_command *);
 
 #endif
