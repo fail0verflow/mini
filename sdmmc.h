@@ -18,50 +18,6 @@ struct sdmmc_command;
 typedef struct sdmmc_chip_functions *sdmmc_chipset_tag_t;
 typedef void *sdmmc_chipset_handle_t;
 
-struct sdmmc_chip_functions {
-	/* host controller reset */
-	int	(*host_reset)(sdmmc_chipset_handle_t);
-	/* host capabilities */
-	u_int32_t (*host_ocr)(sdmmc_chipset_handle_t);
-	int	(*host_maxblklen)(sdmmc_chipset_handle_t);
-	/* card detection */
-	int	(*card_detect)(sdmmc_chipset_handle_t);
-	/* bus power and clock frequency */
-	int	(*bus_power)(sdmmc_chipset_handle_t, u_int32_t);
-	int	(*bus_clock)(sdmmc_chipset_handle_t, int);
-	/* command execution */
-	void	(*exec_command)(sdmmc_chipset_handle_t,
-		    struct sdmmc_command *);
-	/* card interrupt */
-	void	(*card_intr_mask)(sdmmc_chipset_handle_t, int);
-	void	(*card_intr_ack)(sdmmc_chipset_handle_t);
-};
-
-/* host controller reset */
-#define sdmmc_chip_host_reset(tag, handle)				\
-	((tag)->host_reset((handle)))
-/* host capabilities */
-#define sdmmc_chip_host_ocr(tag, handle)				\
-	((tag)->host_ocr((handle)))
-#define sdmmc_chip_host_maxblklen(tag, handle)				\
-	((tag)->host_maxblklen((handle)))
-/* card detection */
-#define sdmmc_chip_card_detect(tag, handle)				\
-	((tag)->card_detect((handle)))
-/* bus power and clock frequency */
-#define sdmmc_chip_bus_power(tag, handle, ocr)				\
-	((tag)->bus_power((handle), (ocr)))
-#define sdmmc_chip_bus_clock(tag, handle, freq)				\
-	((tag)->bus_clock((handle), (freq)))
-/* command execution */
-#define sdmmc_chip_exec_command(tag, handle, cmdp)			\
-	((tag)->exec_command((handle), (cmdp)))
-/* card interrupt */
-#define sdmmc_chip_card_intr_mask(tag, handle, enable)			\
-	((tag)->card_intr_mask((handle), (enable)))
-#define sdmmc_chip_card_intr_ack(tag, handle)				\
-	((tag)->card_intr_ack((handle)))
-
 /* clock frequencies for sdmmc_chip_bus_clock() */
 #define SDMMC_SDCLK_OFF		0
 #define SDMMC_SDCLK_400KHZ	400
@@ -189,7 +145,6 @@ struct sdmmc_function {
 #define SFF_SDHC		0x0002	/* SD High Capacity card */
 	/* SD card I/O function members */
 	int number;			/* I/O function number or -1 */
-	struct device *child;		/* function driver */
 	struct sdmmc_cis cis;		/* decoded CIS */
 	/* SD/MMC memory card members */
 	struct sdmmc_csd csd;		/* decoded CSD value */
@@ -201,8 +156,6 @@ struct sdmmc_function {
  * Structure describing a single SD/MMC/SDIO card slot.
  */
 struct sdmmc_softc {
-	struct device sc_dev;		/* base device */
-#define SDMMCDEVNAME(sc)	((sc)->sc_dev.dv_xname)
 	sdmmc_chipset_tag_t sct;	/* host controller chipset tag */
 	sdmmc_chipset_handle_t sch;	/* host controller chipset handle */
 #define SMF_SD_MODE		0x0001	/* host in SD mode (MMC otherwise) */
@@ -248,16 +201,12 @@ struct sdmmc_attach_args {
 #define SDMMC_NEW_CARD			    2
 #define SDMMC_INSERTED			    3
 
-// HACK
-#define SDMMC_DEFAULT_DEVICE	((struct device *)0)
-
-struct device *sdmmc_attach(struct sdmmc_chip_functions *functions,
-		sdmmc_chipset_handle_t handle, const char *name, int no);
-void sdmmc_needs_discover(struct device *dev);
-int sdmmc_select(struct device *dev);
-int sdmmc_check_card(struct device *dev);
-int sdmmc_ack_card(struct device *dev);
-int sdmmc_read(struct device *dev, u32 blk_start, u32 blk_count, void *data);
+void sdmmc_attach(sdmmc_chipset_handle_t handle, const char *name, int no);
+void sdmmc_needs_discover(void);
+int sdmmc_select(void);
+int sdmmc_check_card(void);
+int sdmmc_ack_card(void);
+int sdmmc_read(u32 blk_start, u32 blk_count, void *data);
 #ifdef CAN_HAZ_IPC
 void sdmmc_ipc(volatile ipc_request *req);
 #endif

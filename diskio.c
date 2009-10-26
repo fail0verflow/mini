@@ -21,17 +21,17 @@ static u8 buffer[512] MEM2_BSS ALIGNED(32);
 
 // Initialize a Drive
 DSTATUS disk_initialize (BYTE drv) {
-	if (sdmmc_check_card(SDMMC_DEFAULT_DEVICE) == SDMMC_NO_CARD)
+	if (sdmmc_check_card() == SDMMC_NO_CARD)
 		return STA_NOINIT;
 
-	sdmmc_ack_card(SDMMC_DEFAULT_DEVICE);
+	sdmmc_ack_card();
 	return disk_status(drv);
 }
 
 // Return Disk Status
 DSTATUS disk_status (BYTE drv) {
 	(void)drv;
-	if (sdmmc_check_card(SDMMC_DEFAULT_DEVICE) == SDMMC_INSERTED)
+	if (sdmmc_check_card() == SDMMC_INSERTED)
 		return 0;
 	else
 		return STA_NODISK;
@@ -42,7 +42,7 @@ DRESULT disk_read (BYTE drv, BYTE *buff, DWORD sector, BYTE count) {
 	int i;
 	(void)drv;
 	for (i = 0; i < count; i++) {
-		if (sdmmc_read(SDMMC_DEFAULT_DEVICE, sector+i, 1, buffer) != 0)
+		if (sdmmc_read(sector+i, 1, buffer) != 0)
 			return RES_ERROR;
 		memcpy(buff + i * 512, buffer, 512);
 	}
@@ -58,7 +58,7 @@ DRESULT disk_write (BYTE drv, const BYTE *buff, DWORD sector, BYTE count) {
 	for (i = 0; i < count; i++) {
 		memcpy(buffer, buff + i * 512, 512);
 
-		if(sdmmc_write(SDMMC_DEFAULT_DEVICE, sector + i, 1, buffer) != 0)
+		if(sdmmc_write(sector + i, 1, buffer) != 0)
 			return RES_ERROR;
 	}
 

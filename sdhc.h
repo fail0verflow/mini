@@ -44,7 +44,6 @@ struct sdhc_host {
 };
 
 struct sdhc_softc {
-	struct device sc_dev;
 	struct sdhc_host sc_host[SDHC_MAX_HOSTS];
 	int sc_nhosts;
 };

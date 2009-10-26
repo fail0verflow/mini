@@ -23,11 +23,6 @@ typedef u8 u_char;
 typedef u32 bus_space_tag_t;
 typedef u32 bus_space_handle_t;
 
-struct device {
-	char dv_xname[255];
-	void *dummy;
-};
-
 #define MIN(a, b) (((a)>(b))?(b):(a))
 
 #define wakeup(...)
