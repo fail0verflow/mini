@@ -72,6 +72,8 @@ Copyright (C) 2009		John Kelley <wiidev@kelley.ca>
 #define IPC_NAND_WRITE	0x0003
 #define IPC_NAND_ERASE	0x0004
 #define IPC_NAND_STATUS	0x0005
+#define IPC_NAND_SETMINPAGE 0x0006
+#define IPC_NAND_GETMINPAGE 0x0007
 //#define IPC_NAND_USER0 0x8000
 //#define IPC_NAND_USER1 0x8001
 // etc.

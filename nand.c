@@ -25,11 +25,6 @@ Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
 // #define	NAND_DEBUG	1
 #define NAND_SUPPORT_WRITE 1
 #define NAND_SUPPORT_ERASE 1
-#ifdef ALLOW_BOOT2_WRITES
-#define NAND_MIN_PAGE 0x40
-#else
-#define NAND_MIN_PAGE 0x200
-#endif
 
 #ifdef NAND_DEBUG
 #	include "gecko.h"
@@ -64,6 +59,7 @@ static u8 ipc_ecc[ECC_BUFFER_ALLOC] MEM2_BSS ALIGNED(128); //128 alignment REQUI
 
 static volatile int irq_flag;
 static u32 last_page_read = 0;
+static u32 nand_min_page = 0x200; // default to protecting boot1+boot2
 
 void nand_irq(void)
 {
@@ -211,7 +207,7 @@ void nand_write_page(u32 pageno, void *data, void *ecc) {
 	NAND_debug("nand_write_page(%u, %p, %p)\n", pageno, data, ecc);
 
 // this is a safety check to prevent you from accidentally wiping out boot1 or boot2.
-	if ((pageno < NAND_MIN_PAGE) || (pageno >= NAND_MAX_PAGE)) {
+	if ((pageno < nand_min_page) || (pageno >= NAND_MAX_PAGE)) {
 		gecko_printf("Error: nand_write to page %d forbidden\n", pageno);
 		return;
 	}
@@ -232,7 +228,7 @@ void nand_erase_block(u32 pageno) {
 	NAND_debug("nand_erase_block(%d)\n", pageno);
 
 // this is a safety check to prevent you from accidentally wiping out boot1 or boot2.
-	if ((pageno < NAND_MIN_PAGE) || (pageno >= NAND_MAX_PAGE)) {
+	if ((pageno < nand_min_page) || (pageno >= NAND_MAX_PAGE)) {
 		gecko_printf("Error: nand_erase to page %d forbidden\n", pageno);
 		return;
 	}
@@ -296,6 +292,7 @@ int nand_correct(u32 pageno, void *data, void *ecc)
 
 void nand_ipc(volatile ipc_request *req)
 {
+	u32 new_min_page = 0x200;
 	if (current_request.code != 0) {
 		gecko_printf("NAND: previous IPC request is not done yet.");
 		ipc_post(req->code, req->tag, 1, -1);
@@ -337,6 +334,24 @@ void nand_ipc(volatile ipc_request *req)
 			nand_erase_block(req->args[0]);
 			break;
 #endif
+/* This is only here to support the truly brave or stupid who are using hardware hacks to reflash
+   boot1/boot2 onto blank or corrupted NAND flash chips.  Best practices dictate that you should
+   query minpage (and make sure it is the value you expect -- usually 0x200) before writing to NAND.
+   If you call SETMINPAGE, you MUST then call GETMINPAGE to check that it actually succeeded, do your
+   writes, and then as soon as possible call SETMINPAGE(0x200) to restore the default minimum page. */
+		case IPC_NAND_SETMINPAGE:
+			new_min_page = req->args[0];
+			if (new_min_page > 0x200) {
+				gecko_printf("Ignoring strange NAND_SETMINPAGE request: %u\n", new_min_page);
+				break;
+			}
+			gecko_printf("WARNING: setting minimum allowed NAND page to %u\n", new_min_page);
+			nand_min_page = new_min_page;
+			ipc_post(req->code, req->tag, 0);
+			break;
+		case IPC_NAND_GETMINPAGE:
+			ipc_post(req->code, req->tag, 1, nand_min_page);
+			break;
 		default:
 			gecko_printf("IPC: unknown SLOW NAND request %04x\n",
 					req->req);
