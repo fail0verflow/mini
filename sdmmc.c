@@ -276,7 +276,7 @@ int sdmmc_select(void)
 	cmd.c_flags = SCF_RSP_R1B;
 	sdhc_exec_command(card.handle, &cmd);
 	gecko_printf("%s: resp=%x\n", __FUNCTION__, MMC_R1(cmd.c_resp));
-	sdhc_dump_regs(card.handle);
+//	sdhc_dump_regs(card.handle);
 	
 //	gecko_printf("present state = %x\n", HREAD4(hp, SDHC_PRESENT_STATE));
 	if (cmd.c_error) {
