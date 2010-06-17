@@ -313,7 +313,7 @@ int sdmmc_read(u32 blk_start, u32 blk_count, void *data)
 {
 	struct sdmmc_command cmd;
 
-	gecko_printf("%s(%u, %u, %p)\n", __FUNCTION__, blk_start, blk_count, data);
+//	gecko_printf("%s(%u, %u, %p)\n", __FUNCTION__, blk_start, blk_count, data);
 	if (card.inserted == 0) {
 		gecko_printf("sdmmc: READ: no card inserted.\n");
 		return -1;

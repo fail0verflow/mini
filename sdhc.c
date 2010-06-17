@@ -131,7 +131,7 @@ void	sdhc_read_data(struct sdhc_host *, u_char *, int);
 void	sdhc_write_data(struct sdhc_host *, u_char *, int);
 //#define SDHC_DEBUG 1
 #ifdef SDHC_DEBUG
-int sdhcdebug = 2;
+int sdhcdebug = 0;
 #define DPRINTF(n,s)	do { if ((n) <= sdhcdebug) gecko_printf s; } while (0)
 void	sdhc_dump_regs(struct sdhc_host *);
 #else
@@ -460,7 +460,7 @@ sdhc_exec_command(struct sdhc_host *hp, struct sdmmc_command *cmd)
 		return;
 	}
 
-	gecko_printf("command_complete, continuing...\n");
+//	gecko_printf("command_complete, continuing...\n");
 
 	/*
 	 * The host controller removes bits [0:7] from the response
@@ -618,7 +618,7 @@ sdhc_transfer_data(struct sdhc_host *hp, struct sdmmc_command *cmd)
 			}
 
 			if (ISSET(status, SDHC_TRANSFER_COMPLETE)) {
-				gecko_printf("got a TRANSFER_COMPLETE: %08x\n", status);
+//				gecko_printf("got a TRANSFER_COMPLETE: %08x\n", status);
 				break;
 			}
 			if (ISSET(status, SDHC_DMA_INTERRUPT)) {
