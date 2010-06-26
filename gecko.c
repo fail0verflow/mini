@@ -23,6 +23,7 @@ Copyright (C) 2009		Andre Heider "dhewg" <dhewg@wiibrew.org>
 #include "powerpc_elf.h"
 #include "gecko.h"
 
+//#define GECKO_LFCR
 //#define GECKO_SAFE
 
 static u8 gecko_console_enabled = 0;
@@ -143,8 +144,12 @@ static int gecko_sendbuffer(const void *buffer, u32 size)
 	while(left>0) {
 		if(!_gecko_sendbyte(*ptr))
 			break;
-		if(*ptr == '\n' && !_gecko_sendbyte('\r'))
+		if(*ptr == '\n') {
+#ifdef GECKO_LFCR
+			_gecko_sendbyte('\r');
+#endif
 			break;
+		}
 		ptr++;
 		left--;
 	}
@@ -183,8 +188,12 @@ static int gecko_sendbuffer_safe(const void *buffer, u32 size)
 		if(_gecko_checksend()) {
 			if(!_gecko_sendbyte(*ptr))
 				break;
-			if(*ptr == '\n' && !_gecko_sendbyte('\r'))
+			if(*ptr == '\n') {
+#ifdef GECKO_LFCR
+				_gecko_sendbyte('\r');
+#endif
 				break;
+			}
 			ptr++;
 			left--;
 		}
