@@ -28,16 +28,16 @@ $(TARGET_BIN): $(TARGET) $(ELFLOADER)
 upload: $(TARGET_BIN)
 	@$(WIIDEV)/bin/bootmii -a $<
 	
-git_version.h:
+git_version.h: describesimple.sh
 	@echo "  GITVER    $@"
 	@echo 'const char git_version[] = "'`./describesimple.sh`'";' > git_version.h
 
 clean: myclean
 
 $(ELFLOADER):
-	$(MAKE) -C elfloader
+	@$(MAKE) -C elfloader
 
 myclean:
 	-rm -f $(TARGET_BIN) git_version.h
-	$(MAKE) -C elfloader clean
+	@$(MAKE) -C elfloader clean
 
