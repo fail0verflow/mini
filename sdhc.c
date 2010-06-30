@@ -681,6 +681,9 @@ sdhc_soft_reset(struct sdhc_host *hp, int mask)
 int
 sdhc_wait_intr_debug(const char *funcname, int line, struct sdhc_host *hp, int mask, int timo)
 {
+	(void) funcname;
+	(void) line;
+
 	int status;
 
 	mask |= SDHC_ERROR_INTERRUPT;

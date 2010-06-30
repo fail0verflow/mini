@@ -556,6 +556,8 @@ FRESULT dir_next (	/* FR_OK:Succeeded, FR_NO_FILE:End of table, FR_DENIED:EOT an
 	BOOL streach	/* FALSE: Do not streach table, TRUE: Streach table if needed */
 )
 {
+	(void) streach;
+
 	DWORD clst;
 	WORD i;
 
@@ -836,7 +838,7 @@ FRESULT dir_find (
 /*-----------------------------------------------------------------------*/
 /* Read an object from the directory                                     */
 /*-----------------------------------------------------------------------*/
-#if _FS_MINIMIZE <= 2
+#if (_FS_MINIMIZE <= 2) && !_FS_READONLY
 static
 FRESULT dir_read (
 	DIR *dj			/* Pointer to the directory object to store read object name */
@@ -1351,6 +1353,8 @@ FRESULT auto_mount (	/* FR_OK(0): successful, !=0: any error occured */
 	BYTE chk_wp			/* !=0: Check media write protection for write access */
 )
 {
+	(void) chk_wp;
+
 	FRESULT res;
 	BYTE vol, fmt, *tbl;
 	DSTATUS stat;
