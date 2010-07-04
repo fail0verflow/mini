@@ -25,7 +25,7 @@ static char ascii(char s) {
   return s;
 }
 
-void hexdump(void *d, int len) {
+void hexdump(const void *d, int len) {
   u8 *data;
   int i, off;
   data = (u8*)d;

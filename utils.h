@@ -181,7 +181,7 @@ void memcpy16(void *dst, void *src, u32 size);
 void memset8(void *dst, u8 value, u32 size);
 void memcpy8(void *dst, void *src, u32 size);
 
-void hexdump(void *d, int len);
+void hexdump(const void *d, int len);
 int sprintf(char *str, const char *fmt, ...);
 void udelay(u32 d);
 void panic(u8 v);
