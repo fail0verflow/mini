@@ -20,6 +20,7 @@ Copyright (C) 2009		Andre Heider "dhewg" <dhewg@wiibrew.org>
 #include "powerpc.h"
 #include "utils.h"
 #include "panic.h"
+#include "boot2.h"
 
 static u8 boot2[0x80000] MEM2_BSS ALIGNED(64);
 static u8 boot2_key[32] MEM2_BSS ALIGNED(32);
@@ -46,59 +47,6 @@ typedef struct {
 	u8 blocks[0x40];
 } __attribute__((packed)) boot2blockmap;
 
-typedef struct {
-	u32 cid;
-	u16 index;
-	u16 type;
-	u64 size;
-	u8 hash[20];
-} __attribute__((packed)) tmd_content;
-
-typedef struct {
-	u32 type;
-	u8 sig[256];
-	u8 fill[60];
-} __attribute__((packed)) sig_rsa2048;
-
-typedef struct {
-	sig_rsa2048 signature;
-	char issuer[0x40];
-	u8 version;
-	u8 ca_crl_version;
-	u8 signer_crl_version;
-	u8 fill2;
-	u64 sys_version;
-	u64 title_id;
-	u32 title_type;
-	u16 group_id;
-	u16 zero;
-	u16 region;
-	u8 ratings[16];
-	u8 reserved[42];
-	u32 access_rights;
-	u16 title_version;
-	u16 num_contents;
-	u16 boot_index;
-	u16 fill3;
-	tmd_content boot_content;
-} __attribute__((packed)) tmd;
-
-typedef struct _tik {
-	sig_rsa2048 signature;
-	char issuer[0x40];
-	u8 fill[63];
-	u8 cipher_title_key[16];
-	u8 fill2;
-	u64 ticketid;
-	u32 devicetype;
-	u64 titleid;
-	u16 access_mask;
-	u8 reserved[0x3c];
-	u8 cidx_mask[0x40];
-	u16 padding;
-	u32 limits[16];
-} __attribute__((packed)) tik;
-
 static boot2blockmap good_blockmap MEM2_BSS;
 
 #define BLOCKMAP_SIGNATURE 0x26f29a401ee684cfULL
@@ -109,8 +57,8 @@ static boot2blockmap good_blockmap MEM2_BSS;
 static u8 boot2_blocks[BOOT2_END - BOOT2_START + 1];
 static u32 valid_blocks;
 
-static tmd boot2_tmd MEM2_BSS;
-static tik boot2_tik MEM2_BSS;
+static tmd_t tmd MEM2_BSS;
+static tik_t tik MEM2_BSS;
 static u8 *boot2_content;
 static u32 boot2_content_size;
 
@@ -238,12 +186,12 @@ int boot2_load(int copy)
 		gecko_printf("invalid boot2 header size 0x%x\n", hdr->len);
 		return -1;
 	}
-	if(hdr->tmd_len != sizeof(tmd)) {
-		gecko_printf("boot2 tmd size mismatch: expected 0x%x, got 0x%x (more than one content?)\n", sizeof(tmd), hdr->tmd_len);
+	if(hdr->tmd_len != sizeof(tmd_t)) {
+		gecko_printf("boot2 tmd size mismatch: expected 0x%x, got 0x%x (more than one content?)\n", sizeof(tmd_t), hdr->tmd_len);
 		return -1;
 	}
-	if(hdr->tik_len != sizeof(tik)) {
-		gecko_printf("boot2 tik size mismatch: expected 0x%x, got 0x%x\n", sizeof(tik), hdr->tik_len);
+	if(hdr->tik_len != sizeof(tik_t)) {
+		gecko_printf("boot2 tik size mismatch: expected 0x%x, got 0x%x\n", sizeof(tik_t), hdr->tik_len);
 		return -1;
 	}
 
@@ -253,28 +201,28 @@ int boot2_load(int copy)
 		return -1;
 	}
 
-	memcpy(&boot2_tik, &boot2[hdr->len + hdr->certs_len], sizeof(tik));
-	memcpy(&boot2_tmd, &boot2[hdr->len + hdr->certs_len + hdr->tik_len], sizeof(tmd));
+	memcpy(&tik, &boot2[hdr->len + hdr->certs_len], sizeof(tik_t));
+	memcpy(&tmd, &boot2[hdr->len + hdr->certs_len + hdr->tik_len], sizeof(tmd_t));
 
 	memset(iv, 0, 16);
-	memcpy(iv, &boot2_tik.titleid, 8);
+	memcpy(iv, &tik.titleid, 8);
 
 	aes_reset();
 	aes_set_iv(iv);
 	aes_set_key(otp.common_key);
-	memcpy(boot2_key, &boot2_tik.cipher_title_key, 16);
+	memcpy(boot2_key, &tik.cipher_title_key, 16);
 
 	aes_decrypt(boot2_key, boot2_key, 1, 0);
 
 	memset(boot2_iv, 0, 16);
-	memcpy(boot2_iv, &boot2_tmd.boot_content.index, 2); //just zero anyway...
+	memcpy(boot2_iv, &tmd.contents.index, 2); //just zero anyway...
 
 	u32 *kp = (u32*)boot2_key;
 	gecko_printf("boot2 title key: %08x%08x%08x%08x\n", kp[0], kp[1], kp[2], kp[3]);
 
-	boot2_content_size = (boot2_tmd.boot_content.size + 15) & ~15;
+	boot2_content_size = (tmd.contents.size + 15) & ~15;
 	gecko_printf("boot2 content size: 0x%x (padded: 0x%x)\n",
-		(u32)boot2_tmd.boot_content.size, boot2_content_size);
+		(u32)tmd.contents.size, boot2_content_size);
 
 	// read content
 	if(read_to(hdr->data_offset + boot2_content_size) < 0) {
@@ -371,7 +319,7 @@ u32 boot2_ipc(volatile ipc_request *req)
 
 		case IPC_BOOT2_TMD:
 			if (boot2_initialized)
-				ipc_post(req->code, req->tag, 1, &boot2_tmd);
+				ipc_post(req->code, req->tag, 1, &tmd);
 			else
 				ipc_post(req->code, req->tag, 1, -1);
 
