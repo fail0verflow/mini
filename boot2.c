@@ -261,27 +261,15 @@ static u32 match[] = {
 
 static u32 patch[] = {
 	0xBC024708,
-	0x10001,
-	0x4a4f4449,
+	0, // tid hi
+	0, // tid low
 };
 
-u32 boot2_run(u32 tid_hi, u32 tid_lo) {
-	u8 *ptr;
-	u32 i, num_matches=0;
-	ioshdr *hdr;
-	
-	patch[1] = tid_hi;
-	patch[2] = tid_lo;
+static u32 boot2_patch(ioshdr *hdr) {
+	u32 i, num_matches = 0;
+	u8 *ptr = (u8 *) hdr + hdr->hdrsize + hdr->loadersize;
 
-	gecko_printf("booting boot2 with title %08x-%08x\n", tid_hi, tid_lo);
-	mem_protect(1, (void *)0x11000000, (void *)0x13FFFFFF);
-	aes_reset();
-	aes_set_iv(boot2_iv);
-	aes_set_key(boot2_key);
-	aes_decrypt(boot2_content, (void *)0x11000000, boot2_content_size / 16, 0);
-	hdr = (ioshdr *)0x11000000;
-	ptr = (u8 *)0x11000000 + hdr->hdrsize + hdr->loadersize;
-	for (i = 0; i < sizeof(boot2); i += 1) {
+	for (i = 0; i < hdr->elfsize; i += 1) {
 		if (memcmp(ptr+i, match, sizeof(match)) == 0) {
 			num_matches++;
 			memcpy(ptr+i, patch, sizeof(patch));
@@ -289,9 +277,33 @@ u32 boot2_run(u32 tid_hi, u32 tid_lo) {
 		}
 	}
 
-	if (num_matches != 1) {
-		gecko_printf("Wrong number of patches (matched %d times, expected 1), panicking\n", num_matches);
-		panic2(0, PANIC_PATCHFAIL);
+	return num_matches;
+}
+
+u32 boot2_run(u32 tid_hi, u32 tid_lo) {
+	u32 num_matches;
+	ioshdr *hdr;
+	
+	gecko_printf("booting boot2 with title %08x-%08x\n", tid_hi, tid_lo);
+	mem_protect(1, (void *)0x11000000, (void *)0x13FFFFFF);
+
+	aes_reset();
+	aes_set_iv(boot2_iv);
+	aes_set_key(boot2_key);
+	aes_decrypt(boot2_content, (void *)0x11000000, boot2_content_size / 16, 0);
+
+	hdr = (ioshdr *) 0x11000000;
+
+	if ((tid_hi != match[1]) || (tid_lo != match[2])) {
+		patch[1] = tid_hi;
+		patch[2] = tid_lo;
+
+		num_matches = boot2_patch(hdr);
+
+		if (num_matches != 1) {
+			gecko_printf("Wrong number of patches (matched %d times, expected 1), panicking\n", num_matches);
+			panic2(0, PANIC_PATCHFAIL);
+		}
 	}
 	
 	hdr->argument = 0x42;
