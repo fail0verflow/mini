@@ -55,6 +55,8 @@ void exception_initialize(void)
 
 void exc_handler(u32 type, u32 spsr, u32 *regs)
 {
+	(void) spsr;
+
 	if (type > 8) type = 8;
 	gecko_printf("\nException %d (%s):\n", type, exceptions[type]);
 

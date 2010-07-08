@@ -18,7 +18,7 @@ Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
 
 #include <stdarg.h>
 
-#ifndef LOADER
+#if !defined(LOADER) && !defined(NDEBUG)
 static char ascii(char s) {
   if(s < 0x20) return '.';
   if(s > 0x7E) return '.';

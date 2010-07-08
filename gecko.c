@@ -23,9 +23,6 @@ Copyright (C) 2009		Andre Heider "dhewg" <dhewg@wiibrew.org>
 #include "powerpc_elf.h"
 #include "gecko.h"
 
-//#define GECKO_LFCR
-//#define GECKO_SAFE
-
 static u8 gecko_console_enabled = 0;
 
 static u32 _gecko_command(u32 command)
@@ -56,6 +53,7 @@ static u32 _gecko_getid(void)
 	return i;
 }
 
+#ifndef NDEBUG
 static u32 _gecko_sendbyte(u8 sendbyte)
 {
 	u32 i = 0;
@@ -64,6 +62,7 @@ static u32 _gecko_sendbyte(u8 sendbyte)
 		return 1; // Return 1 if byte was sent
 	return 0;
 }
+#endif
 
 static u32 _gecko_recvbyte(u8 *recvbyte)
 {
@@ -78,7 +77,7 @@ static u32 _gecko_recvbyte(u8 *recvbyte)
 	return 0;
 }
 
-#ifdef GECKO_SAFE
+#if !defined(NDEBUG) && defined(GECKO_SAFE)
 static u32 _gecko_checksend(void)
 {
 	u32 i = 0;
@@ -135,7 +134,7 @@ static int gecko_recvbuffer(void *buffer, u32 size)
 }
 #endif
 
-#ifndef GECKO_SAFE
+#if !defined(NDEBUG) && !defined(GECKO_SAFE)
 static int gecko_sendbuffer(const void *buffer, u32 size)
 {
 	u32 left = size;
@@ -175,7 +174,7 @@ static int gecko_recvbuffer_safe(void *buffer, u32 size)
 }
 #endif
 
-#ifdef GECKO_SAFE
+#if !defined(NDEBUG) && defined(GECKO_SAFE)
 static int gecko_sendbuffer_safe(const void *buffer, u32 size)
 {
 	u32 left = size;

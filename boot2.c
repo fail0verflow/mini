@@ -217,8 +217,10 @@ int boot2_load(int copy)
 	memset(boot2_iv, 0, 16);
 	memcpy(boot2_iv, &tmd.contents.index, 2); //just zero anyway...
 
+#ifndef NDEBUG
 	u32 *kp = (u32*)boot2_key;
 	gecko_printf("boot2 title key: %08x%08x%08x%08x\n", kp[0], kp[1], kp[2], kp[3]);
+#endif
 
 	boot2_content_size = (tmd.contents.size + 15) & ~15;
 	gecko_printf("boot2 content size: 0x%x (padded: 0x%x)\n",

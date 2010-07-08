@@ -249,6 +249,8 @@ void nand_initialize(void)
 
 int nand_correct(u32 pageno, void *data, void *ecc)
 {
+	(void) pageno;
+
 	u8 *dp = (u8*)data;
 	u32 *ecc_read = (u32*)((u8*)ecc+0x30);
 	u32 *ecc_calc = (u32*)((u8*)ecc+0x40);

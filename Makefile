@@ -1,5 +1,12 @@
 include starlet.mk
 
+# disables debug spew over usbgecko
+#CFLAGS += -DNDEBUG
+# enables LFCR linefeeds for usbgecko output, useful for some terminal apps
+#CFLAGS += -DGECKO_LFCR
+# uses the 'safe' version of the usbgecko receive and send functions
+#CFLAGS += -DGECKO_SAFE
+
 ASFLAGS += -D_LANGUAGE_ASSEMBLY
 CFLAGS += -DCAN_HAZ_IRQ -DCAN_HAZ_IPC
 LDSCRIPT = mini.ld
