@@ -1,5 +1,7 @@
 include starlet.mk
 
+# enabled usbgecko support
+CFLAGS += -DCAN_HAZ_USBGECKO
 # disables debug spew over usbgecko
 #CFLAGS += -DNDEBUG
 # enables LFCR linefeeds for usbgecko output, useful for some terminal apps

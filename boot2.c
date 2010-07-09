@@ -217,7 +217,7 @@ int boot2_load(int copy)
 	memset(boot2_iv, 0, 16);
 	memcpy(boot2_iv, &tmd.contents.index, 2); //just zero anyway...
 
-#ifndef NDEBUG
+#if defined(CAN_HAZ_USBGECKO) && !defined(NDEBUG)
 	u32 *kp = (u32*)boot2_key;
 	gecko_printf("boot2 title key: %08x%08x%08x%08x\n", kp[0], kp[1], kp[2], kp[3]);
 #endif

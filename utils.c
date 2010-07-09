@@ -18,7 +18,7 @@ Copyright (C) 2008, 2009	Hector Martin "marcan" <marcan@marcansoft.com>
 
 #include <stdarg.h>
 
-#if !defined(LOADER) && !defined(NDEBUG)
+#if defined(CAN_HAZ_USBGECKO) && !defined(LOADER) && !defined(NDEBUG)
 static char ascii(char s) {
   if(s < 0x20) return '.';
   if(s > 0x7E) return '.';
@@ -42,6 +42,7 @@ void hexdump(const void *d, int len) {
     gecko_printf("\n");
   }
 }
+#endif
 
 int sprintf(char *buffer, const char *fmt, ...)
 {
@@ -53,7 +54,6 @@ int sprintf(char *buffer, const char *fmt, ...)
 	va_end(args);
 	return i;
 }
-#endif
 
 void udelay(u32 d)
 {

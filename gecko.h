@@ -14,6 +14,8 @@ Copyright (C) 2009		Andre Heider "dhewg" <dhewg@wiibrew.org>
 #ifndef __GECKO_H__
 #define __GECKO_H__
 
+#ifdef CAN_HAZ_USBGECKO
+
 #include "types.h"
 
 void gecko_init(void);
@@ -27,6 +29,14 @@ int gecko_printf(const char *fmt, ...) __attribute__((format (printf, 1, 2)));
 
 void gecko_timer_initialize(void);
 void gecko_timer(void);
+
+#else
+#define gecko_init(...) do { } while(0)
+#define gecko_enable_console(...) do { } while(0)
+#define gecko_printf(...) do { } while(0)
+#define gecko_timer_initialize(...) do { } while(0)
+#define gecko_timer(...) do { } while(0)
+#endif
 
 #endif
 

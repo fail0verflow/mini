@@ -10,6 +10,7 @@ Copyright (C) 2009		Andre Heider "dhewg" <dhewg@wiibrew.org>
 # This code is licensed to you under the terms of the GNU GPL, version 2;
 # see file COPYING or http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
 */
+#ifdef CAN_HAZ_USBGECKO
 
 #include "types.h"
 #include "irq.h"
@@ -385,4 +386,6 @@ cleanup:
 	_gecko_cmd_start_time = 0;
 	_gecko_state = GECKO_STATE_NONE;
 }
+
+#endif
 
