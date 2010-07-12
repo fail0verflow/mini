@@ -15,7 +15,7 @@ LDSCRIPT = mini.ld
 LIBS = -lgcc
 
 ELFLOADER = elfloader/elfloader.bin
-MAKEBIN = python makebin.py
+MAKEBIN = $(CURDIR)/makebin.py
 
 TARGET = armboot.elf
 TARGET_BIN = armboot.bin
