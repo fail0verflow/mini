@@ -4,6 +4,7 @@
 
 Copyright (C) 2008, 2009	Sven Peter <svenpeter@gmail.com>
 Copyright (C) 2009			Andre Heider "dhewg" <dhewg@wiibrew.org>
+Copyright (C) 2010			Alex Marshall <trap15@raidenii.net>
 
 # This code is licensed to you under the terms of the GNU GPL, version 2;
 # see file COPYING or http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
@@ -15,6 +16,7 @@ Copyright (C) 2009			Andre Heider "dhewg" <dhewg@wiibrew.org>
 #include "powerpc_elf.h"
 #include "hollywood.h"
 #include "utils.h"
+#include "string.h"
 #include "start.h"
 #include "gecko.h"
 
@@ -83,6 +85,21 @@ void powerpc_ipc(volatile ipc_request *req)
 		}
 
 		break;
+
+	case IPC_PPC_BOOT_FILE:
+		if (req->args[0]) {
+			// Enqueued from ARM side, do not invalidate mem nor ipc_post
+			powerpc_boot_file((char *) req->args[1]);
+		} else {
+			dc_invalidaterange((void *) req->args[1],
+								strnlen((char *) req->args[1], 256));
+			int res = powerpc_boot_file((char *) req->args[1]);
+			if (res)
+				ipc_post(req->code, req->tag, 1, res);
+		}
+
+		break;
+
 	default:
 		gecko_printf("IPC: unknown SLOW PPC request %04X\n", req->req);
 	}

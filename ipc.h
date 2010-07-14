@@ -79,7 +79,7 @@ Copyright (C) 2009		John Kelley <wiidev@kelley.ca>
 // etc.
 
 #define IPC_SDHC_DISCOVER 0x0000
-#define IPC_SDHC_EXIT 	  0x0001
+#define IPC_SDHC_EXIT	0x0001
 
 #define IPC_SDMMC_ACK	0x0000
 #define IPC_SDMMC_READ	0x0001
@@ -92,13 +92,14 @@ Copyright (C) 2009		John Kelley <wiidev@kelley.ca>
 
 #define IPC_AES_RESET	0x0000
 #define IPC_AES_SETIV	0x0001
-#define	IPC_AES_SETKEY	0x0002
-#define	IPC_AES_DECRYPT	0x0003
+#define IPC_AES_SETKEY	0x0002
+#define IPC_AES_DECRYPT	0x0003
 
 #define IPC_BOOT2_RUN	0x0000
 #define IPC_BOOT2_TMD	0x0001
 
 #define IPC_PPC_BOOT	0x0000
+#define IPC_PPC_BOOT_FILE 0x0001
 
 #define IPC_CODE (f,d,r) (((f)<<24)|((d)<<16)|(r))
 
