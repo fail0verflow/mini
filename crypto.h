@@ -51,8 +51,8 @@ typedef struct
 {
 	union {
 		struct {
-			u32 dunno0; // 0x2 = MS
-			u32 dunno1; // 0x1 = CA
+			u32 ms_id;
+			u32 ca_id;
 			u32 ng_key_id;
 			u8 ng_sig[60];
 			eep_ctr_t counters[2];
