@@ -64,6 +64,7 @@ typedef struct
 } __attribute__((packed)) seeprom_t;
 
 extern otp_t otp;
+extern seeprom_t seeprom;
 
 void crypto_read_otp();
 void crypto_ipc(volatile ipc_request *req);
