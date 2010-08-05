@@ -24,6 +24,7 @@ Copyright (C) 2009		Andre Heider "dhewg" <dhewg@wiibrew.org>
 #include "powerpc_elf.h"
 #include "gecko.h"
 
+static u8 gecko_found = 0;
 static u8 gecko_console_enabled = 0;
 
 static u32 _gecko_command(u32 command)
@@ -207,12 +208,11 @@ void gecko_init(void)
 	write32(EXI0_CSR, 0);
 	write32(EXI1_CSR, 0);
 	write32(EXI2_CSR, 0);
-	write32(EXI0_CSR, 0x2000);
-	write32(EXI0_CSR, 3<<10);
-	write32(EXI1_CSR, 3<<10);
 
 	if (!gecko_isalive())
 		return;
+
+	gecko_found = 1;
 
 	gecko_flush();
 	gecko_console_enabled = 1;
@@ -269,16 +269,11 @@ static u32 _gecko_receive_left = 0;
 static u32 _gecko_receive_len = 0;
 static u8 *_gecko_receive_buffer = NULL;
 
-void gecko_timer_initialize(void)
-{
-	if (!gecko_isalive())
-		return;
-
-	irq_set_alarm(20, 1);
-}
-
-void gecko_timer(void) {
+void gecko_process(void) {
 	u8 b;
+
+	if (!gecko_found)
+		return;
 
 	if (_gecko_cmd_start_time && read32(HW_TIMER) >
 			(_gecko_cmd_start_time + IRQ_ALARM_MS2REG(5000)))

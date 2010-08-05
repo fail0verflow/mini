@@ -55,11 +55,11 @@ u32 _main(void *base)
 		read32(0xffffff0c), read32(0xffffff10), read32(0xffffff14));
 
 	irq_initialize();
-	irq_enable(IRQ_TIMER);
 //	irq_enable(IRQ_GPIO1B);
 	irq_enable(IRQ_GPIO1);
 	irq_enable(IRQ_RESET);
-	gecko_timer_initialize();
+	irq_enable(IRQ_TIMER);
+	irq_set_alarm(20, 1);
 	gecko_printf("Interrupts initialized\n");
 
 	crypto_initialize();

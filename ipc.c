@@ -343,6 +343,8 @@ u32 ipc_process_slow(void)
 
 		if (!vector)
 		{
+			gecko_process();
+
 			u32 cookie = irq_kill();
 			if(slow_queue_head == slow_queue_tail)
 				irq_wait();
